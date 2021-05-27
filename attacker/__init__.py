@@ -1,0 +1,17 @@
+import sys
+from attacker.wrmf_sgd_attacker import WRMF_SGD
+from attacker.gbfug_attacker import GBFUG
+from attacker.heuristic import RandomAttacker
+from attacker.heuristic import BandwagonAttacker
+from attacker.basic_attacker import BasicAttacker
+
+
+def get_attacker(config, dataset):
+    config = config.copy()
+    config['dataset'] = dataset
+    attacker = getattr(sys.modules['attacker'], config['name'])
+    attacker = attacker(config)
+    return attacker
+
+
+__all__ = ['get_attacker']
