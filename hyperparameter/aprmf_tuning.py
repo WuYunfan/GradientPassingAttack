@@ -21,13 +21,13 @@ def fitness(eps, adv_reg):
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, dataset, model)
-    return trainer.train(verbose=False)
+    return trainer.train()
 
 
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
-    param_grid = {'eps': [0.5, 1., 2.], 'adv_reg':  [0.1, 1., 10.]}
+    param_grid = {'eps': [0.1, 0.5, 1., 2.], 'adv_reg':  [0.001, 0.01, 0.1, 1., 10.]}
     grid = ParameterGrid(param_grid)
     max_ndcg = -np.inf
     best_params = None

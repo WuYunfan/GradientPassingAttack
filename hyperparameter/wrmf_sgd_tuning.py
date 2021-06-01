@@ -23,8 +23,8 @@ def fitness(lr, s_lr, s_l2):
                        'adv_epochs': 100, 'surrogate_config': surrogate_config}
     dataset = get_dataset(dataset_config)
     attacker = get_attacker(attacker_config, dataset)
-    attacker.generate_fake_users(verbose=True)
-    return attacker.eval(model_config, trainer_config, verbose=True)
+    attacker.generate_fake_users()
+    return attacker.eval(model_config, trainer_config)
 
 
 def main():

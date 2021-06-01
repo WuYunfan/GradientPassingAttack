@@ -32,16 +32,18 @@ def main():
                     'dataset': dataset, 'device': device}
     model = IGCN(model_config)
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 1.e-3, 'l2_reg': 1.e-5,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6,
+                      'n_epochs': 200, 'batch_size': 2048, 'dataloader_num_workers': 6,
                       'test_batch_size': 512, 'topks': [20, 100], 'device': device}
     trainer = get_trainer(trainer_config, dataset, model)
 
     trainer.train()
     rec_items_0 = trainer.get_rec_items('val')
 
-    attacker_config = {'name': 'RandomAttacker', 'n_fakes': 595, 'device': device, 'n_inters': 96}
+    attacker_config = {'name': 'RandomAttacker', 'n_fakes': 595, 'device': device, 'n_inters': 97, 'target_item': 0}
     attacker = get_attacker(attacker_config, dataset)
-    fake_users = attacker.generate_fake_users()
+    attacker.generate_fake_users()
+    fake_users = attacker.fake_users
+    fake_users[:, 0] = 0.
     for fake_u in range(fake_users.shape[0]):
         items = np.nonzero(fake_users[fake_u, :])[0].tolist()
         dataset.train_data.append(items)
@@ -63,7 +65,7 @@ def main():
     diff_0_1 = calculate_diff(rec_items_0, rec_items_1)
     diff_0_2 = calculate_diff(rec_items_0, rec_items_2)
     diff_1_2 = calculate_diff(rec_items_1, rec_items_2)
-    print('diff 0-1: {:.5f}, iff 0-2: {:.5f}, iff 1-2: {:.5f}'.format(diff_0_1, diff_0_2, diff_1_2))
+    print('diff 0-1: {:.5f}, diff 0-2: {:.5f}, diff 1-2: {:.5f}'.format(diff_0_1, diff_0_2, diff_1_2))
 
 
 if __name__ == '__main__':

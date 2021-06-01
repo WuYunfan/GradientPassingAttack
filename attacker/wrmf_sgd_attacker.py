@@ -48,7 +48,7 @@ class SurrogateWRMF(nn.Module):
 
     @staticmethod
     def ce_loss(scores, target_item):
-        log_probs = F.log_softmax(scores, dim=-1)
+        log_probs = F.log_softmax(scores, dim=1)
         return -log_probs[:, target_item].sum()
 
     def train_adv(self, target_item, fake_tensor):
@@ -73,7 +73,7 @@ class SurrogateWRMF(nn.Module):
             self.eval()
             adv_losses = AverageMeter()
             hrs = AverageMeter()
-            adv_grads = torch.zeros_like(fake_tensor, dtype=torch.float32, device=self.device, requires_grad=False)
+            adv_grads = torch.zeros_like(fake_tensor, dtype=torch.float32, device=self.device)
             for users in self.test_user_loader:
                 users = users[0]
                 scores = fmodel.forward(users)
@@ -147,8 +147,8 @@ class WRMF_SGD(BasicAttacker):
                 self.fake_tensor[fake_user, items[fake_user, :]] = 1.
 
     def generate_fake_users(self, verbose=True, writer=None):
+        best_hr = -np.inf
         for epoch in range(self.adv_epochs):
-            self.scheduler.step()
             start_time = time.time()
             surrogate_model = SurrogateWRMF(self.surrogate_config)
             adv_loss, hit_k, adv_grads = surrogate_model.train_adv(self.target_item, self.fake_tensor)
@@ -160,9 +160,13 @@ class WRMF_SGD(BasicAttacker):
             self.project_fake_tensor()
             consumed_time = time.time() - start_time
             if verbose:
-                print('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}, Time: {:.3f}s'.
-                      format(epoch, self.adv_epochs, adv_loss, self.topk, hit_k, consumed_time))
+                print('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}%, Time: {:.3f}s'.
+                      format(epoch, self.adv_epochs, adv_loss, self.topk, hit_k * 100., consumed_time))
             if writer:
                 writer.add_scalar('WRMF_SGD/Adv_Loss', adv_loss, epoch)
                 writer.add_scalar('WRMF_SGD/Hit_Ratio@{:d}'.format(self.topk), hit_k, epoch)
-        self.fake_users = self.fake_tensor.detach().cpu().numpy()
+            if hit_k > best_hr:
+                print('Best hit ratio, save fake users.')
+                self.fake_users = self.fake_tensor.detach().cpu().numpy()
+                best_hr = hit_k
+            self.scheduler.step()

@@ -19,13 +19,13 @@ def fitness(lr, l2_reg, n_layers):
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, dataset, model)
-    return trainer.train(verbose=False)
+    return trainer.train()
 
 
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
-    param_grid = {'lr': [1.e-2, 1.e-3, 1.e-4], 'l2_reg':  [1.e-3, 1.e-4, 1.e-5, 0.], 'n_layers': [2, 3, 4]}
+    param_grid = {'lr': [1.e-2, 1.e-3], 'l2_reg':  [1.e-3, 1.e-4, 1.e-5, 0.], 'n_layers': [2, 3, 4]}
     grid = ParameterGrid(param_grid)
     max_ndcg = -np.inf
     best_params = None

@@ -18,7 +18,7 @@ def fitness(k):
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, dataset, model)
-    return trainer.train(verbose=False)
+    return trainer.train()
 
 
 def main():

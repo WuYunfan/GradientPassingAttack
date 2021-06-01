@@ -21,13 +21,13 @@ def fitness(lr, l2_reg, n_layers, dropout):
     model_config['dataset'] = dataset
     model = IGCN(model_config)
     trainer = get_trainer(trainer_config, dataset, model)
-    return trainer.train(verbose=True)
+    return trainer.train()
 
 
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
-    param_grid = {'lr': [1.e-4, 1.e-3], 'l2_reg':  [1.e-4, 1.e-5, 0.],
+    param_grid = {'lr': [1.e-2, 1.e-3], 'l2_reg':  [1.e-4, 1.e-5, 0.],
                   'n_layers': [2, 3, 4], 'dropout': [0.3, 0.5, 0.7]}
     grid = ParameterGrid(param_grid)
     max_ndcg = -np.inf

@@ -20,7 +20,7 @@ def fitness(lr, l2_reg):
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, dataset, model)
-    return trainer.train(verbose=False)
+    return trainer.train()
 
 
 def main():
@@ -38,7 +38,6 @@ def main():
             best_params = params
             print('Maximum NDCG!')
     print('Maximum NDCG: {:.3f}, Best Parameters: {:s}'.format(max_ndcg, str(best_params)))
-
 
 
 if __name__ == '__main__':

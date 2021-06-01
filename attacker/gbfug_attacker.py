@@ -95,45 +95,47 @@ class IGCN(BasicModel):
         return out
 
     def merge_fake_users(self, fake_indices, fake_values):
-        if fake_indices is None:
-            return self.adj, self.feat
-        row, column = fake_indices
-        row = row + self.n_users + self.n_items
-        column = column + self.n_users
+        indices, values = self.adj.indices(), self.adj.values()
+        if fake_indices is not None:
+            row, column = fake_indices
+            row = row + self.n_users + self.n_items
+            column = column + self.n_users
 
-        indices, values = self.adj.indeces(), self.adj.values()
-        indices = torch.cat([indices, torch.stack([row, column], dim=0), torch.stack([column, row], dim=0)], dim=1)
-        values = torch.cat([values, fake_values, fake_values], dim=0)
-        n_rows = torch.max(row)
+            indices = torch.cat([indices, torch.stack([row, column], dim=0), torch.stack([column, row], dim=0)], dim=1)
+            values = torch.cat([values, fake_values, fake_values], dim=0)
+            n_rows = torch.max(row)
+        else:
+            n_rows = self.adj.shape[0]
         degree = torch_scatter.scatter(values, indices[0, :], dim=0, reduce='sum')
         inv_degree = torch.pow(degree, -0.5)
         inv_degree[torch.isinf(inv_degree)] = inv_degree[torch.logical_not(torch.isinf(inv_degree))].mean()
         values = values * inv_degree[indices[0, :]] * inv_degree[indices[1, :]]
         adj = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows, n_rows])).coalesce()
 
-        user_dim, item_dim = len(self.user_map), len(self.item_map)
-        new_row = []
-        new_column = []
-        new_values = []
-        for edge_idx in range(row.shape[0]):
-            r, c = row[edge_idx].item(), column[edge_idx].item() - self.n_users
-            if c in self.item_map:
-                new_row.append(r)
-                new_column.append(user_dim + self.item_map[c])
-                new_values.append(fake_values[edge_idx])
-        for fake_u in range(self.n_users + self.n_items, n_rows):
-            new_row.append(fake_u)
-            new_column.append(user_dim + item_dim)
-            new_values.append(torch.tensor(1., dtype=torch.float32, device=self.device))
-        new_row = torch.tensor(new_row, dtype=torch.int64, device=self.device)
-        new_column = torch.tensor(new_column, dtype=torch.int64, device=self.device)
-        new_values = torch.cat(new_values, dim=0)
-        indices, values = self.feat.indeces(), self.feat.values()
-        indices = torch.cat([indices, torch.stack([new_row, new_column], dim=0)], dim=1)
-        values = torch.cat([values, new_values], dim=0)
+        indices, values = self.feat.indices(), self.feat.values()
+        if fake_indices is not None:
+            user_dim, item_dim = len(self.user_map), len(self.item_map)
+            new_row = []
+            new_column = []
+            new_values = []
+            for edge_idx in range(row.shape[0]):
+                r, c = row[edge_idx].item(), column[edge_idx].item() - self.n_users
+                if c in self.item_map:
+                    new_row.append(r)
+                    new_column.append(user_dim + self.item_map[c])
+                    new_values.append(fake_values[edge_idx])
+            for fake_u in range(self.n_users + self.n_items, n_rows):
+                new_row.append(fake_u)
+                new_column.append(user_dim + item_dim)
+                new_values.append(torch.tensor(1., dtype=torch.float32, device=self.device))
+            new_row = torch.tensor(new_row, dtype=torch.int64, device=self.device)
+            new_column = torch.tensor(new_column, dtype=torch.int64, device=self.device)
+            new_values = torch.cat(new_values, dim=0)
+            indices = torch.cat([indices, torch.stack([new_row, new_column], dim=0)], dim=1)
+            values = torch.cat([values, new_values], dim=0)
         degree = torch_scatter.scatter(values, indices[0, :], dim=0, reduce='sum')
         values = values / degree[indices[0, :]]
-        feat = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows, user_dim + item_dim + 2])).coalesce()
+        feat = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows, self.feat.shape[1]])).coalesce()
         return adj, feat
 
     def get_rep(self, fake_indices, fake_values):
@@ -277,9 +279,8 @@ class GBFUG(BasicAttacker):
             self.igcn_model = igcn_model
 
         self.igcn_model.eval()
+        best_hr = -np.inf
         for epoch in range(self.adv_epochs):
-            self.scheduler.step()
-
             start_time = time.time()
             hit_k = AverageMeter()
             adv_losses = AverageMeter()
@@ -304,12 +305,16 @@ class GBFUG(BasicAttacker):
             hit_k = hit_k.avg
             consumed_time = time.time() - start_time
             if verbose:
-                print('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}, Time: {:.3f}s'.
-                      format(epoch, self.adv_epochs, adv_loss, self.topk, hit_k, consumed_time))
+                print('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}%, Time: {:.3f}s'.
+                      format(epoch, self.adv_epochs, adv_loss, self.topk, hit_k * 100., consumed_time))
             if writer:
                 writer.add_scalar('GBFUG/Adv_Loss', adv_loss, epoch)
                 writer.add_scalar('GBFUG/Hit_Ratio@{:d}'.format(self.topk), hit_k, epoch)
+            if hit_k > best_hr:
+                print('Best hit ratio, save fake users.')
+                self.fake_users = torch.sparse.FloatTensor(self.fake_indices, self.fake_tensor.flatten(),
+                                                           [self.n_fakes, self.n_items]).coalesce()
+                self.fake_users = self.fake_users.to_dense().detach().cpu().numpy()
+                best_hr = hit_k
+            self.scheduler.step()
 
-        self.fake_users = torch.sparse.FloatTensor(self.fake_indices, self.fake_tensor,
-                                                   torch.Size(self.n_fakes, self.n_items)).coalesce()
-        self.fake_users = self.fake_users.to_dense().detach().cpu().numpy()

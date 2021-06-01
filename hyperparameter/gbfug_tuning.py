@@ -24,8 +24,8 @@ def fitness(lr, momentum, gnn_model):
                        'topk': 20}
     dataset = get_dataset(dataset_config)
     attacker = get_attacker(attacker_config, dataset)
-    attacker.generate_fake_users(verbose=True, gnn_model=gnn_model)
-    return attacker.eval(model_config, trainer_config, verbose=True), attacker.gnn_model
+    attacker.generate_fake_users(gnn_model=gnn_model)
+    return attacker.eval(model_config, trainer_config), attacker.gnn_model
 
 
 def main():
