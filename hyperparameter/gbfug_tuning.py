@@ -16,10 +16,10 @@ def fitness(lr, momentum, gnn_model):
                       'device': device, 'n_epochs': 200, 'batch_size': 2048, 'dataloader_num_workers': 6,
                       'test_batch_size': 512, 'topks': [20, 100]}
     igcn_config = {'name': 'IGCN', 'n_layers': 3, 'dropout': 0.3, 'feature_ratio': 1.,
-                   'embedding_size': 64, 'device': device}
+                   'embedding_size': 64, 'device': device, 'lr': 1.e-3, 'l2_reg': 1.e-5}
     attacker_config = {'name': 'GBFUG', 'lr': lr, 'momentum': momentum, 'batch_size': 2048,
                        'dataloader_num_workers': 6, 'device': device, 'n_fakes': 59,
-                       'n_inters': 96, 'target_item': 2021, 'test_batch_size': 2048,
+                       'n_inters': 96, 'target_item': 135, 'test_batch_size': 2048,
                        'adv_epochs': 100, 'igcn_config': igcn_config, 'train_epoch': 200,
                        'topk': 20}
     dataset = get_dataset(dataset_config)

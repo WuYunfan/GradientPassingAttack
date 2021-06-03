@@ -45,17 +45,17 @@ def get_ml1m_attacker_config(device):
     surrogate_config = {'embedding_size': 64, 'lr': 0.001, 'l2_reg': 1.e-6, 'weight': 20.,
                         'n_epochs': 50, 'unroll_steps': 5}
     attacker_config = {'name': 'WRMF_SGD', 'lr': 0.1, 'momentum': 0.95, 'batch_size': 2048,
-                       'dataloader_num_workers': 0, 'device': device, 'n_fakes': 59,
+                       'device': device, 'n_fakes': 59,
                        'n_inters': 96, 'topk': 20,
                        'adv_epochs': 100, 'surrogate_config': surrogate_config}
     attacker_configs.append(attacker_config)
 
     igcn_config = {'name': 'IGCN', 'n_layers': 3, 'dropout': 0.3, 'feature_ratio': 1.,
-                   'embedding_size': 64, 'device': device}
+                   'embedding_size': 64, 'device': device, 'lr': 1.e-3, 'l2_reg': 1.e-5}
     attacker_config = {'name': 'GBFUG', 'lr': 10., 'momentum': 0.9, 'batch_size': 2048,
                        'dataloader_num_workers': 6, 'device': device, 'n_fakes': 59,
                        'n_inters': 96, 'test_batch_size': 2048,
-                       'adv_epochs': 100, 'igcn_config': igcn_config, 'train_epoch': 200,
+                       'adv_epochs': 100, 'igcn_config': igcn_config, 'train_epochs': 200,
                        'topk': 20}
     attacker_configs.append(attacker_config)
     return attacker_configs

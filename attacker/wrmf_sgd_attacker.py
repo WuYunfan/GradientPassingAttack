@@ -87,7 +87,7 @@ class SurrogateWRMF(nn.Module):
         return adv_losses.avg, hrs.avg, adv_grads
 
 
-class WRMF_SGD_Dataset(Dataset):
+class Poisoned_Dataset(Dataset):
     def __init__(self, data_mat, fake_tensor, device):
         self.data_mat = data_mat
         self.fake_tensor = fake_tensor
@@ -109,6 +109,7 @@ class WRMF_SGD(BasicAttacker):
     def __init__(self, attacker_config):
         super(WRMF_SGD, self).__init__(attacker_config)
         self.adv_epochs = attacker_config['adv_epochs']
+        self.max_patience = attacker_config.get('max_patience', 20)
         self.topk = attacker_config['topk']
         self.initial_lr = attacker_config['lr']
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
@@ -119,15 +120,15 @@ class WRMF_SGD(BasicAttacker):
         self.opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=attacker_config['momentum'])
         self.scheduler = StepLR(self.opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
-        self.surrogate_dataset = WRMF_SGD_Dataset(self.data_mat, self.fake_tensor, self.device)
-        self.surrogate_dataloader = DataLoader(self.surrogate_dataset, batch_size=attacker_config['batch_size'],
-                                               shuffle=True, num_workers=attacker_config['dataloader_num_workers'])
+        self.poisoned_dataset = Poisoned_Dataset(self.data_mat, self.fake_tensor, self.device)
+        self.poisoned_dataloader = DataLoader(self.poisoned_dataset, batch_size=attacker_config['batch_size'],
+                                              shuffle=True, num_workers=0)
 
         self.surrogate_config = attacker_config['surrogate_config']
         self.surrogate_config['device'] = self.device
         self.surrogate_config['n_users'] = self.n_users + self.n_fakes
         self.surrogate_config['n_items'] = self.n_items
-        self.surrogate_config['dataloader'] = self.surrogate_dataloader
+        self.surrogate_config['dataloader'] = self.poisoned_dataloader
         self.surrogate_config['topk'] = self.topk
         self.surrogate_config['batch_size'] = attacker_config['batch_size']
 
@@ -148,6 +149,7 @@ class WRMF_SGD(BasicAttacker):
 
     def generate_fake_users(self, verbose=True, writer=None):
         best_hr = -np.inf
+        patience = self.max_patience
         for epoch in range(self.adv_epochs):
             start_time = time.time()
             surrogate_model = SurrogateWRMF(self.surrogate_config)
@@ -169,4 +171,10 @@ class WRMF_SGD(BasicAttacker):
                 print('Best hit ratio, save fake users.')
                 self.fake_users = self.fake_tensor.detach().cpu().numpy()
                 best_hr = hit_k
+                patience = self.max_patience
+            else:
+                patience -= 1
+                if patience < 0:
+                    print('Early stopping!')
+                    break
             self.scheduler.step()

@@ -175,3 +175,23 @@ class GowallaDataset(BasicDataset):
             user_inter_lists[user].sort(key=lambda entry: entry[1])
             user_inter_lists[user] = [i_t[0] for i_t in user_inter_lists[user]]
         self.generate_data(user_inter_lists)
+
+
+class SyntheticDataset(BasicDataset):
+    def __init__(self, dataset_config):
+        super(SyntheticDataset, self).__init__(dataset_config)
+        self.n_users = dataset_config['n_users']
+        self.n_items = dataset_config['n_items']
+        self.data_ranks = dataset_config.get('data_ranks', 20)
+        self.binary_threshold = dataset_config['binary_threshold']
+        data_x = torch.mm(torch.randn(self.n_users, self.data_ranks),
+                          torch.randn(self.data_ranks, self.n_items))
+        data_x = (data_x > self.binary_threshold).float()
+        inters = torch.nonzero(data_x).cpu().numpy().tolist()
+        print('Sparsity: {:.5f}'.format(len(inters) * 1. / self.n_users / self.n_items))
+
+        user_inter_lists = [[] for _ in range(self.n_users)]
+        for user, item in inters:
+            user_inter_lists[user].append(item)
+        self.generate_data(user_inter_lists)
+

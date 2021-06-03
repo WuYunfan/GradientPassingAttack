@@ -67,6 +67,6 @@ def get_target_items(dataset):
     data_mat = sp.coo_matrix((np.ones((len(dataset.train_array),)), np.array(dataset.train_array).T),
                              shape=(dataset.n_users, dataset.n_items), dtype=np.float32).tocsr()
     item_degree = np.array(np.sum(data_mat, axis=0)).squeeze()
-    unpopular_items = np.argsort(item_degree)[int(dataset.n_items * 0.5):]
+    unpopular_items = np.argsort(item_degree)[int(dataset.n_items * 0.2):]
     target_items = np.random.choice(unpopular_items, size=10)
     return target_items

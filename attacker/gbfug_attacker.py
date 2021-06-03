@@ -13,6 +13,7 @@ from model import BasicModel
 import torch_sparse
 import torch_scatter
 from torch.optim.lr_scheduler import StepLR
+import higher
 
 
 class IGCN(BasicModel):
@@ -103,14 +104,14 @@ class IGCN(BasicModel):
 
             indices = torch.cat([indices, torch.stack([row, column], dim=0), torch.stack([column, row], dim=0)], dim=1)
             values = torch.cat([values, fake_values, fake_values], dim=0)
-            n_rows = torch.max(row)
+            n_rows = torch.max(row).item()
         else:
             n_rows = self.adj.shape[0]
         degree = torch_scatter.scatter(values, indices[0, :], dim=0, reduce='sum')
+        degree[degree == 0.] = 1.
         inv_degree = torch.pow(degree, -0.5)
-        inv_degree[torch.isinf(inv_degree)] = inv_degree[torch.logical_not(torch.isinf(inv_degree))].mean()
         values = values * inv_degree[indices[0, :]] * inv_degree[indices[1, :]]
-        adj = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows, n_rows])).coalesce()
+        adj = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows + 1, n_rows + 1])).coalesce()
 
         indices, values = self.feat.indices(), self.feat.values()
         if fake_indices is not None:
@@ -130,31 +131,33 @@ class IGCN(BasicModel):
                 new_values.append(torch.tensor(1., dtype=torch.float32, device=self.device))
             new_row = torch.tensor(new_row, dtype=torch.int64, device=self.device)
             new_column = torch.tensor(new_column, dtype=torch.int64, device=self.device)
-            new_values = torch.cat(new_values, dim=0)
+            new_values = torch.stack(new_values, dim=0)
             indices = torch.cat([indices, torch.stack([new_row, new_column], dim=0)], dim=1)
             values = torch.cat([values, new_values], dim=0)
         degree = torch_scatter.scatter(values, indices[0, :], dim=0, reduce='sum')
         values = values / degree[indices[0, :]]
-        feat = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows, self.feat.shape[1]])).coalesce()
+        feat = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows + 1, self.feat.shape[1]])).coalesce()
         return adj, feat
 
     def get_rep(self, fake_indices, fake_values):
         adj, feat = self.merge_fake_users(fake_indices, fake_values)
 
         feat = self.dropout_sp_mat(feat)
-        representations = torch.sparse.mm(feat, self.dense_layer.weight.t()) + self.dense_layer.bias[None, :]
+        representations = torch_sparse.spmm(feat.indices(), feat.values(), feat.shape[0], feat.shape[1],
+                                            self.dense_layer.weight.t()) + self.dense_layer.bias[None, :]
 
         all_layer_rep = [representations]
         dropped_adj = self.dropout_sp_mat(adj)
         for _ in range(self.n_layers):
-            representations = torch.sparse.mm(dropped_adj, representations)
+            representations = torch_sparse.spmm(dropped_adj.indices(), dropped_adj.values(),
+                                                dropped_adj.shape[0], dropped_adj.shape[1], representations)
             all_layer_rep.append(representations)
         all_layer_rep = torch.stack(all_layer_rep, dim=0)
         final_rep = all_layer_rep.mean(dim=0)
         return final_rep[:self.n_users + self.n_items, :]
 
-    def bpr_forward(self, users, pos_items, neg_items):
-        rep = self.get_rep(None, None)
+    def bpr_forward(self, users, pos_items, neg_items, fake_indices=None, fake_values=None):
+        rep = self.get_rep(fake_indices, fake_values)
         users_r = rep[users, :]
         pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
         l2_norm_sq = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2 \
@@ -187,11 +190,11 @@ class GBFUG(BasicAttacker):
         self.b = attacker_config.get('b', 0.01)
         self.candidate_item_rate = attacker_config.get('candidate_item_rate', 1.)
         self.initial_lr = attacker_config['lr']
-        self.train_epoch = attacker_config['train_epoch']
+        self.train_epochs = attacker_config['train_epochs']
         self.adv_epochs = attacker_config['adv_epochs']
+        self.max_patience = attacker_config.get('max_patience', 20)
 
         self.fake_indices, self.fake_tensor = self.init_fake_data()
-        self.fake_tensor.requires_grad_()
         self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=attacker_config['momentum'])
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
@@ -219,7 +222,7 @@ class GBFUG(BasicAttacker):
         qualified_users = data_mat[user_degree <= self.n_inters, :]
         sample_idx = np.random.choice(qualified_users.shape[0], self.n_fakes, replace=False)
         fake_tensor = qualified_users[sample_idx, :].toarray()
-        fake_tensor = torch.tensor(fake_tensor, dtype=torch.float32, device=self.device)
+        fake_tensor = torch.tensor(fake_tensor, dtype=torch.float32, device=self.device, requires_grad=True)
 
         popular_items = torch.tensor(popular_items, dtype=torch.int64, device=self.device)
         row = torch.arange(self.n_fakes, dtype=torch.int64, device=self.device)[:, None].\
@@ -238,53 +241,58 @@ class GBFUG(BasicAttacker):
     @staticmethod
     def ce_loss(scores, target_item):
         log_probs = F.log_softmax(scores, dim=1)
-        return -log_probs[:, target_item].mean()
+        return -log_probs[:, target_item].sum()
 
     def wmw_loss(self, scores, target_item):
         top_scores, _ = scores.topk(self.topk, dim=1)
         target_scores = scores[:, target_item]
         loss = top_scores - target_scores[:, None]
-        loss = torch.sigmoid(loss / self.b).mean()
+        loss = torch.sigmoid(loss / self.b).mean(dim=1).sum()
         return loss
+
+    def train_igcn_model(self, verbose, writer):
+        self.igcn_model.train()
+        for epoch in range(self.train_epochs):
+            start_time = time.time()
+            losses = AverageMeter()
+            for batch_data in self.dataloader:
+                inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
+                users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
+
+                users_r, pos_items_r, neg_items_r, l2_norm_sq = self.igcn_model.bpr_forward(users, pos_items, neg_items)
+                pos_scores = torch.sum(users_r * pos_items_r, dim=1)
+                neg_scores = torch.sum(users_r * neg_items_r, dim=1)
+
+                bpr_loss = F.softplus(neg_scores - pos_scores).mean()
+                reg_loss = self.l2_reg * l2_norm_sq.mean()
+                loss = bpr_loss + reg_loss
+                self.train_opt.zero_grad()
+                loss.backward()
+                self.train_opt.step()
+                losses.update(loss.item(), inputs.shape[0])
+
+            consumed_time = time.time() - start_time
+            if verbose:
+                print('Epoch {:d}/{:d}, IGCN Loss: {:.3f}, Time: {:.3f}s'.
+                      format(epoch, self.train_epochs, losses.avg, consumed_time))
+            if writer:
+                writer.add_scalar('IGCN/Loss', losses.avg, epoch)
 
     def generate_fake_users(self, verbose=True, writer=None, igcn_model=None):
         if igcn_model is None:
-            self.igcn_model.train()
-            for epoch in range(self.train_epoch):
-                start_time = time.time()
-                losses = AverageMeter()
-                for batch_data in self.dataloader:
-                    inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
-                    users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
-
-                    users_r, pos_items_r, neg_items_r, l2_norm_sq = self.igcn_model.bpr_forward(users, pos_items, neg_items)
-                    pos_scores = torch.sum(users_r * pos_items_r, dim=1)
-                    neg_scores = torch.sum(users_r * neg_items_r, dim=1)
-
-                    bpr_loss = F.softplus(neg_scores - pos_scores).mean()
-                    reg_loss = self.l2_reg * l2_norm_sq.mean()
-                    loss = bpr_loss + reg_loss
-                    self.train_opt.zero_grad()
-                    loss.backward()
-                    self.train_opt.step()
-                    losses.update(loss.item(), inputs.shape[0])
-
-                consumed_time = time.time() - start_time
-                if verbose:
-                    print('Epoch {:d}/{:d}, IGCN Loss: {:.3f}, Time: {:.3f}s'.
-                          format(epoch, self.train_epoch, losses.avg, consumed_time))
-                if writer:
-                    writer.add_scalar('IGCN/Loss', losses.avg, epoch)
+            self.train_igcn_model(verbose, writer)
         else:
             self.igcn_model = igcn_model
 
         self.igcn_model.eval()
         best_hr = -np.inf
+        patience = self.max_patience
         for epoch in range(self.adv_epochs):
             start_time = time.time()
             hit_k = AverageMeter()
             adv_losses = AverageMeter()
 
+            self.adv_opt.zero_grad()
             for users in self.test_user_loader:
                 users = users[0]
                 scores = self.igcn_model.predict(users, self.fake_indices, self.fake_tensor.flatten())
@@ -298,7 +306,6 @@ class GBFUG(BasicAttacker):
 
             self.fake_tensor.grad = F.normalize(self.fake_tensor.grad, p=2, dim=1)
             self.adv_opt.step()
-            self.adv_opt.zero_grad()
             self.project_fake_tensor()
 
             adv_loss = adv_losses.avg
@@ -316,5 +323,51 @@ class GBFUG(BasicAttacker):
                                                            [self.n_fakes, self.n_items]).coalesce()
                 self.fake_users = self.fake_users.to_dense().detach().cpu().numpy()
                 best_hr = hit_k
+                patience = self.max_patience
+            else:
+                patience -= 1
+                if patience < 0:
+                    print('Early stopping!')
+                    break
             self.scheduler.step()
 
+    def get_two_gradients(self):
+        self.igcn_model.eval()
+        self.fake_tensor.grad = None
+        for users in self.test_user_loader:
+            users = users[0]
+            scores = self.igcn_model.predict(users, self.fake_indices, self.fake_tensor.flatten())
+            adv_loss = self.wmw_loss(scores, self.target_item)
+            adv_loss.backward()
+        partial_grads = self.fake_tensor.grad
+        self.fake_tensor.grad = None
+
+        normal_(self.igcn_model.dense_layer.weight, std=0.1)
+        zeros_(self.igcn_model.dense_layer.bias)
+        self.igcn_model.train()
+        with higher.innerloop_ctx(self.igcn_model, self.train_opt) as (fmodel, diffopt):
+            for epoch in range(self.train_epochs):
+                for batch_data in self.dataloader:
+                    inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
+                    users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
+
+                    users_r, pos_items_r, neg_items_r, l2_norm_sq = \
+                        fmodel.bpr_forward(users, pos_items, neg_items, self.fake_indices, self.fake_tensor.flatten())
+                    pos_scores = torch.sum(users_r * pos_items_r, dim=1)
+                    neg_scores = torch.sum(users_r * neg_items_r, dim=1)
+
+                    bpr_loss = F.softplus(neg_scores - pos_scores).mean()
+                    reg_loss = self.l2_reg * l2_norm_sq.mean()
+                    loss = bpr_loss + reg_loss
+                    diffopt.step(loss)
+                print('loss', loss.item())
+
+            self.igcn_model.eval()
+            adv_grads = torch.zeros_like(self.fake_tensor, dtype=torch.float32, device=self.device)
+            for users in self.test_user_loader:
+                users = users[0]
+                scores = fmodel.predict(users, self.fake_indices, self.fake_tensor.flatten())
+                adv_loss = self.wmw_loss(scores, self.target_item)
+                adv_grads += torch.autograd.grad(adv_loss, self.fake_tensor, retain_graph=True)[0]
+            torch.autograd.grad(adv_loss, self.fake_tensor)
+        return partial_grads, adv_grads
