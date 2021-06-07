@@ -3,17 +3,18 @@ from torch.optim import Adam, SGD
 import scipy.sparse as sp
 import numpy as np
 import torch.nn as nn
-from utils import get_sparse_tensor, AverageMeter
+from utils import get_sparse_tensor, AverageMeter, wmw_loss, mse_loss
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
 import time
-from attacker.basic_attacker import BasicAttacker
+from attacker.basic_attacker import BasicAttacker, Poisoned_Dataset
 from torch.nn.init import kaiming_uniform_, calculate_gain, normal_, zeros_, ones_
 from model import BasicModel
 import torch_sparse
 import torch_scatter
 from torch.optim.lr_scheduler import StepLR
 import higher
+from attacker.wrmf_sgd_attacker import WRMF_SGD
 
 
 class IGCN(BasicModel):
@@ -104,14 +105,14 @@ class IGCN(BasicModel):
 
             indices = torch.cat([indices, torch.stack([row, column], dim=0), torch.stack([column, row], dim=0)], dim=1)
             values = torch.cat([values, fake_values, fake_values], dim=0)
-            n_rows = torch.max(row).item()
+            n_rows = torch.max(row).item() + 1
         else:
             n_rows = self.adj.shape[0]
         degree = torch_scatter.scatter(values, indices[0, :], dim=0, reduce='sum')
         degree[degree == 0.] = 1.
         inv_degree = torch.pow(degree, -0.5)
         values = values * inv_degree[indices[0, :]] * inv_degree[indices[1, :]]
-        adj = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows + 1, n_rows + 1])).coalesce()
+        adj = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows, n_rows])).coalesce()
 
         indices, values = self.feat.indices(), self.feat.values()
         if fake_indices is not None:
@@ -136,7 +137,7 @@ class IGCN(BasicModel):
             values = torch.cat([values, new_values], dim=0)
         degree = torch_scatter.scatter(values, indices[0, :], dim=0, reduce='sum')
         values = values / degree[indices[0, :]]
-        feat = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows + 1, self.feat.shape[1]])).coalesce()
+        feat = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows, self.feat.shape[1]])).coalesce()
         return adj, feat
 
     def get_rep(self, fake_indices, fake_values):
@@ -193,30 +194,33 @@ class GBFUG(BasicAttacker):
         self.train_epochs = attacker_config['train_epochs']
         self.adv_epochs = attacker_config['adv_epochs']
         self.max_patience = attacker_config.get('max_patience', 20)
+        self.weight = attacker_config['weight']
+        self.unroll_steps = attacker_config['unroll_steps']
 
         self.fake_indices, self.fake_tensor = self.init_fake_data()
         self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=attacker_config['momentum'])
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
-        igcn_config = attacker_config['igcn_config']
-        igcn_config['name'] = 'IGCN'
-        igcn_config['dataset'] = self.dataset
-        igcn_config['device'] = self.device
-        self.igcn_model = IGCN(igcn_config)
-        self.dataloader = DataLoader(self.dataset, batch_size=attacker_config['batch_size'],
-                                     shuffle=True, num_workers=attacker_config['dataloader_num_workers'])
-        self.train_opt = Adam(self.igcn_model.parameters(), lr=igcn_config['lr'])
-        self.l2_reg = igcn_config['l2_reg']
+        self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
+                                      shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
+        dense_fake_tensor = torch.sparse.FloatTensor(self.fake_indices, self.fake_tensor.flatten(),
+                                                     torch.Size([self.n_fakes, self.n_items])).to_dense()
+        self.poisoned_dataset = Poisoned_Dataset(self.data_mat, dense_fake_tensor, self.device)
+        self.poisoned_dataloader = DataLoader(self.poisoned_dataset, batch_size=attacker_config['batch_size'],
+                                              shuffle=True, num_workers=0)
 
         test_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_users, batch_size=attacker_config['test_batch_size'], shuffle=True)
 
+        self.surrogate_config = attacker_config['igcn_config']
+        self.surrogate_config['name'] = 'IGCN'
+        self.surrogate_config['dataset'] = self.dataset
+        self.surrogate_config['device'] = self.device
+
     def init_fake_data(self):
-        data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
-                                 shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
-        item_degree = np.array(np.sum(data_mat, axis=0)).squeeze()
+        item_degree = np.array(np.sum(self.data_mat, axis=0)).squeeze()
         popular_items = np.argsort(item_degree)[::-1].copy()[:int(self.n_items * self.candidate_item_rate)]
-        data_mat = data_mat[:, popular_items]
+        data_mat = self.data_mat[:, popular_items]
 
         user_degree = np.array(np.sum(data_mat, axis=1)).squeeze()
         qualified_users = data_mat[user_degree <= self.n_inters, :]
@@ -238,136 +242,44 @@ class GBFUG(BasicAttacker):
             for fake_user in range(self.n_fakes):
                 self.fake_tensor[fake_user, items[fake_user, :]] = 1.
 
-    @staticmethod
-    def ce_loss(scores, target_item):
-        log_probs = F.log_softmax(scores, dim=1)
-        return -log_probs[:, target_item].sum()
+    def train_adv(self):
+        surrogate_model = IGCN(self.surrogate_config)
+        surrogate_model.train()
+        train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'],
+                         weight_decay=self.surrogate_config['l2_reg'])
 
-    def wmw_loss(self, scores, target_item):
-        top_scores, _ = scores.topk(self.topk, dim=1)
-        target_scores = scores[:, target_item]
-        loss = top_scores - target_scores[:, None]
-        loss = torch.sigmoid(loss / self.b).mean(dim=1).sum()
-        return loss
-
-    def train_igcn_model(self, verbose, writer):
-        self.igcn_model.train()
-        for epoch in range(self.train_epochs):
-            start_time = time.time()
-            losses = AverageMeter()
-            for batch_data in self.dataloader:
-                inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
-                users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
-
-                users_r, pos_items_r, neg_items_r, l2_norm_sq = self.igcn_model.bpr_forward(users, pos_items, neg_items)
-                pos_scores = torch.sum(users_r * pos_items_r, dim=1)
-                neg_scores = torch.sum(users_r * neg_items_r, dim=1)
-
-                bpr_loss = F.softplus(neg_scores - pos_scores).mean()
-                reg_loss = self.l2_reg * l2_norm_sq.mean()
-                loss = bpr_loss + reg_loss
-                self.train_opt.zero_grad()
+        for _ in range(self.train_epochs - self.unroll_steps):
+            for users, profiles in self.poisoned_dataloader:
+                users = users.to(dtype=torch.int64, device=self.device)
+                scores = surrogate_model.forward(users, self.fake_indices, self.fake_tensor.flatten())
+                loss = mse_loss(profiles, scores, self.device, self.weight)
+                train_opt.zero_grad()
                 loss.backward()
-                self.train_opt.step()
-                losses.update(loss.item(), inputs.shape[0])
+                train_opt.step()
 
-            consumed_time = time.time() - start_time
-            if verbose:
-                print('Epoch {:d}/{:d}, IGCN Loss: {:.3f}, Time: {:.3f}s'.
-                      format(epoch, self.train_epochs, losses.avg, consumed_time))
-            if writer:
-                writer.add_scalar('IGCN/Loss', losses.avg, epoch)
-
-    def generate_fake_users(self, verbose=True, writer=None, igcn_model=None):
-        if igcn_model is None:
-            self.train_igcn_model(verbose, writer)
-        else:
-            self.igcn_model = igcn_model
-
-        self.igcn_model.eval()
-        best_hr = -np.inf
-        patience = self.max_patience
-        for epoch in range(self.adv_epochs):
-            start_time = time.time()
-            hit_k = AverageMeter()
-            adv_losses = AverageMeter()
-
-            self.adv_opt.zero_grad()
-            for users in self.test_user_loader:
-                users = users[0]
-                scores = self.igcn_model.predict(users, self.fake_indices, self.fake_tensor.flatten())
-                adv_loss = self.wmw_loss(scores, self.target_item)
-                adv_loss.backward()
-
-                _, topk_items = scores.topk(self.topk, dim=1)
-                hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
-                hit_k.update(hr.item(), users.shape[0])
-                adv_losses.update(adv_loss.item(), users.shape[0])
-
-            self.fake_tensor.grad = F.normalize(self.fake_tensor.grad, p=2, dim=1)
-            self.adv_opt.step()
-            self.project_fake_tensor()
-
-            adv_loss = adv_losses.avg
-            hit_k = hit_k.avg
-            consumed_time = time.time() - start_time
-            if verbose:
-                print('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}%, Time: {:.3f}s'.
-                      format(epoch, self.adv_epochs, adv_loss, self.topk, hit_k * 100., consumed_time))
-            if writer:
-                writer.add_scalar('GBFUG/Adv_Loss', adv_loss, epoch)
-                writer.add_scalar('GBFUG/Hit_Ratio@{:d}'.format(self.topk), hit_k, epoch)
-            if hit_k > best_hr:
-                print('Best hit ratio, save fake users.')
-                self.fake_users = torch.sparse.FloatTensor(self.fake_indices, self.fake_tensor.flatten(),
-                                                           [self.n_fakes, self.n_items]).coalesce()
-                self.fake_users = self.fake_users.to_dense().detach().cpu().numpy()
-                best_hr = hit_k
-                patience = self.max_patience
-            else:
-                patience -= 1
-                if patience < 0:
-                    print('Early stopping!')
-                    break
-            self.scheduler.step()
-
-    def get_two_gradients(self):
-        self.igcn_model.eval()
-        self.fake_tensor.grad = None
-        for users in self.test_user_loader:
-            users = users[0]
-            scores = self.igcn_model.predict(users, self.fake_indices, self.fake_tensor.flatten())
-            adv_loss = self.wmw_loss(scores, self.target_item)
-            adv_loss.backward()
-        partial_grads = self.fake_tensor.grad
-        self.fake_tensor.grad = None
-
-        normal_(self.igcn_model.dense_layer.weight, std=0.1)
-        zeros_(self.igcn_model.dense_layer.bias)
-        self.igcn_model.train()
-        with higher.innerloop_ctx(self.igcn_model, self.train_opt) as (fmodel, diffopt):
-            for epoch in range(self.train_epochs):
-                for batch_data in self.dataloader:
-                    inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
-                    users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
-
-                    users_r, pos_items_r, neg_items_r, l2_norm_sq = \
-                        fmodel.bpr_forward(users, pos_items, neg_items, self.fake_indices, self.fake_tensor.flatten())
-                    pos_scores = torch.sum(users_r * pos_items_r, dim=1)
-                    neg_scores = torch.sum(users_r * neg_items_r, dim=1)
-
-                    bpr_loss = F.softplus(neg_scores - pos_scores).mean()
-                    reg_loss = self.l2_reg * l2_norm_sq.mean()
-                    loss = bpr_loss + reg_loss
+        with higher.innerloop_ctx(surrogate_model, train_opt) as (fmodel, diffopt):
+            for _ in range(self.unroll_steps):
+                for users, profiles in self.poisoned_dataloader:
+                    users = users.to(dtype=torch.int64, device=self.device)
+                    scores = fmodel.forward(users, self.fake_indices, self.fake_tensor.flatten())
+                    loss = mse_loss(profiles, scores, self.device, self.weight)
                     diffopt.step(loss)
-                print('loss', loss.item())
 
-            self.igcn_model.eval()
+            surrogate_model.eval()
+            adv_losses = AverageMeter()
+            hrs = AverageMeter()
             adv_grads = torch.zeros_like(self.fake_tensor, dtype=torch.float32, device=self.device)
             for users in self.test_user_loader:
                 users = users[0]
-                scores = fmodel.predict(users, self.fake_indices, self.fake_tensor.flatten())
-                adv_loss = self.wmw_loss(scores, self.target_item)
+                scores = fmodel.forward(users)
+                adv_loss = wmw_loss(scores, self.target_item, self.b)
+                _, topk_items = scores.topk(self.topk, dim=1)
+                hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
                 adv_grads += torch.autograd.grad(adv_loss, self.fake_tensor, retain_graph=True)[0]
+                adv_losses.update(adv_loss.item() / users.shape[0], users.shape[0])
+                hrs.update(hr.item(), users.shape[0])
             torch.autograd.grad(adv_loss, self.fake_tensor)
-        return partial_grads, adv_grads
+        return adv_losses.avg, hrs.avg, adv_grads
+
+    def generate_fake_users(self, verbose=True, writer=None):
+        WRMF_SGD.generate_fake_users(self, verbose, writer)

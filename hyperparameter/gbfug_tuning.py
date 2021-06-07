@@ -6,7 +6,7 @@ from attacker import get_attacker
 from utils import set_seed, init_run
 
 
-def fitness(lr, momentum, gnn_model):
+def fitness(lr, momentum):
     set_seed(2021)
     device = torch.device('cuda')
     dataset_config = {'name': 'ML1MDataset', 'min_inter': 10, 'path': 'data/ML1M',
@@ -18,13 +18,13 @@ def fitness(lr, momentum, gnn_model):
     igcn_config = {'name': 'IGCN', 'n_layers': 3, 'dropout': 0.3, 'feature_ratio': 1.,
                    'embedding_size': 64, 'device': device, 'lr': 1.e-3, 'l2_reg': 1.e-5}
     attacker_config = {'name': 'GBFUG', 'lr': lr, 'momentum': momentum, 'batch_size': 2048,
-                       'dataloader_num_workers': 6, 'device': device, 'n_fakes': 59,
+                       'device': device, 'n_fakes': 59, 'unroll_steps': 5,
                        'n_inters': 96, 'target_item': 135, 'test_batch_size': 2048,
-                       'adv_epochs': 100, 'igcn_config': igcn_config, 'train_epoch': 200,
-                       'topk': 20}
+                       'adv_epochs': 100, 'igcn_config': igcn_config, 'train_epoch': 50,
+                       'topk': 20, 'weight': 20.}
     dataset = get_dataset(dataset_config)
     attacker = get_attacker(attacker_config, dataset)
-    attacker.generate_fake_users(gnn_model=gnn_model)
+    attacker.generate_fake_users()
     return attacker.eval(model_config, trainer_config), attacker.gnn_model
 
 
@@ -35,9 +35,8 @@ def main():
     grid = ParameterGrid(param_grid)
     max_ndcg = -np.inf
     best_params = None
-    gnn_model = None
     for params in grid:
-        ndcg, gnn_model = fitness(params['lr'], params['momentum'], gnn_model)
+        ndcg, gnn_model = fitness(params['lr'], params['momentum'])
         print('NDCG: {:.3f}, Parameters: {:s}'.format(ndcg, str(params)))
         if ndcg > max_ndcg:
             max_ndcg = ndcg

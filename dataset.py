@@ -193,5 +193,7 @@ class SyntheticDataset(BasicDataset):
         user_inter_lists = [[] for _ in range(self.n_users)]
         for user, item in inters:
             user_inter_lists[user].append(item)
+        for user in range(self.n_users):
+            np.random.shuffle(user_inter_lists[user])
         self.generate_data(user_inter_lists)
 

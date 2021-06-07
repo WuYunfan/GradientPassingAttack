@@ -4,6 +4,7 @@ import random
 import os
 import sys
 import scipy.sparse as sp
+import torch.nn.functional as F
 
 
 def set_seed(seed=0):
@@ -67,6 +68,27 @@ def get_target_items(dataset):
     data_mat = sp.coo_matrix((np.ones((len(dataset.train_array),)), np.array(dataset.train_array).T),
                              shape=(dataset.n_users, dataset.n_items), dtype=np.float32).tocsr()
     item_degree = np.array(np.sum(data_mat, axis=0)).squeeze()
-    unpopular_items = np.argsort(item_degree)[int(dataset.n_items * 0.2):]
+    unpopular_items = np.argsort(item_degree)[int(dataset.n_items * 0.5):]
     target_items = np.random.choice(unpopular_items, size=10)
     return target_items
+
+
+def mse_loss(profiles, scores, device, weight):
+    weights = torch.ones_like(profiles, dtype=torch.float32, device=device)
+    weights[profiles > 0] = weight
+    loss = weights * (profiles - scores) ** 2
+    loss = torch.mean(loss)
+    return loss
+
+
+def ce_loss(scores, target_item):
+    log_probs = F.log_softmax(scores, dim=1)
+    return -log_probs[:, target_item].sum()
+
+
+def wmw_loss(scores, target_item, b):
+    top_scores, _ = scores.topk(self.topk, dim=1)
+    target_scores = scores[:, target_item]
+    loss = top_scores - target_scores[:, None]
+    loss = torch.sigmoid(loss / b).mean(dim=1).sum()
+    return loss
