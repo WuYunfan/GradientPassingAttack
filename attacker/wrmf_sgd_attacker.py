@@ -61,6 +61,7 @@ class WRMF_SGD(BasicAttacker):
         self.surrogate_config['device'] = self.device
         self.surrogate_config['n_users'] = self.n_users + self.n_fakes
         self.surrogate_config['n_items'] = self.n_items
+        self.surrogate_model = SurrogateWRMF(self.surrogate_config)
 
     def init_fake_data(self):
         degree = np.array(np.sum(self.data_mat, axis=1)).squeeze()
@@ -78,21 +79,22 @@ class WRMF_SGD(BasicAttacker):
                 self.fake_tensor[fake_user, items[fake_user, :]] = 1.
 
     def train_adv(self):
-        surrogate_model = SurrogateWRMF(self.surrogate_config)
-        surrogate_model.train()
-        train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'],
+        normal_(self.surrogate_model.user_embedding.weight, std=0.1)
+        normal_(self.surrogate_model.item_embedding.weight, std=0.1)
+        self.surrogate_model.train()
+        train_opt = Adam(self.surrogate_model.parameters(), lr=self.surrogate_config['lr'],
                          weight_decay=self.surrogate_config['l2_reg'])
 
         for _ in range(self.train_epochs - self.unroll_steps):
             for users, profiles in self.poisoned_dataloader:
                 users = users.to(dtype=torch.int64, device=self.device)
-                scores = surrogate_model.forward(users)
+                scores = self.surrogate_model.forward(users)
                 loss = mse_loss(profiles, scores, self.device, self.weight)
                 train_opt.zero_grad()
                 loss.backward()
                 train_opt.step()
 
-        with higher.innerloop_ctx(surrogate_model, train_opt) as (fmodel, diffopt):
+        with higher.innerloop_ctx(self.surrogate_model, train_opt) as (fmodel, diffopt):
             for _ in range(self.unroll_steps):
                 for users, profiles in self.poisoned_dataloader:
                     users = users.to(dtype=torch.int64, device=self.device)
@@ -100,7 +102,7 @@ class WRMF_SGD(BasicAttacker):
                     loss = mse_loss(profiles, scores, self.device, self.weight)
                     diffopt.step(loss)
 
-            surrogate_model.eval()
+            self.surrogate_model.eval()
             adv_losses = AverageMeter()
             hrs = AverageMeter()
             adv_grads = torch.zeros_like(self.fake_tensor, dtype=torch.float32, device=self.device)

@@ -86,8 +86,8 @@ def ce_loss(scores, target_item):
     return -log_probs[:, target_item].sum()
 
 
-def wmw_loss(scores, target_item, b):
-    top_scores, _ = scores.topk(self.topk, dim=1)
+def wmw_loss(scores, target_item, topk, b):
+    top_scores, _ = scores.topk(topk, dim=1)
     target_scores = scores[:, target_item]
     loss = top_scores - target_scores[:, None]
     loss = torch.sigmoid(loss / b).mean(dim=1).sum()
