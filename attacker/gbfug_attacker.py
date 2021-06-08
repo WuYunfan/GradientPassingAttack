@@ -83,7 +83,7 @@ class IGCN(BasicModel):
         return feat, user_map, item_map
 
     def dropout_sp_mat(self, mat):
-        if not self.training:
+        if not self.training or self.dropout == 0.:
             return mat
         random_tensor = 1 - self.dropout
         random_tensor += torch.rand(mat._nnz()).to(self.device)
@@ -126,10 +126,10 @@ class IGCN(BasicModel):
                     new_row.append(r)
                     new_column.append(user_dim + self.item_map[c])
                     new_values.append(fake_values[edge_idx])
-            for fake_u in range(self.n_users + self.n_items, n_rows):
-                new_row.append(fake_u)
-                new_column.append(user_dim + item_dim)
-                new_values.append(torch.tensor(1., dtype=torch.float32, device=self.device))
+            new_row.extend(list(range(self.n_users + self.n_items, n_rows)))
+            new_column.extend([user_dim + item_dim] * (n_rows - self.n_users - self.n_items))
+            new_values.extend([torch.tensor(1., dtype=torch.float32, device=self.device)] *
+                              (n_rows - self.n_users - self.n_items))
             new_row = torch.tensor(new_row, dtype=torch.int64, device=self.device)
             new_column = torch.tensor(new_column, dtype=torch.int64, device=self.device)
             new_values = torch.stack(new_values, dim=0)
@@ -188,7 +188,7 @@ class GBFUG(BasicAttacker):
     def __init__(self, attacker_config):
         super(GBFUG, self).__init__(attacker_config)
         self.topk = attacker_config['topk']
-        self.b = attacker_config.get('b', 0.01)
+        self.b = attacker_config.get('b', 1.)
         self.candidate_item_rate = attacker_config.get('candidate_item_rate', 1.)
         self.initial_lr = attacker_config['lr']
         self.train_epochs = attacker_config['train_epochs']

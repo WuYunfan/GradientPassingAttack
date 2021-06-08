@@ -42,14 +42,14 @@ class WRMF_SGD(BasicAttacker):
         self.max_patience = attacker_config.get('max_patience', 20)
         self.topk = attacker_config['topk']
         self.initial_lr = attacker_config['lr']
+        self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
+                                      shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
 
         self.fake_tensor = self.init_fake_data()
         self.fake_tensor.requires_grad_()
         self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=attacker_config['momentum'])
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
-        self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
-                                      shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
         self.poisoned_dataset = Poisoned_Dataset(self.data_mat, self.fake_tensor, self.device)
         self.poisoned_dataloader = DataLoader(self.poisoned_dataset, batch_size=attacker_config['batch_size'],
                                               shuffle=True, num_workers=0)
