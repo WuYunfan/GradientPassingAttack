@@ -46,7 +46,6 @@ class WRMF_SGD(BasicAttacker):
                                       shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
 
         self.fake_tensor = self.init_fake_data()
-        self.fake_tensor.requires_grad_()
         self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=attacker_config['momentum'])
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
@@ -68,7 +67,7 @@ class WRMF_SGD(BasicAttacker):
         qualified_users = self.data_mat[degree <= self.n_inters, :]
         sample_idx = np.random.choice(qualified_users.shape[0], self.n_fakes, replace=False)
         fake_data = qualified_users[sample_idx, :].toarray()
-        fake_data = torch.tensor(fake_data, dtype=torch.float32, device=self.device)
+        fake_data = torch.tensor(fake_data, dtype=torch.float32, device=self.device, requires_grad=True)
         return fake_data
 
     def project_fake_tensor(self):
@@ -79,8 +78,13 @@ class WRMF_SGD(BasicAttacker):
                 self.fake_tensor[fake_user, items[fake_user, :]] = 1.
 
     def train_adv(self):
+        print(self.surrogate_model.user_embedding.weight)
+        print(self.surrogate_model.item_embedding.weight)
+        print('xxx')
         normal_(self.surrogate_model.user_embedding.weight, std=0.1)
         normal_(self.surrogate_model.item_embedding.weight, std=0.1)
+        print(self.surrogate_model.user_embedding.weight)
+        print(self.surrogate_model.item_embedding.weight)
         self.surrogate_model.train()
         train_opt = Adam(self.surrogate_model.parameters(), lr=self.surrogate_config['lr'],
                          weight_decay=self.surrogate_config['l2_reg'])

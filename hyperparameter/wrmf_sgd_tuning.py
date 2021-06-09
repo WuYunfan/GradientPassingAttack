@@ -8,7 +8,7 @@ from utils import set_seed, init_run
 
 def fitness(lr, s_lr, s_l2):
     set_seed(2021)
-    device = torch.device('cuda')
+    device = torch.device('cpu')
     dataset_config = {'name': 'ML1MDataset', 'min_inter': 10, 'path': 'data/ML1M',
                       'split_ratio': [0.8, 0.2], 'device': device}
     model_config = {'name': 'MF', 'embedding_size': 64, 'device': device}

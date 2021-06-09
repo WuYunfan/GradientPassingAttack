@@ -42,18 +42,18 @@ def get_ml1m_attacker_config(device):
                        'n_inters': 96, 'top_rate': 0.1, 'popular_inter_rate': 0.5}
     attacker_configs.append(attacker_config)
 
-    surrogate_config = {'embedding_size': 64, 'lr': 0.001, 'l2_reg': 1.e-5}
-    attacker_config = {'name': 'WRMF_SGD', 'lr': 0.1, 'momentum': 0.95, 'batch_size': 2048,
+    surrogate_config = {'embedding_size': 64, 'lr': 0.1, 'l2_reg': 1.e-6}
+    attacker_config = {'name': 'WRMF_SGD', 'lr': 1., 'momentum': 0.95, 'batch_size': 2048,
                        'device': device, 'n_fakes': 59, 'train_epochs': 50,
                        'n_inters': 96, 'topk': 20, 'unroll_steps': 5,
                        'weight': 20.,
                        'adv_epochs': 100, 'surrogate_config': surrogate_config}
     attacker_configs.append(attacker_config)
 
-    igcn_config = {'name': 'IGCN', 'n_layers': 3, 'dropout': 0., 'feature_ratio': 1.,
-                   'embedding_size': 64, 'device': device, 'lr': 1.e-3, 'l2_reg': 1.e-5}
-    attacker_config = {'name': 'GBFUG', 'lr': 10., 'momentum': 0.95, 'batch_size': 2048,
-                       'device': device, 'n_fakes': 59, 'unroll_steps': 1,
+    igcn_config = {'name': 'IGCN', 'n_layers': 3, 'dropout': 0.3, 'feature_ratio': 1.,
+                   'embedding_size': 64, 'device': device, 'lr': 1.e-2, 'l2_reg': 1.e-5}
+    attacker_config = {'name': 'GBFUG', 'lr': 1., 'momentum': 0.95, 'batch_size': 2048,
+                       'device': device, 'n_fakes': 59, 'unroll_steps': 5,
                        'n_inters': 96, 'test_batch_size': 2048, 'weight': 20.,
                        'adv_epochs': 100, 'igcn_config': igcn_config, 'train_epochs': 50,
                        'topk': 20}

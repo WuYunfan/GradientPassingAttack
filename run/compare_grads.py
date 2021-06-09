@@ -14,7 +14,7 @@ def main():
     dataset_config = {'name': 'SyntheticDataset', 'n_users': 1000, 'n_items': 300, 'binary_threshold': 10.,
                       'split_ratio': [0.8, 0.2], 'device': device}
     dataset = get_dataset(dataset_config)
-    attacker_config = get_ml1m_attacker_config(device)[2]
+    attacker_config = get_ml1m_attacker_config(device)[3]
     attacker_config['n_fakes'] = 10
     attacker_config['n_inters'] = 5
     attacker_config['target_item'] = 0
@@ -23,10 +23,12 @@ def main():
     coss = []
     for i in range(10):
         set_seed(2021 + i)
-        attacker.fake_tensor = attacker.init_fake_data()
+        attacker.fake_indices, attacker.fake_tensor = attacker.init_fake_data()
+
         attacker.unroll_steps = 0
         set_seed(2021)
         _, _, p_grads = attacker.train_adv()
+
         attacker.unroll_steps = 50
         set_seed(2021)
         _, _, grads = attacker.train_adv()
