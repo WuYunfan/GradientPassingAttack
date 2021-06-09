@@ -10,7 +10,7 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
 
-    device = torch.device('cuda')
+    device = torch.device('cpu')
     dataset_config = {'name': 'SyntheticDataset', 'n_users': 1000, 'n_items': 300, 'binary_threshold': 10.,
                       'split_ratio': [0.8, 0.2], 'device': device}
     dataset = get_dataset(dataset_config)
@@ -27,7 +27,8 @@ def main():
 
         attacker.unroll_steps = 0
         set_seed(2021)
-        _, _, p_grads = attacker.train_adv()
+        attacker.train_igcn_model_mse()
+        _, _, p_grads = attacker.get_grads(attacker.surrogate_model)
 
         attacker.unroll_steps = 50
         set_seed(2021)

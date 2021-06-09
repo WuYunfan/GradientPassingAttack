@@ -101,7 +101,7 @@ class WRMF_SGD(BasicAttacker):
                     loss = mse_loss(profiles, scores, self.device, self.weight)
                     diffopt.step(loss)
 
-            self.surrogate_model.eval()
+            fmodel.eval()
             adv_losses = AverageMeter()
             hrs = AverageMeter()
             adv_grads = torch.zeros_like(self.fake_tensor, dtype=torch.float32, device=self.device)

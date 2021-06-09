@@ -56,7 +56,7 @@ def get_ml1m_attacker_config(device):
                        'device': device, 'n_fakes': 59, 'unroll_steps': 5,
                        'n_inters': 96, 'test_batch_size': 2048, 'weight': 20.,
                        'adv_epochs': 100, 'igcn_config': igcn_config, 'train_epochs': 50,
-                       'topk': 20}
+                       'topk': 20, 'dataloader_num_workers': 6}
     attacker_configs.append(attacker_config)
     return attacker_configs
 

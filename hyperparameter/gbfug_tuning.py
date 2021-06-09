@@ -21,7 +21,7 @@ def fitness(lr, s_lr):
                        'device': device, 'n_fakes': 59, 'unroll_steps': 1,
                        'n_inters': 96, 'target_item': 135, 'test_batch_size': 2048,
                        'adv_epochs': 100, 'igcn_config': igcn_config, 'train_epochs': 50,
-                       'topk': 20, 'weight': 20.}
+                       'topk': 20, 'weight': 20., 'dataloader_num_workers': 6}
     dataset = get_dataset(dataset_config)
     attacker = get_attacker(attacker_config, dataset)
     attacker.generate_fake_users()
