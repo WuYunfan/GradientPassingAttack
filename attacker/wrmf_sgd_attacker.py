@@ -78,13 +78,8 @@ class WRMF_SGD(BasicAttacker):
                 self.fake_tensor[fake_user, items[fake_user, :]] = 1.
 
     def train_adv(self):
-        print(self.surrogate_model.user_embedding.weight)
-        print(self.surrogate_model.item_embedding.weight)
-        print('xxx')
         normal_(self.surrogate_model.user_embedding.weight, std=0.1)
         normal_(self.surrogate_model.item_embedding.weight, std=0.1)
-        print(self.surrogate_model.user_embedding.weight)
-        print(self.surrogate_model.item_embedding.weight)
         self.surrogate_model.train()
         train_opt = Adam(self.surrogate_model.parameters(), lr=self.surrogate_config['lr'],
                          weight_decay=self.surrogate_config['l2_reg'])
