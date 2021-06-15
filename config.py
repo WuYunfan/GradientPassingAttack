@@ -42,7 +42,7 @@ def get_ml1m_attacker_config(device):
                        'n_inters': 96, 'top_rate': 0.1, 'popular_inter_rate': 0.5}
     attacker_configs.append(attacker_config)
 
-    surrogate_config = {'embedding_size': 64, 'lr': 0.1, 'l2_reg': 1.e-6}
+    surrogate_config = {'embedding_size': 64, 'lr': 0.001, 'l2_reg': 1.e-6}
     attacker_config = {'name': 'WRMF_SGD', 'lr': 1., 'momentum': 0.95, 'batch_size': 2048,
                        'device': device, 'n_fakes': 59, 'train_epochs': 50,
                        'n_inters': 96, 'topk': 20, 'unroll_steps': 5,

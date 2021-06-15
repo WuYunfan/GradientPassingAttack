@@ -10,6 +10,8 @@ import numpy as np
 import os
 from utils import AverageMeter
 import torch.nn.functional as F
+import scipy.sparse as sp
+from utils import mse_loss
 
 
 def get_trainer(config, dataset, model):
@@ -200,6 +202,31 @@ class BPRTrainer(BasicTrainer):
             loss.backward()
             self.opt.step()
             losses.update(loss.item(), inputs.shape[0])
+        return losses.avg
+
+
+class MSETrainer(BasicTrainer):
+    def __init__(self, trainer_config):
+        super(MSETrainer, self).__init__(trainer_config)
+        self.weight = trainer_config['weight']
+
+        self.opt = getattr(sys.modules[__name__], trainer_config['optimizer'])
+        self.opt = self.opt(self.model.parameters(), lr=trainer_config['lr'], weight_decay=trainer_config['l2_reg'])
+        self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
+                                      shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsr()
+
+    def train_one_epoch(self):
+        losses = AverageMeter()
+        for users in self.test_user_loader:
+            users = users[0]
+            profiles = torch.tensor(self.data_mat[users.cpu().numpy(), :].toarray(),
+                                    dtype=torch.float32, device=self.device)
+            scores = self.model.predict(users)
+            loss = mse_loss(profiles, scores, self.device, self.weight)
+            self.opt.zero_grad()
+            loss.backward()
+            self.opt.step()
+            losses.update(loss.item(), users.shape[0])
         return losses.avg
 
 

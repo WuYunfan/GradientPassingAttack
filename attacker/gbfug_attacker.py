@@ -15,6 +15,7 @@ import torch_scatter
 from torch.optim.lr_scheduler import StepLR
 import higher
 from attacker.wrmf_sgd_attacker import WRMF_SGD
+from trainer import get_trainer
 
 
 class IGCN(BasicModel):
@@ -203,8 +204,6 @@ class GBFUG(BasicAttacker):
         self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=attacker_config['momentum'])
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
-        self.dataloader = DataLoader(self.dataset, batch_size=attacker_config['batch_size'],
-                                     shuffle=True, num_workers=attacker_config['dataloader_num_workers'])
         dense_fake_tensor = torch.sparse.FloatTensor(self.fake_indices, self.fake_tensor.flatten(),
                                                      torch.Size([self.n_fakes, self.n_items])).to_dense()
         self.poisoned_dataset = Poisoned_Dataset(self.data_mat, dense_fake_tensor, self.device)
@@ -244,40 +243,23 @@ class GBFUG(BasicAttacker):
     def train_igcn_model_bpr(self):
         normal_(self.surrogate_model.dense_layer.weight, std=0.1)
         zeros_(self.surrogate_model.dense_layer.bias)
-        self.surrogate_model.train()
-        train_opt = Adam(self.surrogate_model.parameters(), lr=self.surrogate_config['lr'])
-        for _ in range(self.train_epochs):
-            for batch_data in self.dataloader:
-                inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
-                users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
-
-                users_r, pos_items_r, neg_items_r, l2_norm_sq = self.surrogate_model.bpr_forward(users, pos_items, neg_items)
-                pos_scores = torch.sum(users_r * pos_items_r, dim=1)
-                neg_scores = torch.sum(users_r * neg_items_r, dim=1)
-
-                bpr_loss = F.softplus(neg_scores - pos_scores).mean()
-                reg_loss = self.surrogate_config['l2_reg'] * l2_norm_sq.mean()
-                loss = bpr_loss + reg_loss
-                train_opt.zero_grad()
-                loss.backward()
-                train_opt.step()
+        trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': self.surrogate_config['lr'],
+                          'l2_reg': self.surrogate_config['l2_reg'], 'device': self.device, 'n_epochs': self.train_epochs,
+                          'batch_size': self.config['batch_size'],
+                          'dataloader_num_workers': self.config['dataloader_num_workers'],
+                          'test_batch_size': self.config['test_batch_size'], 'topks': [self.topk]}
+        trainer = get_trainer(trainer_config, self.dataset, self.surrogate_model)
+        return trainer.train()
 
     def train_igcn_model_mse(self):
         normal_(self.surrogate_model.dense_layer.weight, std=0.1)
         zeros_(self.surrogate_model.dense_layer.bias)
-        self.surrogate_model.train()
-        train_opt = Adam(self.surrogate_model.parameters(), lr=self.surrogate_config['lr'],
-                         weight_decay=self.surrogate_config['l2_reg'])
-        for _ in range(self.train_epochs):
-            for users in self.test_user_loader:
-                users = users[0]
-                profiles = torch.tensor(self.data_mat[users.cpu().numpy(), :].toarray(),
-                                        dtype=torch.float32, device=self.device)
-                scores = self.surrogate_model.predict(users)
-                loss = mse_loss(profiles, scores, self.device, self.weight)
-                train_opt.zero_grad()
-                loss.backward()
-                train_opt.step()
+        trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': self.surrogate_config['lr'],
+                          'l2_reg': self.surrogate_config['l2_reg'], 'device': self.device, 'n_epochs': self.train_epochs,
+                          'batch_size': self.config['batch_size'], 'weight': self.weight,
+                          'test_batch_size': self.config['test_batch_size'], 'topks': [self.topk]}
+        trainer = get_trainer(trainer_config, self.dataset, self.surrogate_model)
+        return trainer.train()
 
     def get_grads(self, model):
         model.eval()
@@ -330,14 +312,14 @@ class GBFUG(BasicAttacker):
 
     def generate_fake_users(self, verbose=True, writer=None, surrogate_model=None):
         if surrogate_model is None:
-            self.train_igcn_model()
+            self.train_igcn_model_bpr()
         else:
             self.surrogate_model = surrogate_model
         best_hr = -np.inf
         patience = self.max_patience
         for epoch in range(self.adv_epochs):
             start_time = time.time()
-            adv_loss, hit_k, adv_grads = self.get_partial_grads()
+            adv_loss, hit_k, adv_grads = self.get_grads(self.surrogate_model)
 
             normalized_adv_grads = F.normalize(adv_grads, p=2, dim=1)
             self.adv_opt.zero_grad()
