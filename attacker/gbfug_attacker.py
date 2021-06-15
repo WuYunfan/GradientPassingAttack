@@ -207,7 +207,7 @@ class GBFUG(BasicAttacker):
         dense_fake_tensor = torch.sparse.FloatTensor(self.fake_indices, self.fake_tensor.flatten(),
                                                      torch.Size([self.n_fakes, self.n_items])).to_dense()
         self.poisoned_dataset = Poisoned_Dataset(self.data_mat, dense_fake_tensor, self.device)
-        self.poisoned_dataloader = DataLoader(self.poisoned_dataset, batch_size=attacker_config['batch_size'],
+        self.poisoned_dataloader = DataLoader(self.poisoned_dataset, batch_size=attacker_config['test_batch_size'],
                                               shuffle=True, num_workers=0)
 
         test_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))

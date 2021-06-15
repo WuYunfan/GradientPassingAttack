@@ -19,8 +19,8 @@ def fitness(lr, s_lr, s_l2):
                    'embedding_size': 64, 'device': device, 'lr': s_lr, 'l2_reg': s_l2}
     attacker_config = {'name': 'GBFUG', 'lr': lr, 'momentum': 0.95, 'batch_size': 2048,
                        'device': device, 'n_fakes': 59, 'unroll_steps': 0,
-                       'n_inters': 96, 'target_item': 30, 'test_batch_size': 512,
-                       'adv_epochs': 50, 'igcn_config': igcn_config, 'train_epochs': 100,
+                       'n_inters': 96, 'target_item': 135, 'test_batch_size': 512,
+                       'adv_epochs': 50, 'igcn_config': igcn_config, 'train_epochs': 200,
                        'topk': 20, 'weight': 20., 'dataloader_num_workers': 6}
     dataset = get_dataset(dataset_config)
     attacker = get_attacker(attacker_config, dataset)
