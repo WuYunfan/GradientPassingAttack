@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, DataLoader, TensorDataset
 import torch.nn.functional as F
 import higher
 import time
-from attacker.basic_attacker import BasicAttacker, Poisoned_Dataset
+from attacker.basic_attacker import BasicAttacker, PoisonedDataset
 from torch.nn.init import kaiming_uniform_, calculate_gain, normal_, zeros_, ones_
 
 
@@ -22,8 +22,7 @@ class SurrogateWRMF(nn.Module):
         self.device = config['device']
         self.user_embedding = nn.Embedding(self.n_users, self.embedding_size)
         self.item_embedding = nn.Embedding(self.n_items, self.embedding_size)
-        normal_(self.user_embedding.weight, std=0.1)
-        normal_(self.item_embedding.weight, std=0.1)
+        self.init_weights()
         self.to(device=self.device)
 
     def forward(self, users):
@@ -31,10 +30,14 @@ class SurrogateWRMF(nn.Module):
         scores = torch.mm(user_e, self.item_embedding.weight.t())
         return scores
 
+    def init_weights(self):
+        normal_(self.user_embedding.weight, std=0.1)
+        normal_(self.item_embedding.weight, std=0.1)
 
-class WRMF_SGD(BasicAttacker):
+
+class WRMFSGD(BasicAttacker):
     def __init__(self, attacker_config):
-        super(WRMF_SGD, self).__init__(attacker_config)
+        super(WRMFSGD, self).__init__(attacker_config)
         self.adv_epochs = attacker_config['adv_epochs']
         self.train_epochs = attacker_config['train_epochs']
         self.unroll_steps = attacker_config['unroll_steps']
@@ -49,7 +52,7 @@ class WRMF_SGD(BasicAttacker):
         self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=attacker_config['momentum'])
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
-        self.poisoned_dataset = Poisoned_Dataset(self.data_mat, self.fake_tensor, self.device)
+        self.poisoned_dataset = PoisonedDataset(self.data_mat, self.fake_tensor, self.device)
         self.poisoned_dataloader = DataLoader(self.poisoned_dataset, batch_size=attacker_config['batch_size'],
                                               shuffle=True, num_workers=0)
 
@@ -78,8 +81,7 @@ class WRMF_SGD(BasicAttacker):
                 self.fake_tensor[fake_user, items[fake_user, :]] = 1.
 
     def train_adv(self):
-        normal_(self.surrogate_model.user_embedding.weight, std=0.1)
-        normal_(self.surrogate_model.item_embedding.weight, std=0.1)
+        self.surrogate_model.init_weights()
         self.surrogate_model.train()
         train_opt = Adam(self.surrogate_model.parameters(), lr=self.surrogate_config['lr'],
                          weight_decay=self.surrogate_config['l2_reg'])

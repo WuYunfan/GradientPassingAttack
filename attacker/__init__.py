@@ -1,9 +1,10 @@
 import sys
-from attacker.wrmf_sgd_attacker import WRMF_SGD
+from attacker.wrmf_sgd_attacker import WRMFSGD
 from attacker.gbfug_attacker import GBFUG
 from attacker.heuristic import RandomAttacker
 from attacker.heuristic import BandwagonAttacker
 from attacker.basic_attacker import BasicAttacker
+from attacker.itemae_sgd_attacker import ItemAESGD
 
 
 def get_attacker(config, dataset):

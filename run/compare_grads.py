@@ -10,7 +10,7 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
 
-    device = torch.device('cuda')
+    device = torch.device('cpu')
     dataset_config = {'name': 'SyntheticDataset', 'n_users': 1000, 'n_items': 300, 'binary_threshold': 10.,
                       'split_ratio': [0.8, 0.2], 'device': device}
     dataset = get_dataset(dataset_config)
@@ -23,12 +23,11 @@ def main():
     coss = []
     for i in range(10):
         set_seed(2021 + i)
-        attacker.fake_indices, attacker.fake_tensor = attacker.init_fake_data()
+        attacker.fake_tensor.data = attacker.init_fake_data()
 
-        attacker.unroll_steps = 0
+        attacker.unroll_steps = 49
         set_seed(2021)
-        attacker.train_igcn_model_mse()
-        _, _, p_grads = attacker.get_grads(attacker.surrogate_model)
+        _, _, p_grads = attacker.train_adv()
 
         attacker.unroll_steps = 50
         set_seed(2021)

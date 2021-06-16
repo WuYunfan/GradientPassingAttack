@@ -58,7 +58,7 @@ class BasicAttacker:
         return ndcg
 
 
-class Poisoned_Dataset(Dataset):
+class PoisonedDataset(Dataset):
     def __init__(self, data_mat, fake_tensor, device):
         self.data_mat = data_mat
         self.fake_tensor = fake_tensor

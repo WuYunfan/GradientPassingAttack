@@ -7,14 +7,14 @@ from utils import get_sparse_tensor, AverageMeter, wmw_loss, mse_loss
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
 import time
-from attacker.basic_attacker import BasicAttacker, Poisoned_Dataset
+from attacker.basic_attacker import BasicAttacker, PoisonedDataset
 from torch.nn.init import kaiming_uniform_, calculate_gain, normal_, zeros_, ones_
 from model import BasicModel
 import torch_sparse
 import torch_scatter
 from torch.optim.lr_scheduler import StepLR
 import higher
-from attacker.wrmf_sgd_attacker import WRMF_SGD
+from attacker.wrmf_sgd_attacker import WRMFSGD
 from trainer import get_trainer
 
 
@@ -29,9 +29,12 @@ class IGCN(BasicModel):
         self.feat, self.user_map, self.item_map = self.generate_feat(model_config['dataset'])
 
         self.dense_layer = nn.Linear(self.feat.shape[1], self.embedding_size)
+        self.init_weights()
+        self.to(device=self.device)
+
+    def init_weights(self):
         normal_(self.dense_layer.weight, std=0.1)
         zeros_(self.dense_layer.bias)
-        self.to(device=self.device)
 
     def generate_graph(self, dataset):
         sub_mat = sp.coo_matrix((np.ones((len(dataset.train_array),)), np.array(dataset.train_array).T),
@@ -206,7 +209,7 @@ class GBFUG(BasicAttacker):
 
         dense_fake_tensor = torch.sparse.FloatTensor(self.fake_indices, self.fake_tensor.flatten(),
                                                      torch.Size([self.n_fakes, self.n_items])).to_dense()
-        self.poisoned_dataset = Poisoned_Dataset(self.data_mat, dense_fake_tensor, self.device)
+        self.poisoned_dataset = PoisonedDataset(self.data_mat, dense_fake_tensor, self.device)
         self.poisoned_dataloader = DataLoader(self.poisoned_dataset, batch_size=attacker_config['batch_size'],
                                               shuffle=True, num_workers=0)
 
@@ -238,11 +241,10 @@ class GBFUG(BasicAttacker):
         return fake_indices, fake_tensor
 
     def project_fake_tensor(self):
-        WRMF_SGD.project_fake_tensor(self)
+        WRMFSGD.project_fake_tensor(self)
 
     def train_igcn_model_bpr(self):
-        normal_(self.surrogate_model.dense_layer.weight, std=0.1)
-        zeros_(self.surrogate_model.dense_layer.bias)
+        self.surrogate_model.init_weights()
         trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': self.surrogate_config['lr'],
                           'l2_reg': self.surrogate_config['l2_reg'], 'device': self.device, 'n_epochs': self.train_epochs,
                           'batch_size': self.config['batch_size'],
@@ -252,8 +254,7 @@ class GBFUG(BasicAttacker):
         return trainer.train()
 
     def train_igcn_model_mse(self):
-        normal_(self.surrogate_model.dense_layer.weight, std=0.1)
-        zeros_(self.surrogate_model.dense_layer.bias)
+        self.surrogate_model.init_weights()
         trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': self.surrogate_config['lr'],
                           'l2_reg': self.surrogate_config['l2_reg'], 'device': self.device, 'n_epochs': self.train_epochs,
                           'batch_size': self.config['batch_size'], 'weight': self.weight,
@@ -263,9 +264,9 @@ class GBFUG(BasicAttacker):
 
     def get_grads(self, model):
         model.eval()
-        adv_grads = torch.zeros_like(self.fake_tensor, dtype=torch.float32, device=self.device)
         adv_losses = AverageMeter()
         hrs = AverageMeter()
+        adv_grads = torch.zeros_like(self.fake_tensor, dtype=torch.float32, device=self.device)
         for users in self.test_user_loader:
             users = users[0]
             scores = model.predict(users, self.fake_indices, self.fake_tensor.flatten())
@@ -279,8 +280,7 @@ class GBFUG(BasicAttacker):
         return adv_losses.avg, hrs.avg, adv_grads
 
     def train_adv(self):
-        normal_(self.surrogate_model.dense_layer.weight, std=0.1)
-        zeros_(self.surrogate_model.dense_layer.bias)
+        self.surrogate_model.init_weights()
         self.surrogate_model.train()
         train_opt = Adam(self.surrogate_model.parameters(), lr=self.surrogate_config['lr'],
                          weight_decay=self.surrogate_config['l2_reg'])
