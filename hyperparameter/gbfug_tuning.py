@@ -15,12 +15,12 @@ def fitness(lr, s_lr, s_l2):
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 1.e-3, 'l2_reg': 1.e-2,
                       'device': device, 'n_epochs': 200, 'batch_size': 2048, 'dataloader_num_workers': 6,
                       'test_batch_size': 512, 'topks': [20, 100]}
-    igcn_config = {'name': 'IGCN', 'n_layers': 3, 'dropout': 0.3, 'feature_ratio': 1.,
-                   'embedding_size': 64, 'device': device, 'lr': s_lr, 'l2_reg': s_l2}
+    surrogate_config = {'name': 'IGCN', 'n_layers': 3, 'dropout': 0.3, 'feature_ratio': 1.,
+                        'embedding_size': 64, 'device': device, 'lr': s_lr, 'l2_reg': s_l2}
     attacker_config = {'name': 'GBFUG', 'lr': lr, 'momentum': 0.95, 'batch_size': 2048,
                        'device': device, 'n_fakes': 59, 'unroll_steps': 0,
                        'n_inters': 96, 'target_item': 135, 'test_batch_size': 512,
-                       'adv_epochs': 100, 'igcn_config': igcn_config, 'train_epochs': 200,
+                       'adv_epochs': 100, 'surrogate_config': surrogate_config, 'train_epochs': 200,
                        'topk': 20, 'weight': 20., 'dataloader_num_workers': 6}
     dataset = get_dataset(dataset_config)
     attacker = get_attacker(attacker_config, dataset)

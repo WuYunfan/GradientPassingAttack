@@ -8,7 +8,7 @@ from torch.optim.adagrad import Adagrad
 import time
 import numpy as np
 import os
-from utils import AverageMeter
+from utils import AverageMeter, get_sparse_tensor
 import torch.nn.functional as F
 import scipy.sparse as sp
 from utils import mse_loss
@@ -210,14 +210,16 @@ class MSETrainer(BasicTrainer):
         super(MSETrainer, self).__init__(trainer_config)
         self.weight = trainer_config['weight']
 
-        self.opt = getattr(sys.modules[__name__], trainer_config['optimizer'])
-        self.opt = self.opt(self.model.parameters(), lr=trainer_config['lr'], weight_decay=trainer_config['l2_reg'])
+        train_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
+        self.train_user_loader = DataLoader(train_user, batch_size=trainer_config['batch_size'], shuffle=True)
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsr()
+        self.opt = getattr(sys.modules[__name__], trainer_config['optimizer'])
+        self.opt = self.opt(self.model.parameters(), lr=trainer_config['lr'], weight_decay=trainer_config['l2_reg'])
 
     def train_one_epoch(self):
         losses = AverageMeter()
-        for users in self.test_user_loader:
+        for users in self.train_user_loader:
             users = users[0]
             profiles = torch.tensor(self.data_mat[users.cpu().numpy(), :].toarray(),
                                     dtype=torch.float32, device=self.device)
@@ -319,4 +321,40 @@ class APRTrainer(BasicTrainer):
         return losses.avg
 
 
+class MLTrainer(BasicTrainer):
+    def __init__(self, trainer_config):
+        super(MLTrainer, self).__init__(trainer_config)
+
+        train_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
+        self.train_user_loader = DataLoader(train_user, batch_size=trainer_config['batch_size'], shuffle=True)
+        self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
+                                      shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsr()
+        self.opt = getattr(sys.modules[__name__], trainer_config['optimizer'])
+        self.opt = self.opt(self.model.parameters(), lr=trainer_config['lr'])
+        self.l2_reg = trainer_config['l2_reg']
+        self.kl_reg = trainer_config['kl_reg']
+        anneal_step_ratio = trainer_config.get('anneal_step_ratio', 0.2)
+        self.anneal_epochs = int(anneal_step_ratio * self.n_epochs)
+
+    def train_one_epoch(self):
+        kl_reg = min(self.kl_reg, 1. * self.epoch / self.anneal_epochs)
+
+        losses = AverageMeter()
+        for users in self.train_user_loader:
+            users = users[0]
+
+            scores, kl, l2_norm_sq = self.model.ml_forward(users)
+            scores = F.log_softmax(scores, dim=1)
+            users = users.cpu().numpy()
+            profiles = self.data_mat[users, :]
+            profiles = get_sparse_tensor(profiles, self.device).to_dense()
+            ml_loss = -torch.sum(profiles * scores, dim=1).mean()
+
+            reg_loss = kl_reg * kl.mean() + self.l2_reg * l2_norm_sq.mean()
+            loss = ml_loss + reg_loss
+            self.opt.zero_grad()
+            loss.backward()
+            self.opt.step()
+            losses.update(loss.item(), users.shape[0])
+        return losses.avg
 

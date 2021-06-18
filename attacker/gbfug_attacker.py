@@ -216,7 +216,7 @@ class GBFUG(BasicAttacker):
         test_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_users, batch_size=attacker_config['test_batch_size'], shuffle=True)
 
-        self.surrogate_config = attacker_config['igcn_config']
+        self.surrogate_config = attacker_config['surrogate_config']
         self.surrogate_config['name'] = 'IGCN'
         self.surrogate_config['dataset'] = self.dataset
         self.surrogate_config['device'] = self.device

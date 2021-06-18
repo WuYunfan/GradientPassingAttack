@@ -25,7 +25,7 @@ def main():
         set_seed(2021 + i)
         attacker.fake_tensor.data = attacker.init_fake_data()
 
-        attacker.unroll_steps = 49
+        attacker.unroll_steps = 0
         set_seed(2021)
         _, _, p_grads = attacker.train_adv()
 
