@@ -333,7 +333,7 @@ class MLTrainer(BasicTrainer):
         self.opt = self.opt(self.model.parameters(), lr=trainer_config['lr'])
         self.l2_reg = trainer_config['l2_reg']
         self.kl_reg = trainer_config['kl_reg']
-        anneal_step_ratio = trainer_config.get('anneal_step_ratio', 0.2)
+        anneal_step_ratio = trainer_config.get('anneal_step_ratio', 0.5)
         self.anneal_epochs = int(anneal_step_ratio * self.n_epochs)
 
     def train_one_epoch(self):
