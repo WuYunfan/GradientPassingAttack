@@ -10,7 +10,7 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
 
-    device = torch.device('cpu')
+    device = torch.device('cuda')
     dataset_config = {'name': 'SyntheticDataset', 'n_users': 1000, 'n_items': 300, 'binary_threshold': 10.,
                       'split_ratio': [0.8, 0.2], 'device': device}
     dataset = get_dataset(dataset_config)
