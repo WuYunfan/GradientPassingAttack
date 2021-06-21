@@ -46,14 +46,14 @@ def get_ml1m_attacker_config(device):
     surrogate_config = {'embedding_size': 64, 'lr': 0.1, 'l2_reg': 0.0001}
     attacker_config = {'name': 'WRMFSGD', 'lr': 1., 'momentum': 0.95, 'batch_size': 2048,
                        'device': device, 'n_fakes': 59, 'unroll_steps': 5, 'train_epochs': 50,
-                       'n_inters': 96, 'target_item': 135, 'topk': 20, 'test_batch_size': 512,
+                       'n_inters': 96, 'topk': 20, 'test_batch_size': 512,
                        'weight': 20., 'adv_epochs': 100, 'surrogate_config': surrogate_config}
     attacker_configs.append(attacker_config)
 
     surrogate_config = {'layer_sizes': [64, 32], 'lr': 0.1, 'l2_reg': 1.e-5}
     attacker_config = {'name': 'ItemAESGD', 'lr': 10., 'momentum': 0.95, 'batch_size': 2048,
                        'device': device, 'n_fakes': 59, 'unroll_steps': 5, 'train_epochs': 50,
-                       'n_inters': 96, 'target_item': 135, 'topk': 20, 'test_batch_size': 512,
+                       'n_inters': 96, 'topk': 20, 'test_batch_size': 512,
                        'weight': 20., 'adv_epochs': 100, 'surrogate_config': surrogate_config}
     attacker_configs.append(attacker_config)
 
@@ -61,7 +61,7 @@ def get_ml1m_attacker_config(device):
                         'embedding_size': 64, 'device': device, 'lr': 0.1, 'l2_reg': 0.0001}
     attacker_config = {'name': 'GBFUG', 'lr': 0.1, 'momentum': 0.95, 'batch_size': 2048,
                        'device': device, 'n_fakes': 59, 'unroll_steps': 0,
-                       'n_inters': 96, 'target_item': 135, 'test_batch_size': 512,
+                       'n_inters': 96, 'test_batch_size': 512,
                        'adv_epochs': 100, 'surrogate_config': surrogate_config, 'train_epochs': 200,
                        'topk': 20, 'weight': 20., 'dataloader_num_workers': 6}
     attacker_configs.append(attacker_config)
