@@ -50,21 +50,20 @@ def get_ml1m_attacker_config(device):
                        'weight': 20., 'adv_epochs': 100, 'surrogate_config': surrogate_config}
     attacker_configs.append(attacker_config)
 
-    surrogate_config = {'layer_sizes': [64, 64], 'lr': 0.001, 'l2_reg': 1.e-5}
-    attacker_config = {'name': 'ItemAESGD', 'lr': 1., 'momentum': 0.95, 'batch_size': 2048,
-                       'device': device, 'n_fakes': 59, 'train_epochs': 50,
-                       'n_inters': 96, 'topk': 20, 'unroll_steps': 5,
-                       'weight': 20., 'test_batch_size': 512,
-                       'adv_epochs': 100, 'surrogate_config': surrogate_config}
+    surrogate_config = {'layer_sizes': [64, 32], 'lr': 0.1, 'l2_reg': 1.e-5}
+    attacker_config = {'name': 'ItemAESGD', 'lr': 10., 'momentum': 0.95, 'batch_size': 2048,
+                       'device': device, 'n_fakes': 59, 'unroll_steps': 5, 'train_epochs': 50,
+                       'n_inters': 96, 'target_item': 135, 'topk': 20, 'test_batch_size': 512,
+                       'weight': 20., 'adv_epochs': 100, 'surrogate_config': surrogate_config}
     attacker_configs.append(attacker_config)
 
-    igcn_config = {'name': 'IGCN', 'n_layers': 3, 'dropout': 0.3, 'feature_ratio': 1.,
-                   'embedding_size': 64, 'device': device, 'lr': 1.e-2, 'l2_reg': 1.e-5}
-    attacker_config = {'name': 'GBFUG', 'lr': 1., 'momentum': 0.95, 'batch_size': 2048,
-                       'device': device, 'n_fakes': 59, 'unroll_steps': 5,
-                       'n_inters': 96, 'test_batch_size': 2048, 'weight': 20.,
-                       'adv_epochs': 100, 'igcn_config': igcn_config, 'train_epochs': 200,
-                       'topk': 20, 'dataloader_num_workers': 6}
+    surrogate_config = {'name': 'IGCN', 'n_layers': 3, 'dropout': 0.3, 'feature_ratio': 1.,
+                        'embedding_size': 64, 'device': device, 'lr': 0.1, 'l2_reg': 0.0001}
+    attacker_config = {'name': 'GBFUG', 'lr': 0.1, 'momentum': 0.95, 'batch_size': 2048,
+                       'device': device, 'n_fakes': 59, 'unroll_steps': 0,
+                       'n_inters': 96, 'target_item': 135, 'test_batch_size': 512,
+                       'adv_epochs': 100, 'surrogate_config': surrogate_config, 'train_epochs': 200,
+                       'topk': 20, 'weight': 20., 'dataloader_num_workers': 6}
     attacker_configs.append(attacker_config)
     return attacker_configs
 
