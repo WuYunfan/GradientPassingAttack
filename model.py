@@ -148,6 +148,22 @@ class ItemKNN(BasicModel):
         return scores
 
 
+class Popularity(BasicModel):
+    def __init__(self, model_config):
+        super(Popularity, self).__init__(model_config)
+        self.item_degree = self.calculate_degree(model_config['dataset'])
+        self.trainable = False
+
+    def calculate_degree(self, dataset):
+        data_mat = sp.coo_matrix((np.ones((len(dataset.train_array),)), np.array(dataset.train_array).T),
+                                 shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
+        item_degree = np.array(np.sum(data_mat, axis=0)).squeeze()
+        return torch.tensor(item_degree, dtype=torch.float32, device=self.device)
+
+    def predict(self, users):
+        return self.item_degree[None, :].repeat(users.shape[0], 1)
+
+
 class MultiVAE(BasicModel):
     def __init__(self, model_config):
         super(MultiVAE, self).__init__(model_config)

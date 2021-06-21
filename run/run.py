@@ -17,12 +17,17 @@ def main():
     target_items = get_target_items(dataset)
     attacker_config = get_ml1m_attacker_config(device)[0]
 
+    surrogate_model = None
     for target_item in target_items:
         attacker_config['target_item'] = target_item
         dataset = get_dataset(dataset_config)
         attacker = get_attacker(attacker_config, dataset)
         writer = SummaryWriter(log_path)
-        attacker.generate_fake_users(writer=writer)
+        if attacker_config['name'] == 'GBFUG':
+            attacker.generate_fake_users(writer=writer, surrogate_model=surrogate_model)
+            surrogate_model = attacker.surrogate_model
+        else:
+            attacker.generate_fake_users(writer=writer)
         configs = get_ml1m_config(device)
         for model_config, trainer_config in configs:
             if model_config['name'] == 'NeuMF':

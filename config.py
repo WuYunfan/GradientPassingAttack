@@ -2,13 +2,13 @@ def get_ml1m_config(device):
     recommender_config = []
     model_config = {'name': 'MF', 'embedding_size': 64, 'device': device}
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 1.e-3, 'l2_reg': 1.e-2,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6,
+                      'n_epochs': 200, 'batch_size': 2048, 'dataloader_num_workers': 6,
                       'test_batch_size': 512, 'topks': [20, 100], 'device': device}
     recommender_config.append((model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 2, 'device': device}
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 1.e-2, 'l2_reg': 1.e-3,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6,
+                      'n_epochs': 200, 'batch_size': 2048, 'dataloader_num_workers': 6,
                       'test_batch_size': 512, 'topks': [20, 100], 'device': device}
     recommender_config.append((model_config, trainer_config))
 
@@ -19,14 +19,21 @@ def get_ml1m_config(device):
 
     model_config = {'name': 'NeuMF', 'embedding_size': 64, 'device': device, 'layer_sizes': [64, 64, 64]}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 1.e-3, 'l2_reg': 1.e-3,
-                      'device': device, 'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6,
-                      'test_batch_size': 64, 'topks': [20, 100], 'mf_pretrain_epochs': 50, 'mlp_pretrain_epochs': 50}
+                      'device': device, 'n_epochs': 400, 'batch_size': 2048, 'dataloader_num_workers': 6,
+                      'test_batch_size': 64, 'topks': [20, 100], 'mf_pretrain_epochs': 100,
+                      'mlp_pretrain_epochs': 100, 'max_patience': 100}
     recommender_config.append((model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64, 'device': device}
     trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam', 'lr': 1.e-3, 'l2_reg': 1.e-2,
                       'adv_reg': 1., 'eps': 0.1,
-                      'ckpt_path': 'checkpoints/ML1MDataset_ForAPR.pth',
+                      'device': device, 'n_epochs': 200, 'batch_size': 2048, 'dataloader_num_workers': 6,
+                      'test_batch_size': 512, 'topks': [20, 100]}
+    recommender_config.append((model_config, trainer_config))
+
+    model_config = {'name': 'MultiVAE', 'layer_sizes': [64, 32],
+                    'device': device, 'dropout': 0.3}
+    trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0., 'kl_reg': 0.2,
                       'device': device, 'n_epochs': 200, 'batch_size': 2048, 'dataloader_num_workers': 6,
                       'test_batch_size': 512, 'topks': [20, 100]}
     recommender_config.append((model_config, trainer_config))
