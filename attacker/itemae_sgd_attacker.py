@@ -129,7 +129,7 @@ class ItemAESGD(BasicAttacker):
             target_item = all_items.index(self.target_item)
             adv_loss = ce_loss(scores, target_item)
             _, topk_items = scores.topk(self.topk, dim=1)
-            hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
+            hr = torch.eq(topk_items, target_item).float().sum(dim=1).mean()
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
         return adv_loss.item() / self.n_users, hr.item(), adv_grads
 

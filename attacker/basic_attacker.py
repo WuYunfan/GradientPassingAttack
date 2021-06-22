@@ -52,6 +52,7 @@ class BasicAttacker:
                 hit_ratio += '{:.3f}%@{:d}, '.format(metrics['Recall'][k] * 100, k)
                 ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100, k)
             results = 'Hit Ratio: {:s}NDCG: {:s}'.format(hit_ratio, ndcg)
+            print('Target Item: {:d}'.format(self.target_item))
             print('Attack result. {:s}'.format(results))
 
         ndcg = metrics['NDCG'][self.trainer.topks[0]]

@@ -148,9 +148,9 @@ class ItemKNN(BasicModel):
         return scores
 
 
-class Popularity(BasicModel):
+class Popular(BasicModel):
     def __init__(self, model_config):
-        super(Popularity, self).__init__(model_config)
+        super(Popular, self).__init__(model_config)
         self.item_degree = self.calculate_degree(model_config['dataset'])
         self.trainable = False
 

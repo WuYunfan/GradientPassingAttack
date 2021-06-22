@@ -1,5 +1,10 @@
 def get_ml1m_config(device):
     recommender_config = []
+    model_config = {'name': 'Popular', 'device': device}
+    trainer_config = {'name': 'BasicTrainer',  'n_epochs': 0, 'test_batch_size': 512,
+                      'topks': [20, 100], 'device': device}
+    recommender_config.append((model_config, trainer_config))
+
     model_config = {'name': 'MF', 'embedding_size': 64, 'device': device}
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': 1.e-3, 'l2_reg': 1.e-2,
                       'n_epochs': 200, 'batch_size': 2048, 'dataloader_num_workers': 6,
