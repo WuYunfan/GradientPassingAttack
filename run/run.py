@@ -2,7 +2,7 @@ import torch
 from dataset import get_dataset
 from attacker import get_attacker
 from tensorboardX import SummaryWriter
-from utils import init_run, get_target_items
+from utils import init_run, get_target_items, set_seed
 from config import get_ml1m_config, get_ml1m_attacker_config
 
 
@@ -19,6 +19,7 @@ def main():
 
     surrogate_model = None
     for target_item in target_items:
+        set_seed(2021)
         attacker_config['target_item'] = target_item
         dataset = get_dataset(dataset_config)
         attacker = get_attacker(attacker_config, dataset)

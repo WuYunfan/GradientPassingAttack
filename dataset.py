@@ -177,23 +177,46 @@ class GowallaDataset(BasicDataset):
         self.generate_data(user_inter_lists)
 
 
-class SyntheticDataset(BasicDataset):
+class ReducedML1MDataset(BasicDataset):
     def __init__(self, dataset_config):
-        super(SyntheticDataset, self).__init__(dataset_config)
-        self.n_users = dataset_config['n_users']
-        self.n_items = dataset_config['n_items']
-        self.data_ranks = dataset_config.get('data_ranks', 20)
-        self.binary_threshold = dataset_config['binary_threshold']
-        data_x = torch.mm(torch.randn(self.n_users, self.data_ranks),
-                          torch.randn(self.data_ranks, self.n_items))
-        data_x = (data_x > self.binary_threshold).float()
-        inters = torch.nonzero(data_x).cpu().numpy().tolist()
-        print('Sparsity: {:.5f}'.format(len(inters) * 1. / self.n_users / self.n_items))
+        super(ReducedML1MDataset, self).__init__(dataset_config)
+
+        rating_file_path = os.path.join(dataset_config['path'], 'ratings.dat')
+        user_inter_sets, item_inter_sets = dict(), dict()
+        with open(rating_file_path, 'r') as f:
+            lines = f.read().strip().split('\n')
+        for line in lines:
+            u, i, r, _ = line.split('::')
+            u, i, r = int(u), int(i), int(r)
+            if r < 4 or u > 604 or i > 390:
+                continue
+            if u in user_inter_sets:
+                user_inter_sets[u].add(i)
+            else:
+                user_inter_sets[u] = {i}
+            if i in item_inter_sets:
+                item_inter_sets[i].add(u)
+            else:
+                item_inter_sets[i] = {u}
+        user_map, item_map = self.remove_sparse_ui(user_inter_sets, item_inter_sets)
 
         user_inter_lists = [[] for _ in range(self.n_users)]
-        for user, item in inters:
-            user_inter_lists[user].append(item)
+        for line in lines:
+            u, i, r, t = line.split('::')
+            u, i, r, t = int(u), int(i), int(r), int(t)
+            if r > 3 and u in user_map and i in item_map:
+                duplicate = False
+                for i_t in user_inter_lists[user_map[u]]:
+                    if i_t[0] == item_map[i]:
+                        i_t[1] = min(i_t[1], t)
+                        duplicate = True
+                        break
+                if not duplicate:
+                    user_inter_lists[user_map[u]].append([item_map[i], t])
         for user in range(self.n_users):
-            np.random.shuffle(user_inter_lists[user])
+            user_inter_lists[user].sort(key=lambda entry: entry[1])
+            user_inter_lists[user] = [i_t[0] for i_t in user_inter_lists[user]]
         self.generate_data(user_inter_lists)
+
+
 
