@@ -313,6 +313,7 @@ class GBFUG(BasicAttacker):
             self.train_igcn_model_bpr()
         else:
             self.surrogate_model = surrogate_model
+        min_loss = np.inf
         for epoch in range(self.adv_epochs):
             start_time = time.time()
             adv_loss, hit_k, adv_grads = self.get_grads(self.surrogate_model)
@@ -329,7 +330,10 @@ class GBFUG(BasicAttacker):
             if writer:
                 writer.add_scalar('{:s}/Adv_Loss'.format(self.name), adv_loss, epoch)
                 writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), hit_k, epoch)
+            if adv_loss < min_loss:
+                print('Minimal loss, save fake users.')
+                dense_fake_tensor = torch.sparse.FloatTensor(self.fake_indices, self.fake_tensor.flatten(),
+                                                             torch.Size([self.n_fakes, self.n_items])).to_dense()
+                self.fake_users = dense_fake_tensor.detach().cpu().numpy()
+                min_loss = adv_loss
             self.scheduler.step()
-        dense_fake_tensor = torch.sparse.FloatTensor(self.fake_indices, self.fake_tensor.flatten(),
-                                                     torch.Size([self.n_fakes, self.n_items])).to_dense()
-        self.fake_users = dense_fake_tensor.detach().cpu().numpy()
