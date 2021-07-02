@@ -196,7 +196,6 @@ class GBFUG(BasicAttacker):
         self.initial_lr = attacker_config['lr']
         self.train_epochs = attacker_config['train_epochs']
         self.adv_epochs = attacker_config['adv_epochs']
-        self.max_patience = attacker_config.get('max_patience', 20)
         self.weight = attacker_config['weight']
         self.unroll_steps = attacker_config['unroll_steps']
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
@@ -314,8 +313,6 @@ class GBFUG(BasicAttacker):
             self.train_igcn_model_bpr()
         else:
             self.surrogate_model = surrogate_model
-        min_loss = np.inf
-        patience = self.max_patience
         for epoch in range(self.adv_epochs):
             start_time = time.time()
             adv_loss, hit_k, adv_grads = self.get_grads(self.surrogate_model)
@@ -332,14 +329,7 @@ class GBFUG(BasicAttacker):
             if writer:
                 writer.add_scalar('{:s}/Adv_Loss'.format(self.name), adv_loss, epoch)
                 writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), hit_k, epoch)
-            if adv_loss < min_loss:
-                print('Minimal loss, save fake users.')
-                self.fake_users = self.fake_tensor.detach().cpu().numpy()
-                min_loss = adv_loss
-                patience = self.max_patience
-            else:
-                patience -= 1
-                if patience < 0:
-                    print('Early stopping!')
-                    break
             self.scheduler.step()
+        dense_fake_tensor = torch.sparse.FloatTensor(self.fake_indices, self.fake_tensor.flatten(),
+                                                     torch.Size([self.n_fakes, self.n_items])).to_dense()
+        self.fake_users = dense_fake_tensor.detach().cpu().numpy()
