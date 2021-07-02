@@ -188,7 +188,7 @@ class ReducedML1MDataset(BasicDataset):
         for line in lines:
             u, i, r, _ = line.split('::')
             u, i, r = int(u), int(i), int(r)
-            if r < 4 or u > 604 or i > 390:
+            if r < 4 or u > 900 or i > 600:
                 continue
             if u in user_inter_sets:
                 user_inter_sets[u].add(i)

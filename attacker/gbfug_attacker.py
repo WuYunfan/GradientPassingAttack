@@ -3,7 +3,7 @@ from torch.optim import Adam, SGD
 import scipy.sparse as sp
 import numpy as np
 import torch.nn as nn
-from utils import get_sparse_tensor, AverageMeter, wmw_loss, mse_loss
+from utils import get_sparse_tensor, AverageMeter, ce_loss, mse_loss
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
 import time
@@ -192,7 +192,6 @@ class GBFUG(BasicAttacker):
     def __init__(self, attacker_config):
         super(GBFUG, self).__init__(attacker_config)
         self.topk = attacker_config['topk']
-        self.b = attacker_config.get('b', 1.)
         self.candidate_item_rate = attacker_config.get('candidate_item_rate', 1.)
         self.initial_lr = attacker_config['lr']
         self.train_epochs = attacker_config['train_epochs']
@@ -270,7 +269,7 @@ class GBFUG(BasicAttacker):
         for users in self.test_user_loader:
             users = users[0]
             scores = model.predict(users, self.fake_indices, self.fake_tensor.flatten())
-            adv_loss = wmw_loss(scores, self.target_item, self.topk, self.b)
+            adv_loss = ce_loss(scores, self.target_item)
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
             adv_grads += torch.autograd.grad(adv_loss, self.fake_tensor, retain_graph=True)[0]
@@ -315,7 +314,7 @@ class GBFUG(BasicAttacker):
             self.train_igcn_model_bpr()
         else:
             self.surrogate_model = surrogate_model
-        best_hr = -np.inf
+        min_loss = np.inf
         patience = self.max_patience
         for epoch in range(self.adv_epochs):
             start_time = time.time()
@@ -333,10 +332,10 @@ class GBFUG(BasicAttacker):
             if writer:
                 writer.add_scalar('{:s}/Adv_Loss'.format(self.name), adv_loss, epoch)
                 writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), hit_k, epoch)
-            if hit_k > best_hr:
-                print('Best hit ratio, save fake users.')
+            if adv_loss < min_loss:
+                print('Minimal loss, save fake users.')
                 self.fake_users = self.fake_tensor.detach().cpu().numpy()
-                best_hr = hit_k
+                min_loss = adv_loss
                 patience = self.max_patience
             else:
                 patience -= 1

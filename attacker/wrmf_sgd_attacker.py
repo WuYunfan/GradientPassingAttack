@@ -120,7 +120,7 @@ class WRMFSGD(BasicAttacker):
         return adv_losses.avg, hrs.avg, adv_grads
 
     def generate_fake_users(self, verbose=True, writer=None):
-        best_hr = -np.inf
+        min_loss = np.inf
         patience = self.max_patience
         for epoch in range(self.adv_epochs):
             start_time = time.time()
@@ -138,10 +138,10 @@ class WRMFSGD(BasicAttacker):
             if writer:
                 writer.add_scalar('{:s}/Adv_Loss'.format(self.name), adv_loss, epoch)
                 writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), hit_k, epoch)
-            if hit_k > best_hr:
-                print('Best hit ratio, save fake users.')
+            if adv_loss < min_loss:
+                print('Minimal loss, save fake users.')
                 self.fake_users = self.fake_tensor.detach().cpu().numpy()
-                best_hr = hit_k
+                min_loss = adv_loss
                 patience = self.max_patience
             else:
                 patience -= 1
