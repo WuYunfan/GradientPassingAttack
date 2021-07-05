@@ -73,7 +73,6 @@ class ItemAESGD(BasicAttacker):
         self.train_epochs = attacker_config['train_epochs']
         self.unroll_steps = attacker_config['unroll_steps']
         self.weight = attacker_config['weight']
-        self.max_patience = attacker_config.get('max_patience', 20)
         self.topk = attacker_config['topk']
         self.initial_lr = attacker_config['lr']
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
