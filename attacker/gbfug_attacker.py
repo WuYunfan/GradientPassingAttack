@@ -27,6 +27,7 @@ class IGCN(BasicModel):
         self.feature_ratio = model_config['feature_ratio']
         self.adj = self.generate_graph(model_config['dataset'])
         self.feat, self.user_map, self.item_map = self.generate_feat(model_config['dataset'])
+        self.feat_indices = self.get_feat_indices()
 
         self.dense_layer = nn.Linear(self.feat.shape[1], self.embedding_size)
         self.init_weights()
@@ -86,6 +87,12 @@ class IGCN(BasicModel):
         feat = get_sparse_tensor(feat, self.device)
         return feat, user_map, item_map
 
+    def get_feat_indices(self):
+        feat_indices = torch.zeros([len(self.item_map)], device=self.device, dtype=torch.int64)
+        for item in self.item_map:
+            feat_indices[self.item_map[item]] = item
+        return feat_indices
+
     def dropout_sp_mat(self, mat):
         if not self.training or self.dropout == 0.:
             return mat
@@ -100,18 +107,18 @@ class IGCN(BasicModel):
         out = torch.sparse.FloatTensor(i, v, mat.shape).coalesce()
         return out
 
-    def merge_fake_users(self, feat_indices, fake_values):
+    def merge_fake_users(self, fake_tensor):
         indices, values = self.adj.indices(), self.adj.values()
-        if feat_indices is not None:
-            row = torch.arange(fake_values.shape[0], dtype=torch.int64, device=self.device)[:, None].\
+        if fake_tensor is not None:
+            row = torch.arange(fake_tensor.shape[0], dtype=torch.int64, device=self.device)[:, None].\
                 repeat(1, self.n_items).flatten()
             column = torch.arange(self.n_items, dtype=torch.int64, device=self.device).\
-                repeat(self.fake_values.shape[0])
+                repeat(fake_tensor.shape[0])
             row = row + self.n_users + self.n_items
             column = column + self.n_users
 
             indices = torch.cat([indices, torch.stack([row, column], dim=0), torch.stack([column, row], dim=0)], dim=1)
-            values = torch.cat([values, fake_values, fake_values], dim=0)
+            values = torch.cat([values, fake_tensor.flatten(), fake_tensor.flatten()], dim=0)
             n_rows = torch.max(row).item() + 1
         else:
             n_rows = self.adj.shape[0]
@@ -122,10 +129,11 @@ class IGCN(BasicModel):
         adj = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows, n_rows])).coalesce()
 
         indices, values = self.feat.indices(), self.feat.values()
-        if feat_indices is not None:
-            row = torch.arange(fake_values.shape[0], dtype=torch.int64, device=self.device)[:, None].\
-                repeat(1, feat_indices.shape[0]).flatten()
-            column = feat_indices.repeat(self.fake_values.shape[0])
+        if fake_tensor is not None:
+            row = torch.arange(fake_tensor.shape[0], dtype=torch.int64, device=self.device)[:, None].\
+                repeat(1, len(self.item_map)).flatten()
+            column = torch.arange(len(self.item_map), dtype=torch.int64, device=self.device)\
+                .repeat(fake_tensor.shape[0])
 
             new_row = torch.arange(self.n_users + self.n_items, n_rows, dtype=torch.int64, device=self.device)
             new_column = torch.tensor(len(self.user_map) + len(self.item_map), dtype=torch.int64, device=self.device)\
@@ -133,14 +141,14 @@ class IGCN(BasicModel):
             new_values = torch.tensor(1., dtype=torch.float32, device=self.device)\
                 .repeat(n_rows - self.n_users - self.n_items)
             indices = torch.cat([indices, torch.stack([row, column], dim=0), torch.stack([new_row, new_column], dim=0)], dim=1)
-            values = torch.cat([values, fake_values[:, feat_indices].flatten(), new_values], dim=0)
+            values = torch.cat([values, fake_tensor[:, self.feat_indices].flatten(), new_values], dim=0)
         degree = torch_scatter.scatter(values, indices[0, :], dim=0, reduce='sum')
         values = values / degree[indices[0, :]]
         feat = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows, self.feat.shape[1]])).coalesce()
         return adj, feat
 
-    def get_rep(self, feat_indices, fake_values):
-        adj, feat = self.merge_fake_users(feat_indices, fake_values)
+    def get_rep(self, fake_tensor):
+        adj, feat = self.merge_fake_users(fake_tensor)
 
         feat = self.dropout_sp_mat(feat)
         representations = torch_sparse.spmm(feat.indices(), feat.values(), feat.shape[0], feat.shape[1],
@@ -156,17 +164,17 @@ class IGCN(BasicModel):
         final_rep = all_layer_rep.mean(dim=0)
         return final_rep[:self.n_users + self.n_items, :]
 
-    def bpr_forward(self, users, pos_items, neg_items, fake_indices=None, fake_values=None):
-        rep = self.get_rep(fake_indices, fake_values)
+    def bpr_forward(self, users, pos_items, neg_items):
+        rep = self.get_rep(None)
         users_r = rep[users, :]
         pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
         l2_norm_sq = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2 \
                      + torch.norm(neg_items_r, p=2, dim=1) ** 2
         return users_r, pos_items_r, neg_items_r, l2_norm_sq
 
-    def predict(self, users, fake_indices=None, fake_values=None, rep=None):
+    def predict(self, users, fake_tensor=None, rep=None):
         if rep is None:
-            rep = self.get_rep(fake_indices, fake_values)
+            rep = self.get_rep(fake_tensor)
         users_r = rep[users, :]
         all_items_r = rep[self.n_users:, :]
         scores = torch.mm(users_r, all_items_r.t())
@@ -213,7 +221,6 @@ class GBFUG(BasicAttacker):
         self.surrogate_config['dataset'] = self.dataset
         self.surrogate_config['device'] = self.device
         self.surrogate_model = IGCN(self.surrogate_config)
-        self.feat_indices = self.get_feat_indices()
 
     def init_fake_data(self):
         return WRMFSGD.init_fake_data(self)
@@ -245,10 +252,10 @@ class GBFUG(BasicAttacker):
         adv_losses = AverageMeter()
         hrs = AverageMeter()
         adv_grads = torch.zeros_like(self.fake_tensor, dtype=torch.float32, device=self.device)
-        rep = model.get_rep(self.feat_indices, self.fake_tensor)
+        rep = model.get_rep(self.fake_tensor)
         for users in self.test_user_loader:
             users = users[0]
-            scores = model.predict(users, self.feat_indices, self.fake_tensor, rep)
+            scores = model.predict(users, self.fake_tensor, rep)
             adv_loss = ce_loss(scores, self.target_item)
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
@@ -257,12 +264,6 @@ class GBFUG(BasicAttacker):
             hrs.update(hr.item(), users.shape[0])
         torch.autograd.grad(adv_loss, self.fake_tensor)
         return adv_losses.avg, hrs.avg, adv_grads
-
-    def get_feat_indices(self):
-        feat_indices = torch.zeros([len(self.surrogate_model.item_map)], device=self.device, dtype=torch.int64)
-        for item in self.surrogate_model.item_map:
-            feat_indices[self.surrogate_model.item_map[item]] = item
-        return feat_indices
 
     def train_adv(self):
         self.surrogate_model.init_weights()
@@ -273,7 +274,7 @@ class GBFUG(BasicAttacker):
         for _ in range(self.train_epochs - self.unroll_steps):
             for users, profiles in self.poisoned_dataloader:
                 users = users.to(dtype=torch.int64, device=self.device)
-                scores = self.surrogate_model.predict(users, self.feat_indices, self.fake_tensor)
+                scores = self.surrogate_model.predict(users, self.fake_tensor)
                 loss = mse_loss(profiles, scores, self.device, self.weight)
                 train_opt.zero_grad()
                 loss.backward()
@@ -283,7 +284,7 @@ class GBFUG(BasicAttacker):
             for _ in range(self.unroll_steps):
                 for users, profiles in self.poisoned_dataloader:
                     users = users.to(dtype=torch.int64, device=self.device)
-                    scores = fmodel.predict(users, self.feat_indices, self.fake_tensor)
+                    scores = fmodel.predict(users, self.fake_tensor)
                     loss = mse_loss(profiles, scores, self.device, self.weight)
                     diffopt.step(loss)
             return self.get_grads(fmodel)
@@ -293,7 +294,6 @@ class GBFUG(BasicAttacker):
             self.train_igcn_model_bpr()
         else:
             self.surrogate_model = surrogate_model
-            self.feat_indices = self.get_feat_indices()
 
         min_loss = np.inf
         for epoch in range(self.adv_epochs):
