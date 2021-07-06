@@ -27,7 +27,7 @@ class IGCN(BasicModel):
         self.feature_ratio = model_config['feature_ratio']
         self.adj = self.generate_graph(model_config['dataset'])
         self.feat, self.user_map, self.item_map = self.generate_feat(model_config['dataset'])
-        self.feat_indices = self.get_feat_indices()
+        self.popular_items = self.get_popular_items()
 
         self.dense_layer = nn.Linear(self.feat.shape[1], self.embedding_size)
         self.init_weights()
@@ -87,11 +87,11 @@ class IGCN(BasicModel):
         feat = get_sparse_tensor(feat, self.device)
         return feat, user_map, item_map
 
-    def get_feat_indices(self):
-        feat_indices = torch.zeros([len(self.item_map)], device=self.device, dtype=torch.int64)
+    def get_popular_items(self):
+        popular_items = torch.zeros([len(self.item_map)], device=self.device, dtype=torch.int64)
         for item in self.item_map:
-            feat_indices[self.item_map[item]] = item
-        return feat_indices
+            popular_items[self.item_map[item]] = item
+        return popular_items
 
     def dropout_sp_mat(self, mat):
         if not self.training or self.dropout == 0.:
@@ -141,7 +141,7 @@ class IGCN(BasicModel):
             new_values = torch.tensor(1., dtype=torch.float32, device=self.device)\
                 .repeat(n_rows - self.n_users - self.n_items)
             indices = torch.cat([indices, torch.stack([row, column], dim=0), torch.stack([new_row, new_column], dim=0)], dim=1)
-            values = torch.cat([values, fake_tensor[:, self.feat_indices].flatten(), new_values], dim=0)
+            values = torch.cat([values, fake_tensor[:, self.popular_items].flatten(), new_values], dim=0)
         degree = torch_scatter.scatter(values, indices[0, :], dim=0, reduce='sum')
         values = values / degree[indices[0, :]]
         feat = torch.sparse.FloatTensor(indices, values, torch.Size([n_rows, self.feat.shape[1]])).coalesce()
