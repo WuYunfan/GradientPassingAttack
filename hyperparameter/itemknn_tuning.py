@@ -1,24 +1,24 @@
 from sklearn.model_selection import ParameterGrid
-from dataset import get_dataset
-from model import get_model
-from trainer import get_trainer
 import torch
 import numpy as np
+from dataset import get_dataset
 from utils import set_seed, init_run
+from model import get_model
+from trainer import get_trainer
 
 
 def fitness(k):
     set_seed(2021)
     device = torch.device('cuda')
-    dataset_config = {'name': 'ML1MDataset', 'min_inter': 10, 'path': 'data/ML1M',
-                      'split_ratio': [0.8, 0.2], 'device': device}
+    dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',
+                      'device': device}
     model_config = {'name': 'ItemKNN', 'k': k, 'device': device}
     trainer_config = {'name': 'BasicTrainer',  'device': device, 'n_epochs': 0,
-                      'test_batch_size': 512, 'topks': [20, 100]}
+                      'test_batch_size': 512, 'topks': [20]}
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, dataset, model)
-    return trainer.train()
+    return trainer.train(verbose=True)
 
 
 def main():

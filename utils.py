@@ -36,6 +36,17 @@ def get_sparse_tensor(mat, device):
     return sp_tensor
 
 
+def generate_daj_mat(dataset):
+    train_array = np.array(dataset.train_array)
+    users, items = train_array[:, 0], train_array[:, 1]
+    row = np.concatenate([users, items + dataset.n_users], axis=0)
+    column = np.concatenate([items + dataset.n_users, users], axis=0)
+    adj_mat = sp.coo_matrix((np.ones(row.shape), np.stack([row, column], axis=0)),
+                            shape=(dataset.n_users + dataset.n_items, dataset.n_users + dataset.n_items),
+                            dtype=np.float32).tocsr()
+    return adj_mat
+
+
 class AverageMeter:
     def __init__(self):
         self.avg = 0.
@@ -83,12 +94,12 @@ def mse_loss(profiles, scores, device, weight):
 
 def ce_loss(scores, target_item):
     log_probs = F.log_softmax(scores, dim=1)
-    return -log_probs[:, target_item].sum()
+    return -log_probs[:, target_item].mean()
 
 
 def wmw_loss(scores, target_item, topk, b):
     top_scores, _ = scores.topk(topk, dim=1)
     target_scores = scores[:, target_item]
     loss = top_scores - target_scores[:, None]
-    loss = torch.sigmoid(loss / b).mean(dim=1).sum()
+    loss = torch.sigmoid(loss / b).mean()
     return loss

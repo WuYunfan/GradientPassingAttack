@@ -1,17 +1,14 @@
 import torch
 import sys
-from dataset import ML1MDataset
-from model import MF, LightGCN
 from torch.utils.data import TensorDataset, DataLoader
 from torch.optim import Adam, SGD
-from torch.optim.adagrad import Adagrad
 import time
 import numpy as np
 import os
 from utils import AverageMeter, get_sparse_tensor
 import torch.nn.functional as F
 import scipy.sparse as sp
-from utils import mse_loss
+from dataset import AuxiliaryDataset
 
 
 def get_trainer(config, dataset, model):
@@ -38,9 +35,14 @@ class BasicTrainer:
         self.epoch = 0
         self.best_ndcg = -np.inf
         self.save_path = None
+        self.opt = None
 
         test_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_user, batch_size=trainer_config['test_batch_size'])
+
+    def initialize_optimizer(self):
+        opt = getattr(sys.modules[__name__], self.config['optimizer'])
+        self.opt = opt(self.model.parameters(), lr=self.config['lr'])
 
     def train_one_epoch(self):
         raise NotImplementedError
@@ -135,20 +137,23 @@ class BasicTrainer:
             results['NDCG'][k] = ndcgs[user_masks].mean()
         return results
 
-    def get_rec_items(self, train_or_val):
+    def eval(self, val_or_test):
         self.model.eval()
+        eval_data = getattr(self.dataset, val_or_test + '_data')
         rec_items = []
         with torch.no_grad():
             for users in self.test_user_loader:
                 users = users[0]
                 scores = self.model.predict(users)
 
-                if train_or_val != 'train':
+                if val_or_test != 'train':
                     users = users.cpu().numpy().tolist()
                     exclude_user_indexes = []
                     exclude_items = []
                     for user_idx, user in enumerate(users):
                         items = self.dataset.train_data[user]
+                        if val_or_test == 'test':
+                            items = items + self.dataset.val_data[user]
                         exclude_user_indexes.extend([user_idx] * len(items))
                         exclude_items.extend(items)
                     scores[exclude_user_indexes, exclude_items] = -np.inf
@@ -157,11 +162,6 @@ class BasicTrainer:
                 rec_items.append(items.cpu().numpy())
 
         rec_items = np.concatenate(rec_items, axis=0)
-        return rec_items
-
-    def eval(self, train_or_val):
-        eval_data = getattr(self.dataset, train_or_val + '_data')
-        rec_items = self.get_rec_items(train_or_val)
         metrics = self.calculate_metrics(eval_data, rec_items)
 
         precison = ''
@@ -181,8 +181,7 @@ class BPRTrainer(BasicTrainer):
 
         self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
                                      num_workers=trainer_config['dataloader_num_workers'])
-        self.opt = getattr(sys.modules[__name__], trainer_config['optimizer'])
-        self.opt = self.opt(self.model.parameters(), lr=trainer_config['lr'])
+        self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
 
     def train_one_epoch(self):
@@ -205,88 +204,13 @@ class BPRTrainer(BasicTrainer):
         return losses.avg
 
 
-class MSETrainer(BasicTrainer):
-    def __init__(self, trainer_config):
-        super(MSETrainer, self).__init__(trainer_config)
-        self.weight = trainer_config['weight']
-
-        train_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
-        self.train_user_loader = DataLoader(train_user, batch_size=trainer_config['batch_size'], shuffle=True)
-        self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
-                                      shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsr()
-        self.opt = getattr(sys.modules[__name__], trainer_config['optimizer'])
-        self.opt = self.opt(self.model.parameters(), lr=trainer_config['lr'], weight_decay=trainer_config['l2_reg'])
-
-    def train_one_epoch(self):
-        losses = AverageMeter()
-        for users in self.train_user_loader:
-            users = users[0]
-            profiles = torch.tensor(self.data_mat[users.cpu().numpy(), :].toarray(),
-                                    dtype=torch.float32, device=self.device)
-            scores = self.model.predict(users)
-            loss = mse_loss(profiles, scores, self.device, self.weight)
-            self.opt.zero_grad()
-            loss.backward()
-            self.opt.step()
-            losses.update(loss.item(), users.shape[0])
-        return losses.avg
-
-
-class BCETrainer(BasicTrainer):
-    def __init__(self, trainer_config):
-        super(BCETrainer, self).__init__(trainer_config)
-
-        self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
-                                     num_workers=trainer_config['dataloader_num_workers'])
-        self.opt = getattr(sys.modules[__name__], trainer_config['optimizer'])
-        self.opt = self.opt(self.model.parameters(), lr=trainer_config['lr'])
-        self.l2_reg = trainer_config['l2_reg']
-        self.mf_pretrain_epochs = trainer_config['mf_pretrain_epochs']
-        self.mlp_pretrain_epochs = trainer_config['mlp_pretrain_epochs']
-
-    def train_one_epoch(self):
-        if self.epoch == self.mf_pretrain_epochs:
-            self.model.arch = 'mlp'
-            self.best_ndcg = -np.inf
-            self.model.load(self.save_path)
-        if self.epoch == self.mf_pretrain_epochs + self.mlp_pretrain_epochs:
-            self.model.arch = 'neumf'
-            self.opt = getattr(sys.modules[__name__], self.config['optimizer'])
-            self.opt = self.opt(self.model.parameters(), lr=self.config['lr'])
-            self.best_ndcg = -np.inf
-            self.model.load(self.save_path)
-            self.model.init_mlp_layers()
-        losses = AverageMeter()
-        for batch_data in self.dataloader:
-            inputs = batch_data.to(device=self.device, dtype=torch.int64)
-            users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
-            logits, l2_norm_sq_p = self.model.bce_forward(users, pos_items)
-            bce_loss_p = F.softplus(-logits)
-
-            inputs = inputs.reshape(-1, 3)
-            users, neg_items = inputs[:, 0], inputs[:, 2]
-            logits, l2_norm_sq_n = self.model.bce_forward(users, neg_items)
-            bce_loss_n = F.softplus(logits)
-
-            bce_loss = torch.cat([bce_loss_p, bce_loss_n], dim=0).mean()
-            l2_norm_sq = torch.cat([l2_norm_sq_p, l2_norm_sq_n], dim=0)
-            reg_loss = self.l2_reg * l2_norm_sq.mean()
-            loss = bce_loss + reg_loss
-            self.opt.zero_grad()
-            loss.backward()
-            self.opt.step()
-            losses.update(loss.item(), l2_norm_sq.shape[0])
-        return losses.avg
-
-
 class APRTrainer(BasicTrainer):
     def __init__(self, trainer_config):
         super(APRTrainer, self).__init__(trainer_config)
 
         self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
                                      num_workers=trainer_config['dataloader_num_workers'])
-        self.opt = getattr(sys.modules[__name__], trainer_config['optimizer'])
-        self.opt = self.opt(self.model.parameters(), lr=trainer_config['lr'])
+        self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
         self.adv_reg = trainer_config['adv_reg']
         self.eps = trainer_config['eps']
@@ -321,6 +245,94 @@ class APRTrainer(BasicTrainer):
         return losses.avg
 
 
+class IGCNTrainer(BasicTrainer):
+    def __init__(self, trainer_config):
+        super(IGCNTrainer, self).__init__(trainer_config)
+
+        self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
+                                     num_workers=trainer_config['dataloader_num_workers'])
+        self.aux_dataloader = DataLoader(AuxiliaryDataset(self.dataset, self.model.user_map, self.model.item_map),
+                                         batch_size=trainer_config['batch_size'],
+                                         num_workers=trainer_config['dataloader_num_workers'])
+        self.initialize_optimizer()
+        self.l2_reg = trainer_config['l2_reg']
+        self.aux_reg = trainer_config['aux_reg']
+
+    def train_one_epoch(self):
+        losses = AverageMeter()
+        for batch_data, a_batch_data in zip(self.dataloader, self.aux_dataloader):
+            inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
+            users, pos_items, neg_items = inputs[:, 0],  inputs[:, 1],  inputs[:, 2]
+            users_r, pos_items_r, neg_items_r, l2_norm_sq = self.model.bpr_forward(users, pos_items, neg_items)
+            pos_scores = torch.sum(users_r * pos_items_r, dim=1)
+            neg_scores = torch.sum(users_r * neg_items_r, dim=1)
+            bpr_loss = F.softplus(neg_scores - pos_scores).mean()
+
+            inputs = a_batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
+            users, pos_items, neg_items = inputs[:, 0],  inputs[:, 1],  inputs[:, 2]
+            users_r = self.model.embedding(users)
+            pos_items_r = self.model.embedding(pos_items + len(self.model.user_map))
+            neg_items_r = self.model.embedding(neg_items + len(self.model.user_map))
+            pos_scores = torch.sum(users_r * pos_items_r * self.model.w[None, :], dim=1)
+            neg_scores = torch.sum(users_r * neg_items_r * self.model.w[None, :], dim=1)
+            aux_loss = F.softplus(neg_scores - pos_scores).mean()
+
+            reg_loss = self.l2_reg * l2_norm_sq.mean() + self.aux_reg * aux_loss
+            loss = bpr_loss + reg_loss
+            self.opt.zero_grad()
+            loss.backward()
+            self.opt.step()
+            losses.update(loss.item(), inputs.shape[0])
+        self.model.feat_mat_anneal()
+        return losses.avg
+
+
+class BCETrainer(BasicTrainer):
+    def __init__(self, trainer_config):
+        super(BCETrainer, self).__init__(trainer_config)
+
+        self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
+                                     num_workers=trainer_config['dataloader_num_workers'])
+        self.initialize_optimizer()
+        self.l2_reg = trainer_config['l2_reg']
+        self.mf_pretrain_epochs = trainer_config['mf_pretrain_epochs']
+        self.mlp_pretrain_epochs = trainer_config['mlp_pretrain_epochs']
+
+    def train_one_epoch(self):
+        if self.epoch == self.mf_pretrain_epochs:
+            self.model.arch = 'mlp'
+            self.initialize_optimizer()
+            self.best_ndcg = -np.inf
+            self.model.load(self.save_path)
+        if self.epoch == self.mf_pretrain_epochs + self.mlp_pretrain_epochs:
+            self.model.arch = 'neumf'
+            self.initialize_optimizer()
+            self.best_ndcg = -np.inf
+            self.model.load(self.save_path)
+            self.model.init_mlp_layers()
+        losses = AverageMeter()
+        for batch_data in self.dataloader:
+            inputs = batch_data.to(device=self.device, dtype=torch.int64)
+            users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
+            logits, l2_norm_sq_p = self.model.bce_forward(users, pos_items)
+            bce_loss_p = F.softplus(-logits)
+
+            inputs = inputs.reshape(-1, 3)
+            users, neg_items = inputs[:, 0], inputs[:, 2]
+            logits, l2_norm_sq_n = self.model.bce_forward(users, neg_items)
+            bce_loss_n = F.softplus(logits)
+
+            bce_loss = torch.cat([bce_loss_p, bce_loss_n], dim=0).mean()
+            l2_norm_sq = torch.cat([l2_norm_sq_p, l2_norm_sq_n], dim=0)
+            reg_loss = self.l2_reg * l2_norm_sq.mean()
+            loss = bce_loss + reg_loss
+            self.opt.zero_grad()
+            loss.backward()
+            self.opt.step()
+            losses.update(loss.item(), l2_norm_sq.shape[0])
+        return losses.avg
+
+
 class MLTrainer(BasicTrainer):
     def __init__(self, trainer_config):
         super(MLTrainer, self).__init__(trainer_config)
@@ -329,15 +341,12 @@ class MLTrainer(BasicTrainer):
         self.train_user_loader = DataLoader(train_user, batch_size=trainer_config['batch_size'], shuffle=True)
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsr()
-        self.opt = getattr(sys.modules[__name__], trainer_config['optimizer'])
-        self.opt = self.opt(self.model.parameters(), lr=trainer_config['lr'])
+        self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
         self.kl_reg = trainer_config['kl_reg']
-        anneal_step_ratio = trainer_config.get('anneal_step_ratio', 0.5)
-        self.anneal_epochs = int(anneal_step_ratio * self.n_epochs)
 
     def train_one_epoch(self):
-        kl_reg = min(self.kl_reg, 1. * self.epoch / self.anneal_epochs)
+        kl_reg = min(self.kl_reg, 1. * self.epoch / self.n_epochs)
 
         losses = AverageMeter()
         for users in self.train_user_loader:
@@ -357,4 +366,3 @@ class MLTrainer(BasicTrainer):
             self.opt.step()
             losses.update(loss.item(), users.shape[0])
         return losses.avg
-

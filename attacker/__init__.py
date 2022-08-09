@@ -1,6 +1,5 @@
 import sys
 from attacker.wrmf_sgd_attacker import WRMFSGD
-from attacker.gbfug_attacker import GBFUG
 from attacker.heuristic import RandomAttacker
 from attacker.heuristic import BandwagonAttacker
 from attacker.basic_attacker import BasicAttacker

@@ -1,26 +1,26 @@
 from sklearn.model_selection import ParameterGrid
-from dataset import get_dataset
-from model import get_model
-from trainer import get_trainer
 import torch
 import numpy as np
+from dataset import get_dataset
 from utils import set_seed, init_run
+from model import get_model
+from trainer import get_trainer
 
 
 def fitness(lr, l2_reg):
     set_seed(2021)
     device = torch.device('cuda')
-    dataset_config = {'name': 'ML1MDataset', 'min_inter': 10, 'path': 'data/ML1M',
-                      'split_ratio': [0.8, 0.2], 'device': device, 'neg_ratio': 4}
-    model_config = {'name': 'NeuMF', 'embedding_size': 64, 'layer_sizes': [64, 64, 64], 'device': device}
+    dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',
+                      'device': device, 'neg_ratio': 4}
+    model_config = {'name': 'NeuMF', 'embedding_size': 64, 'device': device, 'layer_sizes': [64, 64, 64]}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': lr, 'l2_reg': l2_reg,
-                      'device': device, 'n_epochs': 400, 'batch_size': 2048, 'dataloader_num_workers': 6,
-                      'test_batch_size': 64, 'topks': [20, 100], 'mf_pretrain_epochs': 100,
+                      'device': device, 'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6,
+                      'test_batch_size': 64, 'topks': [20], 'mf_pretrain_epochs': 100,
                       'mlp_pretrain_epochs': 100, 'max_patience': 100}
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, dataset, model)
-    return trainer.train()
+    return trainer.train(verbose=True)
 
 
 def main():

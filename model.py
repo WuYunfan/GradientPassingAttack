@@ -2,11 +2,15 @@ import torch
 import torch.nn as nn
 import scipy.sparse as sp
 import numpy as np
-from utils import get_sparse_tensor
-from torch.nn.init import kaiming_uniform_, calculate_gain, normal_, zeros_, ones_
+from utils import get_sparse_tensor, generate_daj_mat
+from torch.nn.init import kaiming_uniform_, xavier_normal, normal_, zeros_, ones_
 import sys
 import torch.nn.functional as F
 from sklearn.preprocessing import normalize
+from torch.utils.checkpoint import checkpoint
+import dgl
+import multiprocessing as mp
+import time
 
 
 def get_model(config, dataset):
@@ -15,6 +19,13 @@ def get_model(config, dataset):
     model = getattr(sys.modules['model'], config['name'])
     model = model(config)
     return model
+
+
+def init_one_layer(in_features, out_features):
+    layer = nn.Linear(in_features, out_features)
+    kaiming_uniform_(layer.weight)
+    zeros_(layer.bias)
+    return layer
 
 
 class BasicModel(nn.Module):
@@ -35,7 +46,7 @@ class BasicModel(nn.Module):
         torch.save(self.state_dict(), path)
 
     def load(self, path):
-        self.load_state_dict(torch.load(path))
+        self.load_state_dict(torch.load(path, map_location=self.device))
 
 
 class MF(BasicModel):
@@ -51,7 +62,7 @@ class MF(BasicModel):
     def bpr_forward(self, users, pos_items, neg_items):
         users_e = self.user_embedding(users)
         pos_items_e, neg_items_e = self.item_embedding(pos_items), self.item_embedding(neg_items)
-        l2_norm_sq = torch.norm(users_e, p=2, dim=1) ** 2 +torch.norm(pos_items_e, p=2, dim=1) ** 2 \
+        l2_norm_sq = torch.norm(users_e, p=2, dim=1) ** 2 + torch.norm(pos_items_e, p=2, dim=1) ** 2 \
                      + torch.norm(neg_items_e, p=2, dim=1) ** 2
         return users_e, pos_items_e, neg_items_e, l2_norm_sq
 
@@ -72,12 +83,7 @@ class LightGCN(BasicModel):
         self.to(device=self.device)
 
     def generate_graph(self, dataset):
-        sub_mat = sp.coo_matrix((np.ones((len(dataset.train_array),)), np.array(dataset.train_array).T),
-                                shape=(self.n_users, self.n_items), dtype=np.float32)
-        adj_mat = sp.lil_matrix((self.n_users + self.n_items, self.n_users + self.n_items), dtype=np.float32)
-        adj_mat[:self.n_users, self.n_users:] = sub_mat
-        adj_mat[self.n_users:, :self.n_users] = sub_mat.T
-        adj_mat.tocsr()
+        adj_mat = generate_daj_mat(dataset)
         degree = np.array(np.sum(adj_mat, axis=1)).squeeze()
         degree = np.maximum(1., degree)
         d_inv = np.power(degree, -0.5)
@@ -90,8 +96,10 @@ class LightGCN(BasicModel):
     def get_rep(self):
         representations = self.embedding.weight
         all_layer_rep = [representations]
+        row, column = self.norm_adj.indices()
+        g = dgl.graph((column, row), num_nodes=self.norm_adj.shape[0], device=self.device)
         for _ in range(self.n_layers):
-            representations = torch.sparse.mm(self.norm_adj, representations)
+            representations = dgl.ops.gspmm(g, 'mul', 'sum', lhs_data=representations, rhs_data=self.norm_adj.values())
             all_layer_rep.append(representations)
         all_layer_rep = torch.stack(all_layer_rep, dim=0)
         final_rep = all_layer_rep.mean(dim=0)
@@ -148,9 +156,9 @@ class ItemKNN(BasicModel):
         return scores
 
 
-class Popular(BasicModel):
+class Popularity(BasicModel):
     def __init__(self, model_config):
-        super(Popular, self).__init__(model_config)
+        super(Popularity, self).__init__(model_config)
         self.item_degree = self.calculate_degree(model_config['dataset'])
         self.trainable = False
 
@@ -162,6 +170,122 @@ class Popular(BasicModel):
 
     def predict(self, users):
         return self.item_degree[None, :].repeat(users.shape[0], 1)
+
+
+class IGCN(BasicModel):
+    def __init__(self, model_config):
+        super(IGCN, self).__init__(model_config)
+        self.embedding_size = model_config['embedding_size']
+        self.n_layers = model_config['n_layers']
+        self.dropout = model_config['dropout']
+        self.norm_adj = self.generate_graph(model_config['dataset'])
+        self.alpha = 1.
+        self.delta = model_config.get('delta', 0.99)
+        self.feat_mat, self.row_sum = self.generate_feat(model_config['dataset'])
+        self.update_feat_mat()
+
+        self.embedding = nn.Embedding(self.feat_mat.shape[1], self.embedding_size)
+        self.w = nn.Parameter(torch.ones([self.embedding_size], dtype=torch.float32, device=self.device))
+        normal_(self.embedding.weight, std=0.1)
+        self.to(device=self.device)
+
+    def update_feat_mat(self):
+        row, _ = self.feat_mat.indices()
+        edge_values = torch.pow(self.row_sum[row], (self.alpha - 1.) / 2. - 0.5)
+        self.feat_mat = torch.sparse.FloatTensor(self.feat_mat.indices(), edge_values, self.feat_mat.shape).coalesce()
+
+    def feat_mat_anneal(self):
+        self.alpha *= self.delta
+        self.update_feat_mat()
+
+    def generate_graph(self, dataset):
+        return LightGCN.generate_graph(self, dataset)
+
+    def generate_feat(self, dataset):
+        indices = []
+        for user, item in dataset.train_array:
+            indices.append([user, self.n_users + item])
+            indices.append([self.n_users + item, user])
+        for user in range(self.n_users):
+            indices.append([user, self.n_users + self.n_items])
+        for item in range(self.n_items):
+            indices.append([self.n_users + item, self.n_users + self.n_items + 1])
+        feat = sp.coo_matrix((np.ones((len(indices),)), np.array(indices).T),
+                             shape=(self.n_users + self.n_items, self.n_users + self.n_items + 2), dtype=np.float32).tocsr()
+        row_sum = torch.tensor(np.array(np.sum(feat, axis=1)).squeeze(), dtype=torch.float32, device=self.device)
+        feat = get_sparse_tensor(feat, self.device)
+        return feat, row_sum
+
+    def inductive_rep_layer(self, feat_mat):
+        padding_tensor = torch.empty([max(self.feat_mat.shape) - self.feat_mat.shape[1], self.embedding_size],
+                                     dtype=torch.float32, device=self.device)
+        padding_features = torch.cat([self.embedding.weight, padding_tensor], dim=0)
+
+        row, column = feat_mat.indices()
+        g = dgl.graph((column, row), num_nodes=max(self.feat_mat.shape), device=self.device)
+        x = dgl.ops.gspmm(g, 'mul', 'sum', lhs_data=padding_features, rhs_data=feat_mat.values())
+        x = x[:self.feat_mat.shape[0], :]
+        return x
+
+    def dropout_sp_mat(self, mat):
+        if not self.training:
+            return mat
+        random_tensor = 1 - self.dropout
+        random_tensor += torch.rand(mat._nnz()).to(self.device)
+        dropout_mask = torch.floor(random_tensor).type(torch.bool)
+        i = mat.indices()
+        v = mat.values()
+
+        i = i[:, dropout_mask]
+        v = v[dropout_mask] / (1. - self.dropout)
+        out = torch.sparse.FloatTensor(i, v, mat.shape).coalesce()
+        return out
+
+    def get_rep(self):
+        feat_mat = self.dropout_sp_mat(self.feat_mat)
+        representations = self.inductive_rep_layer(feat_mat)
+
+        all_layer_rep = [representations]
+        row, column = self.norm_adj.indices()
+        g = dgl.graph((column, row), num_nodes=self.norm_adj.shape[0], device=self.device)
+        for _ in range(self.n_layers):
+            representations = dgl.ops.gspmm(g, 'mul', 'sum', lhs_data=representations, rhs_data=self.norm_adj.values())
+            all_layer_rep.append(representations)
+        all_layer_rep = torch.stack(all_layer_rep, dim=0)
+        final_rep = all_layer_rep.mean(dim=0)
+        return final_rep
+
+    def bpr_forward(self, users, pos_items, neg_items):
+        rep = self.get_rep()
+        users_r = rep[users, :]
+        pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
+        l2_norm_sq = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2 \
+                     + torch.norm(neg_items_r, p=2, dim=1) ** 2
+        return users_r, pos_items_r, neg_items_r, l2_norm_sq
+
+    def predict(self, users):
+        return LightGCN.predict(self, users)
+
+    def save(self, path):
+        params = {'sate_dict': self.state_dict(),  'alpha': self.alpha}
+        torch.save(params, path)
+
+    def load(self, path):
+        params = torch.load(path, map_location=self.device)
+        self.load_state_dict(params['sate_dict'])
+        self.alpha = params['alpha']
+        self.feat_mat, self.row_sum = self.generate_feat(self.config['dataset'])
+        self.update_feat_mat()
+
+
+class IMF(IGCN):
+    def __init__(self, model_config):
+        super(IMF, self).__init__(model_config)
+
+    def get_rep(self):
+        feat_mat = self.dropout_sp_mat(self.feat_mat)
+        representations = IGCN.inductive_rep_layer(self, feat_mat)
+        return representations
 
 
 class MultiVAE(BasicModel):
@@ -178,18 +302,12 @@ class MultiVAE(BasicModel):
         self.encoder_layers = []
         self.decoder_layers = []
         for layer_idx in range(1, len(self.e_layer_sizes)):
-            encoder_layer = nn.Linear(self.e_layer_sizes[layer_idx - 1], self.e_layer_sizes[layer_idx])
+            encoder_layer = init_one_layer(self.e_layer_sizes[layer_idx - 1], self.e_layer_sizes[layer_idx])
             self.encoder_layers.append(encoder_layer)
-            decoder_layer = nn.Linear(self.d_layer_sizes[layer_idx - 1], self.d_layer_sizes[layer_idx])
+            decoder_layer = init_one_layer(self.d_layer_sizes[layer_idx - 1], self.d_layer_sizes[layer_idx])
             self.decoder_layers.append(decoder_layer)
         self.encoder_layers = nn.ModuleList(self.encoder_layers)
         self.decoder_layers = nn.ModuleList(self.decoder_layers)
-        for layer in self.encoder_layers:
-            kaiming_uniform_(layer.weight, nonlinearity='tanh')
-            zeros_(layer.bias)
-        for layer in self.decoder_layers:
-            kaiming_uniform_(layer.weight, nonlinearity='tanh')
-            zeros_(layer.bias)
         self.to(device=self.device)
 
     def get_data_mat(self, dataset):
@@ -199,26 +317,12 @@ class MultiVAE(BasicModel):
         normalized_data_mat = normalize(data_mat, axis=1, norm='l2')
         return normalized_data_mat
 
-    def dropout_sp_mat(self, mat):
-        if not self.training:
-            return mat
-        random_tensor = 1 - self.dropout
-        random_tensor += torch.rand(mat._nnz()).to(self.device)
-        dropout_mask = torch.floor(random_tensor).type(torch.bool)
-        i = mat.indices()
-        v = mat.values()
-
-        i = i[:, dropout_mask]
-        v = v[dropout_mask] / (1. - self.dropout)
-        out = torch.sparse.FloatTensor(i, v, mat.shape).coalesce()
-        return out
-
     def ml_forward(self, users):
         users = users.cpu().numpy()
         profiles = self.normalized_data_mat[users, :]
         representations = get_sparse_tensor(profiles, self.device)
 
-        representations = self.dropout_sp_mat(representations)
+        representations = NGCF.dropout_sp_mat(self, representations)
         representations = torch.sparse.mm(representations, self.encoder_layers[0].weight.t())
         representations += self.encoder_layers[0].bias[None, :]
         l2_norm_sq = torch.norm(self.encoder_layers[0].weight, p=2)[None] ** 2
@@ -241,6 +345,9 @@ class MultiVAE(BasicModel):
 
     def predict(self, users):
         scores, _, _ = self.ml_forward(users)
+        if scores.shape[1] < self.n_items:
+            padding = torch.full([scores.shape[0], self.n_items - scores.shape[1]], -np.inf, device=self.device)
+            scores = torch.cat([scores, padding], dim=1)
         return scores
 
 
@@ -260,31 +367,28 @@ class NeuMF(BasicModel):
         self.mlp_layers = nn.ModuleList(self.mlp_layers)
         self.output_layer = nn.Linear(self.layer_sizes[-1] + self.embedding_size, 1, bias=False)
 
-        normal_(self.mf_user_embedding.weight, std=0.1)
-        normal_(self.mf_item_embedding.weight, std=0.1)
-        normal_(self.mlp_user_embedding.weight, std=0.1)
-        normal_(self.mlp_item_embedding.weight, std=0.1)
+        kaiming_uniform_(self.mf_user_embedding.weight)
+        kaiming_uniform_(self.mf_item_embedding.weight)
+        kaiming_uniform_(self.mlp_user_embedding.weight)
+        kaiming_uniform_(self.mlp_item_embedding.weight)
         self.init_mlp_layers()
         self.arch = 'gmf'
         self.to(device=self.device)
 
     def init_mlp_layers(self):
         for layer in self.mlp_layers:
-            kaiming_uniform_(layer.weight, nonlinearity='leaky_relu')
+            kaiming_uniform_(layer.weight)
             zeros_(layer.bias)
         ones_(self.output_layer.weight)
 
     def bce_forward(self, users, items):
         users_mf_e, items_mf_e = self.mf_user_embedding(users), self.mf_item_embedding(items)
         users_mlp_e, items_mlp_e = self.mlp_user_embedding(users), self.mlp_item_embedding(items)
-        l2_norm_sq = torch.norm(users_mf_e, p=2, dim=1) ** 2 + torch.norm(items_mf_e, p=2, dim=1) ** 2 \
-                     + torch.norm(users_mlp_e, p=2, dim=1) ** 2 + torch.norm(items_mlp_e, p=2, dim=1) ** 2
 
         mf_vectors = users_mf_e * items_mf_e
         mlp_vectors = torch.cat([users_mlp_e, items_mlp_e], dim=1)
         for layer in self.mlp_layers:
             mlp_vectors = F.leaky_relu(layer(mlp_vectors))
-            l2_norm_sq += torch.norm(layer.weight, p=2)[None] ** 2
 
         if self.arch == 'gmf':
             vectors = [mf_vectors, torch.zeros_like(mlp_vectors, device=self.device, dtype=torch.float32)]
@@ -293,8 +397,9 @@ class NeuMF(BasicModel):
         else:
             vectors = [mf_vectors, mlp_vectors]
         predict_vectors = torch.cat(vectors, dim=1)
-        scores = self.output_layer(predict_vectors).squeeze()
-        l2_norm_sq += torch.norm(self.output_layer.weight, p=2)[None] ** 2
+        scores = predict_vectors * self.output_layer.weight
+        l2_norm_sq = torch.norm(scores, p=2, dim=1) ** 2
+        scores = scores.sum(dim=1)
         return scores, l2_norm_sq
 
     def predict(self, users):
@@ -303,5 +408,3 @@ class NeuMF(BasicModel):
         scores, _ = self.bce_forward(users, items)
         scores = scores.reshape(-1, self.n_items)
         return scores
-
-

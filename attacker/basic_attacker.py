@@ -55,26 +55,11 @@ class BasicAttacker:
             print('Target Item: {:d}'.format(self.target_item))
             print('Attack result. {:s}'.format(results))
 
-        ndcg = metrics['NDCG'][self.trainer.topks[0]]
-        return ndcg
+        hr = metrics['Recall'][self.trainer.topks[0]]
+        return hr
 
 
-class PoisonedDataset(Dataset):
-    def __init__(self, data_mat, fake_tensor, device):
-        self.data_mat = data_mat
-        self.fake_tensor = fake_tensor
-        self.device = device
-        self.n_users = data_mat.shape[0]
-        self.n_fakes = fake_tensor.shape[0]
 
-    def __len__(self):
-        return self.n_users + self.n_fakes
-
-    def __getitem__(self, index):
-        if index < self.n_users:
-            return index, \
-                   torch.tensor(self.data_mat[index, :].toarray().squeeze(), dtype=torch.float32, device=self.device)
-        return index, self.fake_tensor[index - self.n_users, :]
 
 
 
