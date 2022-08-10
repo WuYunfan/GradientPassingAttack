@@ -322,7 +322,7 @@ class MultiVAE(BasicModel):
         profiles = self.normalized_data_mat[users, :]
         representations = get_sparse_tensor(profiles, self.device)
 
-        representations = NGCF.dropout_sp_mat(self, representations)
+        representations = IGCN.dropout_sp_mat(self, representations)
         representations = torch.sparse.mm(representations, self.encoder_layers[0].weight.t())
         representations += self.encoder_layers[0].bias[None, :]
         l2_norm_sq = torch.norm(self.encoder_layers[0].weight, p=2)[None] ** 2

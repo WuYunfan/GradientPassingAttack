@@ -22,9 +22,9 @@ class BasicAttacker:
         self.trainer = None
 
     def generate_fake_users(self, verbose=True, writer=None):
-        raise NotImplementedError
+        self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)
 
-    def eval(self, model_config, trainer_config, verbose=True, writer=None, retrain=True):
+    def eval(self, dataset_config, model_config, trainer_config, verbose=True, writer=None, retrain=True):
         if self.dataset.attack_data is None:
             self.dataset.attack_data = [[] for _ in range(self.n_users)]
             for u in range(self.n_users):
@@ -40,6 +40,7 @@ class BasicAttacker:
             self.dataset.n_users += self.n_fakes
 
         if self.model is None or retrain:
+            self.dataset.negative_sample_ratio = dataset_config['neg_ratio']
             self.model = get_model(model_config, self.dataset)
             self.trainer = get_trainer(trainer_config, self.dataset, self.model)
             self.trainer.train(verbose=verbose, writer=writer)
