@@ -156,138 +156,6 @@ class ItemKNN(BasicModel):
         return scores
 
 
-class Popularity(BasicModel):
-    def __init__(self, model_config):
-        super(Popularity, self).__init__(model_config)
-        self.item_degree = self.calculate_degree(model_config['dataset'])
-        self.trainable = False
-
-    def calculate_degree(self, dataset):
-        data_mat = sp.coo_matrix((np.ones((len(dataset.train_array),)), np.array(dataset.train_array).T),
-                                 shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
-        item_degree = np.array(np.sum(data_mat, axis=0)).squeeze()
-        return torch.tensor(item_degree, dtype=torch.float32, device=self.device)
-
-    def predict(self, users):
-        return self.item_degree[None, :].repeat(users.shape[0], 1)
-
-
-class IGCN(BasicModel):
-    def __init__(self, model_config):
-        super(IGCN, self).__init__(model_config)
-        self.embedding_size = model_config['embedding_size']
-        self.n_layers = model_config['n_layers']
-        self.dropout = model_config['dropout']
-        self.norm_adj = self.generate_graph(model_config['dataset'])
-        self.alpha = 1.
-        self.delta = model_config.get('delta', 0.99)
-        self.feat_mat, self.row_sum = self.generate_feat(model_config['dataset'])
-        self.update_feat_mat()
-
-        self.embedding = nn.Embedding(self.feat_mat.shape[1], self.embedding_size)
-        self.w = nn.Parameter(torch.ones([self.embedding_size], dtype=torch.float32, device=self.device))
-        normal_(self.embedding.weight, std=0.1)
-        self.to(device=self.device)
-
-    def update_feat_mat(self):
-        row, _ = self.feat_mat.indices()
-        edge_values = torch.pow(self.row_sum[row], (self.alpha - 1.) / 2. - 0.5)
-        self.feat_mat = torch.sparse.FloatTensor(self.feat_mat.indices(), edge_values, self.feat_mat.shape).coalesce()
-
-    def feat_mat_anneal(self):
-        self.alpha *= self.delta
-        self.update_feat_mat()
-
-    def generate_graph(self, dataset):
-        return LightGCN.generate_graph(self, dataset)
-
-    def generate_feat(self, dataset):
-        indices = []
-        for user, item in dataset.train_array:
-            indices.append([user, self.n_users + item])
-            indices.append([self.n_users + item, user])
-        for user in range(self.n_users):
-            indices.append([user, self.n_users + self.n_items])
-        for item in range(self.n_items):
-            indices.append([self.n_users + item, self.n_users + self.n_items + 1])
-        feat = sp.coo_matrix((np.ones((len(indices),)), np.array(indices).T),
-                             shape=(self.n_users + self.n_items, self.n_users + self.n_items + 2), dtype=np.float32).tocsr()
-        row_sum = torch.tensor(np.array(np.sum(feat, axis=1)).squeeze(), dtype=torch.float32, device=self.device)
-        feat = get_sparse_tensor(feat, self.device)
-        return feat, row_sum
-
-    def inductive_rep_layer(self, feat_mat):
-        padding_tensor = torch.empty([max(self.feat_mat.shape) - self.feat_mat.shape[1], self.embedding_size],
-                                     dtype=torch.float32, device=self.device)
-        padding_features = torch.cat([self.embedding.weight, padding_tensor], dim=0)
-
-        row, column = feat_mat.indices()
-        g = dgl.graph((column, row), num_nodes=max(self.feat_mat.shape), device=self.device)
-        x = dgl.ops.gspmm(g, 'mul', 'sum', lhs_data=padding_features, rhs_data=feat_mat.values())
-        x = x[:self.feat_mat.shape[0], :]
-        return x
-
-    def dropout_sp_mat(self, mat):
-        if not self.training:
-            return mat
-        random_tensor = 1 - self.dropout
-        random_tensor += torch.rand(mat._nnz()).to(self.device)
-        dropout_mask = torch.floor(random_tensor).type(torch.bool)
-        i = mat.indices()
-        v = mat.values()
-
-        i = i[:, dropout_mask]
-        v = v[dropout_mask] / (1. - self.dropout)
-        out = torch.sparse.FloatTensor(i, v, mat.shape).coalesce()
-        return out
-
-    def get_rep(self):
-        feat_mat = self.dropout_sp_mat(self.feat_mat)
-        representations = self.inductive_rep_layer(feat_mat)
-
-        all_layer_rep = [representations]
-        row, column = self.norm_adj.indices()
-        g = dgl.graph((column, row), num_nodes=self.norm_adj.shape[0], device=self.device)
-        for _ in range(self.n_layers):
-            representations = dgl.ops.gspmm(g, 'mul', 'sum', lhs_data=representations, rhs_data=self.norm_adj.values())
-            all_layer_rep.append(representations)
-        all_layer_rep = torch.stack(all_layer_rep, dim=0)
-        final_rep = all_layer_rep.mean(dim=0)
-        return final_rep
-
-    def bpr_forward(self, users, pos_items, neg_items):
-        rep = self.get_rep()
-        users_r = rep[users, :]
-        pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
-        l2_norm_sq = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2 \
-                     + torch.norm(neg_items_r, p=2, dim=1) ** 2
-        return users_r, pos_items_r, neg_items_r, l2_norm_sq
-
-    def predict(self, users):
-        return LightGCN.predict(self, users)
-
-    def save(self, path):
-        params = {'sate_dict': self.state_dict(),  'alpha': self.alpha}
-        torch.save(params, path)
-
-    def load(self, path):
-        params = torch.load(path, map_location=self.device)
-        self.load_state_dict(params['sate_dict'])
-        self.alpha = params['alpha']
-        self.feat_mat, self.row_sum = self.generate_feat(self.config['dataset'])
-        self.update_feat_mat()
-
-
-class IMF(IGCN):
-    def __init__(self, model_config):
-        super(IMF, self).__init__(model_config)
-
-    def get_rep(self):
-        feat_mat = self.dropout_sp_mat(self.feat_mat)
-        representations = IGCN.inductive_rep_layer(self, feat_mat)
-        return representations
-
-
 class MultiVAE(BasicModel):
     def __init__(self, model_config):
         super(MultiVAE, self).__init__(model_config)
@@ -317,12 +185,26 @@ class MultiVAE(BasicModel):
         normalized_data_mat = normalize(data_mat, axis=1, norm='l2')
         return normalized_data_mat
 
+    def dropout_sp_mat(self, mat):
+        if not self.training:
+            return mat
+        random_tensor = 1 - self.dropout
+        random_tensor += torch.rand(mat._nnz()).to(self.device)
+        dropout_mask = torch.floor(random_tensor).type(torch.bool)
+        i = mat.indices()
+        v = mat.values()
+
+        i = i[:, dropout_mask]
+        v = v[dropout_mask] / (1. - self.dropout)
+        out = torch.sparse.FloatTensor(i, v, mat.shape).coalesce()
+        return out
+
     def ml_forward(self, users):
         users = users.cpu().numpy()
         profiles = self.normalized_data_mat[users, :]
         representations = get_sparse_tensor(profiles, self.device)
 
-        representations = IGCN.dropout_sp_mat(self, representations)
+        representations = self.dropout_sp_mat(self, representations)
         representations = torch.sparse.mm(representations, self.encoder_layers[0].weight.t())
         representations += self.encoder_layers[0].bias[None, :]
         l2_norm_sq = torch.norm(self.encoder_layers[0].weight, p=2)[None] ** 2
