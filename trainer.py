@@ -8,7 +8,6 @@ import os
 from utils import AverageMeter, get_sparse_tensor
 import torch.nn.functional as F
 import scipy.sparse as sp
-from dataset import AuxiliaryDataset
 
 
 def get_trainer(config, dataset, model):
@@ -180,7 +179,8 @@ class BPRTrainer(BasicTrainer):
         super(BPRTrainer, self).__init__(trainer_config)
 
         self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
-                                     num_workers=trainer_config['dataloader_num_workers'])
+                                     num_workers=trainer_config['dataloader_num_workers'],
+                                     persistent_workers=True)
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
 
@@ -209,7 +209,8 @@ class APRTrainer(BasicTrainer):
         super(APRTrainer, self).__init__(trainer_config)
 
         self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
-                                     num_workers=trainer_config['dataloader_num_workers'])
+                                     num_workers=trainer_config['dataloader_num_workers'],
+                                     persistent_workers=True)
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
         self.adv_reg = trainer_config['adv_reg']
@@ -250,7 +251,8 @@ class BCETrainer(BasicTrainer):
         super(BCETrainer, self).__init__(trainer_config)
 
         self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
-                                     num_workers=trainer_config['dataloader_num_workers'])
+                                     num_workers=trainer_config['dataloader_num_workers'],
+                                     persistent_workers=True)
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
         self.mf_pretrain_epochs = trainer_config['mf_pretrain_epochs']

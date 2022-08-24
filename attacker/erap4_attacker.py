@@ -1,6 +1,6 @@
 from attacker.basic_attacker import BasicAttacker
 import torch.nn as nn
-from model import LightGCN
+from model import LightGCN, BasicModel
 from utils import get_sparse_tensor, generate_daj_mat, AverageMeter, ce_loss
 import scipy.sparse as sp
 import numpy as np
@@ -15,6 +15,7 @@ import torch.nn.functional as F
 import sys
 from torch.autograd import Function
 from torch.optim import SGD
+import gc
 
 
 class TorchSparseMat:
@@ -28,22 +29,19 @@ class TorchSparseMat:
                                        dtype=torch.float32, device=device)
 
     def add_new_entry(self, r, c):
+        self.row_degree[r] += 1.
         r = torch.tensor([r], dtype=torch.int64, device=self.device)
         c = torch.tensor([c], dtype=torch.int64, device=self.device)
         self.row = torch.cat([self.row, r], dim=0)
         self.col = torch.cat([self.col, c], dim=0)
-        self.row_degree[r] += 1.
 
 
-class IGCN(nn.Module):
+class IGCN(BasicModel):
     def __init__(self, model_config):
-        super(IGCN, self).__init__()
-        self.device = model_config['device']
-        self.n_users = model_config['dataset'].n_users
-        self.n_items = model_config['dataset'].n_items
+        super(IGCN, self).__init__(model_config)
         self.n_norm_users = model_config['n_norm_users']
         self.embedding_size = model_config['embedding_size']
-        self.n_layers = model_config.get['n_layers']
+        self.n_layers = model_config['n_layers']
 
         self.adj_mat = self.generate_graph(model_config['dataset'])
         self.feat_mat = self.generate_feat(model_config['dataset'])
@@ -128,7 +126,8 @@ class IGCNTrainer(BasicTrainer):
         super(IGCNTrainer, self).__init__(trainer_config)
 
         self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
-                                     num_workers=trainer_config['dataloader_num_workers'])
+                                     num_workers=trainer_config['dataloader_num_workers'],
+                                     persistent_workers=True)
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
         self.aux_reg = trainer_config['aux_reg']
@@ -189,18 +188,24 @@ class ERAP4(BasicAttacker):
         self.surrogate_trainer_config['device'] = self.device
         self.surrogate_trainer_config['dataset'] = self.dataset
         self.propagation_order = attacker_config['propagation_order']
+        self.re_lr = attacker_config['re_lr']
+        self.n_top_items = int(self.n_items * attacker_config.get('top_rate', 0.01))
 
         self.dataset.n_users += self.n_fakes
-        propagation_mat = generate_daj_mat(self.dataset)
+        propagation_mat = generate_daj_mat(self.dataset).tolil()
         self.dataset.n_users -= self.n_fakes
-        idxes = np.arange(propagation_mat.shape[1])
+        idxes = np.arange(propagation_mat.shape[0])
         propagation_mat[idxes, idxes] = 1.
         self.propagation_mat = TorchSparseMat(propagation_mat,
                                               (self.n_users + self.n_fakes + self.n_items,
                                                self.n_users + self.n_fakes + self.n_items), self.device)
 
-        test_user = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
-        self.test_user_loader = DataLoader(test_user, batch_size=self.surrogate_trainer_config['test_batch_size'])
+        adj_mat = generate_daj_mat(self.dataset)
+        degrees = np.array(np.sum(adj_mat[:self.n_users, :], axis=1)).squeeze()
+        popular_users = np.argsort(degrees)[::-1][:self.surrogate_trainer_config['test_batch_size']].copy()
+        self.popular_users = torch.tensor(popular_users, dtype=torch.int64, device=self.device)
+        degrees = np.array(np.sum(adj_mat[self.n_users:, :], axis=1)).squeeze()
+        self.popular_items = np.argsort(degrees)[::-1][:self.n_top_items].copy().tolist()
 
     def retraining_approximate(self, model, opt, u, i):
         model.feat_mat.add_new_entry(u, model.n_norm_users + i)
@@ -226,7 +231,7 @@ class ERAP4(BasicAttacker):
         propagation_mat = copy.deepcopy(self.propagation_mat)
         params = []
         for param in model.parameters():
-            params.append(copy.copy(param.data))
+            params.append(torch.clone(param.data))
         return feat_mat, adj_mat, propagation_mat, params
 
     def restore(self, model, feat_mat, adj_mat, propagation_mat, params):
@@ -242,14 +247,11 @@ class ERAP4(BasicAttacker):
         self.retraining_approximate(model, opt, u, i)
 
         model.eval()
-        adv_loss = AverageMeter()
         with torch.no_grad():
-            for users in self.test_user_loader:
-                users = users[0]
-                scores = self.model.predict(users)
-                adv_loss.update(ce_loss(scores, self.target_item).item(), users.shape[0])
+            scores = model.predict(self.popular_users)
+            adv_loss = ce_loss(scores, self.target_item).item()
         self.restore(model, feat_mat, adj_mat, propagation_mat, params)
-        return adv_loss.avg
+        return adv_loss
 
     def generate_fake_users(self, verbose=True, writer=None):
         self.dataset.attack_data = [[] for _ in range(self.n_users)]
@@ -263,25 +265,27 @@ class ERAP4(BasicAttacker):
             self.dataset.val_data.append([])
             self.dataset.attack_data.append([])
 
-            model = getattr(sys.modules['erap4_attacker'], self.surrogate_model_config['name'])
-            model = model(self.surrogate_model_config['name'])
+            model = getattr(sys.modules[__name__], self.surrogate_model_config['name'])
+            model = model(self.surrogate_model_config)
             self.surrogate_trainer_config['model'] = model
             trainer = IGCNTrainer(self.surrogate_trainer_config)
-            trainer.train(verbose=True)
+            trainer.train(verbose=False)
 
-            _, metrics = self.trainer.eval('attack')
+            _, metrics = trainer.eval('attack')
             print('Hit ratio after injecting {:d} fake users, {:.3f}%@{:d}.'.
                   format(f_u, metrics['Recall'][trainer.topks[0]] * 100, trainer.topks[0]))
 
-            opt = SGD(model.parameters(), lr=1.)
+            opt = SGD(model.parameters(), lr=self.re_lr)
             for _ in range(self.n_inters):
-                scores = np.zeros([self.n_items], dtype=np.float32)
-                for i in range(self.n_items):
-                    if i in self.dataset.train_data[-1]:
-                        scores[i] = -np.inf
-                    else:
+                scores = np.full([self.n_items], np.inf, dtype=np.float32)
+                popular_items = self.popular_items + [self.target_item] + \
+                                np.random.choice(self.n_items, len(self.popular_items), replace=False).tolist()
+                for i in popular_items:
+                    if i not in self.dataset.train_data[-1] and scores[i] == np.inf:
                         scores[i] = self.evaluate_score(model, opt, self.n_users + f_u, i)
-                i = np.argmax(scores)
+                i = np.argmin(scores)
                 self.dataset.train_data[-1].append(i)
+                self.dataset.train_array.append([self.n_users + f_u, i])
                 self.retraining_approximate(model, opt, self.n_users + f_u, i)
+            gc.collect()
 

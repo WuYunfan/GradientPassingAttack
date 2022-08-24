@@ -247,21 +247,3 @@ class AmazonDataset(BasicDataset):
                 line = f.readline().strip()
 
         self.generate_data()
-
-
-class AuxiliaryDataset(BasicDataset):
-    def __init__(self, dataset, user_map, item_map):
-        self.n_users = len(user_map)
-        self.n_items = len(item_map)
-        self.device = dataset.device
-        self.negative_sample_ratio = 1
-        self.train_data = [[] for _ in range(self.n_users)]
-        self.length = len(dataset)
-        for o_user in range(dataset.n_users):
-            if o_user in user_map:
-                for o_item in dataset.train_data[o_user]:
-                    if o_item in item_map:
-                        self.train_data[user_map[o_user]].append(item_map[o_item])
-
-    def __len__(self):
-        return self.length
