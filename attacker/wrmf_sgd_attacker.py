@@ -50,7 +50,7 @@ class WRMFSGD(BasicAttacker):
 
         poisoned_data_mat = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
         self.poisoned_data_mat = torch.cat([poisoned_data_mat, self.fake_tensor], dim=0)
-        test_user = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
+        test_user = TensorDataset(torch.arange(self.n_users + self.n_fakes, dtype=torch.int64, device=self.device))
         self.user_loader = DataLoader(test_user, batch_size=attacker_config['batch_size'],
                                       shuffle=True, num_workers=0)
 
