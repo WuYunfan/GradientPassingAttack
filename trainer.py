@@ -29,6 +29,7 @@ class BasicTrainer:
         self.topks = trainer_config['topks']
         self.device = trainer_config['device']
         self.n_epochs = trainer_config['n_epochs']
+        self.negative_sample_ratio = trainer_config['neg_ratio']
         self.max_patience = trainer_config.get('max_patience', 50)
         self.val_interval = trainer_config.get('val_interval', 1)
         self.epoch = 0
@@ -61,6 +62,7 @@ class BasicTrainer:
             ndcg = metrics['NDCG'][self.topks[0]]
             return ndcg
 
+        self.dataset.negative_sample_ratio = self.negative_sample_ratio
         if not os.path.exists('checkpoints'): os.mkdir('checkpoints')
         patience = self.max_patience
         for self.epoch in range(self.n_epochs):

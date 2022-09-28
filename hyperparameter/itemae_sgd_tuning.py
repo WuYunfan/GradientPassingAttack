@@ -21,7 +21,7 @@ def fitness(lr, s_lr, s_l2, momentum):
     attacker_config['target_item'] = target_item
     attacker = get_attacker(attacker_config, dataset)
     attacker.generate_fake_users()
-    return attacker.eval(dataset_config, model_config, trainer_config)
+    return attacker.eval(model_config, trainer_config)
 
 
 def main():

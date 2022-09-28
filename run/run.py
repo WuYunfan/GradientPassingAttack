@@ -24,8 +24,8 @@ def main():
         writer = SummaryWriter(log_path + str(target_items))
         attacker.generate_fake_users(writer=writer)
         configs = get_gowalla_config(device)
-        for idx, (dataset_config, model_config, trainer_config) in enumerate(configs):
-            attacker.eval(dataset_config, model_config, trainer_config, writer=writer)
+        for idx, (_, model_config, trainer_config) in enumerate(configs):
+            attacker.eval(model_config, trainer_config, writer=writer)
             if idx == 0:
                 configs[idx + 1][2]['ckpt_path'] = attacker.model.save_path
         writer.close()

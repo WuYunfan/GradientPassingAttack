@@ -13,7 +13,7 @@ def fitness(re_lr, aux_reg, s_l2, propagation_order, lr, momentum):
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
     surrogate_model_config = {'name': 'IMF', 'n_layers': 0, 'embedding_size': 64}
     surrogate_trainer_config = {'name': 'IGCNTrainer', 'optimizer': 'Adam', 'lr': 1.e-3,
-                                'l2_reg': s_l2, 'aux_reg': aux_reg,
+                                'l2_reg': s_l2, 'aux_reg': aux_reg, 'neg_ratio': 4,
                                 'n_epochs': 1000, 'batch_size': 4096, 'dataloader_num_workers': 6,
                                 'test_batch_size': 512, 'topks': [20]}
     attacker_config = {'name': 'ERAP4', 'device': device, 'n_fakes': 131, 're_lr': re_lr, 'topk': 20,
@@ -26,7 +26,7 @@ def fitness(re_lr, aux_reg, s_l2, propagation_order, lr, momentum):
     attacker_config['target_item'] = target_item
     attacker = get_attacker(attacker_config, dataset)
     attacker.generate_fake_users()
-    return attacker.eval(dataset_config, model_config, trainer_config)
+    return attacker.eval(model_config, trainer_config)
 
 
 def main():

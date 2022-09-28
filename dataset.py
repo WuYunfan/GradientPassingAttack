@@ -52,7 +52,7 @@ class BasicDataset(Dataset):
         self.min_interactions = dataset_config.get('min_inter')
         self.split_ratio = dataset_config.get('split_ratio')
         self.device = dataset_config['device']
-        self.negative_sample_ratio = dataset_config.get('neg_ratio', 1)
+        self.negative_sample_ratio = 1
         self.shuffle = dataset_config.get('shuffle', False)
         self.n_users = 0
         self.n_items = 0
