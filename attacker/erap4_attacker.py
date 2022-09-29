@@ -250,8 +250,9 @@ class ERAP4(BasicAttacker):
             rep = ParameterPropagation.apply(rep, fmodel.adj_mat, self.propagation_order, self.fake_tensor)
             users_r = rep[self.n_users:self.n_users + self.n_fakes, :]
             all_items_r = rep[self.n_users + self.n_fakes:, :]
-            scores = F.softplus(torch.mm(users_r, all_items_r.t()))
-            loss = (scores - 2 * scores * self.fake_tensor).mean()
+            scores = torch.mm(users_r, all_items_r.t())
+            loss = F.softplus(-scores * self.fake_tensor) + F.softplus(scores - scores * self.fake_tensor)
+            loss = loss.mean()
             diffopt.step(loss)
 
             scores = []
