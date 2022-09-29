@@ -32,7 +32,7 @@ def fitness(re_lr, aux_reg, s_l2, propagation_order, lr, momentum):
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
-    param_grid = {'re_lr': [0.01, 0.1], 'aux_reg': [1.e-2, 1.e-3], 's_l2': [1.e-4, 0.],
+    param_grid = {'re_lr': [0.01, 0.1, 1.], 'aux_reg': [1.e-2, 1.e-3], 's_l2': [1.e-4, 0.],
                   'propagation_order':  [1, 2], 'lr': [0.1, 1.], 'momentum': [0.9, 0.99]}
     grid = ParameterGrid(param_grid)
     max_hr = -np.inf

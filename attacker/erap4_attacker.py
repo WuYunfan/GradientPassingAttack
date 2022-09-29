@@ -96,7 +96,7 @@ class IGCN(BasicModel):
         row = np.concatenate([row, fake_row])
         col = np.concatenate([col, fake_col])
         feat_mat = TorchSparseMat(row, col, (self.n_users + self.n_items,
-                                             self.n_norm_users + self.n_items), self.device)
+                                             self.n_norm_users + self.n_items + 2), self.device)
         return feat_mat
 
     def inductive_rep_layer(self, fake_tensor):
@@ -116,8 +116,12 @@ class IGCN(BasicModel):
         final_rep = all_layer_rep.mean(dim=0)
         return final_rep
 
-    def predict(self, users):
-        return LightGCN.predict(self, users)
+    def predict(self, users, fake_tensor=None):
+        rep = self.get_rep(fake_tensor)
+        users_r = rep[users, :]
+        all_items_r = rep[self.n_users:, :]
+        scores = torch.mm(users_r, all_items_r.t())
+        return scores
 
 
 class IMF(IGCN):
@@ -151,11 +155,11 @@ class IGCNTrainer(BasicTrainer):
             users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
             users_r = rep[users, :]
             pos_items_r = rep[self.model.n_users + pos_items, :]
-            bce_loss_p = -F.softplus(torch.sum(users_r * pos_items_r, dim=1))
+            bce_loss_p = F.softplus(-torch.sum(users_r * pos_items_r, dim=1))
             l2_norm_sq_p = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2
 
             users_e = self.model.embedding(users)
-            aux_loss = -F.softplus(torch.sum(users_r * users_e, dim=1)).mean()
+            aux_loss = F.softplus(-torch.sum(users_r * users_e, dim=1)).mean()
 
             inputs = inputs.reshape(-1, 3)
             users, neg_items = inputs[:, 0], inputs[:, 2]
@@ -190,7 +194,7 @@ class ParameterPropagation(Function):
         fake_tensor = ctx.saved_tensors[0]
         grad = grad_out
         for _ in range(order):
-            grad = mat.spmm(grad, fake_tensor.flatten()) + grad + grad_out
+            grad = mat.spmm(grad, fake_tensor.flatten().repeat(2)) + grad + grad_out
         return grad, None, None, None
 
 
@@ -253,7 +257,7 @@ class ERAP4(BasicAttacker):
             scores = []
             for users in self.user_loader:
                 users = users[0]
-                scores.append(fmodel.predict(users))
+                scores.append(fmodel.predict(users, self.fake_tensor))
             scores = torch.cat(scores, dim=0)
             adv_loss = ce_loss(scores, self.target_item)
             _, topk_items = scores.topk(self.topk, dim=1)
