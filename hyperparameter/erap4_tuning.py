@@ -14,8 +14,8 @@ def fitness(re_lr, aux_reg, s_l2, propagation_order, lr, momentum):
     surrogate_model_config = {'name': 'IMF', 'n_layers': 0, 'embedding_size': 64}
     surrogate_trainer_config = {'name': 'IGCNTrainer', 'optimizer': 'Adam', 'lr': 1.e-3,
                                 'l2_reg': s_l2, 'aux_reg': aux_reg, 'neg_ratio': 4,
-                                'n_epochs': 1000, 'batch_size': 4096, 'dataloader_num_workers': 6,
-                                'test_batch_size': 512, 'topks': [20]}
+                                'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 16,
+                                'test_batch_size': 2048, 'topks': [20]}
     attacker_config = {'name': 'ERAP4', 'device': device, 'n_fakes': 131, 're_lr': re_lr, 'topk': 20,
                        'n_inters': 41, 'lr': lr, 'momentum': momentum, 'adv_epochs': 30,
                        'propagation_order': propagation_order,
@@ -33,7 +33,7 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
     param_grid = {'re_lr': [0.01, 0.1, 1.], 'aux_reg': [1.e-2, 1.e-3], 's_l2': [1.e-4, 0.],
-                  'propagation_order':  [1, 2], 'lr': [0.1, 1.], 'momentum': [0.9, 0.99]}
+                  'propagation_order':  [1, 2], 'lr': [0.1, 1., 10.], 'momentum': [0.9, 0.99]}
     grid = ParameterGrid(param_grid)
     max_hr = -np.inf
     best_params = None
