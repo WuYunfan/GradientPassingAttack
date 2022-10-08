@@ -27,8 +27,10 @@ def main():
         for idx, (_, model_config, trainer_config) in enumerate(configs):
             attacker.eval(model_config, trainer_config, writer=writer)
             if idx == 0:
-                configs[idx + 1][2]['ckpt_path'] = attacker.model.save_path
+                configs[idx + 1][2]['ckpt_path'] = attacker.trainer.save_path
         writer.close()
+        if attacker_config['name'] == 'ERAP4':
+            attacker_config['surrogate_trainer_config']['ckpt_path'] = attacker.surrogate_trainer.save_path
 
 
 if __name__ == '__main__':

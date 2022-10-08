@@ -43,10 +43,10 @@ class TorchSparseMat:
         if norm is not None:
             row_sum = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
             if norm == 'left':
-                x = x / (row_sum[:, None] + 1.e-5)
+                x = x / (row_sum[:, None] + 1.e-8)
             if norm == 'both':
                 col_sum = dgl.ops.gspmm(self.inv_g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
-                x = x / (torch.pow(row_sum[:, None], 0.5) + 1.e-5) / (torch.pow(col_sum[:, None], 0.5) + 1.e-5)
+                x = x / (torch.pow(row_sum[:, None], 0.5) + 1.e-8) / (torch.pow(col_sum[:, None], 0.5) + 1.e-8)
         return x[:self.shape[0], :]
 
 
@@ -71,7 +71,7 @@ class IGCN(BasicModel):
         fake_row = np.arange(self.n_fake_users, dtype=np.int64) + self.n_users - self.n_fake_users
         fake_row = fake_row[:, None].repeat(self.n_items, axis=1).flatten()
         fake_col = np.arange(self.n_items, dtype=np.int64) + self.n_users
-        fake_col = fake_col.repeat(self.n_fake_users, axis=0)
+        fake_col = fake_col[None, :].repeat(self.n_fake_users, axis=0).flatten()
         row = np.concatenate([row, fake_row, fake_col])
         col = np.concatenate([col, fake_col, fake_row])
         adj_mat = TorchSparseMat(row, col, (self.n_users + self.n_items,
@@ -92,7 +92,7 @@ class IGCN(BasicModel):
         fake_row = np.arange(self.n_fake_users, dtype=np.int64) + self.n_users - self.n_fake_users
         fake_row = fake_row[:, None].repeat(self.n_items, axis=1).flatten()
         fake_col = np.arange(self.n_items, dtype=np.int64) + self.n_norm_users
-        fake_col = fake_col.repeat(self.n_fake_users, axis=0)
+        fake_col = fake_col[None, :].repeat(self.n_fake_users, axis=0).flatten()
         row = np.concatenate([row, fake_row])
         col = np.concatenate([col, fake_col])
         feat_mat = TorchSparseMat(row, col, (self.n_users + self.n_items,
@@ -232,10 +232,14 @@ class ERAP4(BasicAttacker):
         self.surrogate_trainer_config['dataset'] = self.dataset
         self.surrogate_trainer_config['model'] = self.surrogate_model
         self.surrogate_trainer = IGCNTrainer(self.surrogate_trainer_config)
-        self.surrogate_trainer.train()
+        ckpt_path = self.surrogate_trainer_config.get('ckpt_path', None)
+        if not ckpt_path:
+            self.surrogate_trainer.train(verbose=False)
+        else:
+            self.surrogate_model.load(ckpt_path)
         self.retrain_opt = SGD(self.surrogate_model.parameters(), lr=self.retraining_lr)
         test_user = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
-        self.user_loader = DataLoader(test_user, batch_size=self.surrogate_trainer_config['batch_size'])
+        self.user_loader = DataLoader(test_user, batch_size=self.surrogate_trainer_config['test_batch_size'])
 
     def init_fake_tensor(self):
         return WRMFSGD.init_fake_tensor(self)
