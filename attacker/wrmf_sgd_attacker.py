@@ -53,6 +53,8 @@ class WRMFSGD(BasicAttacker):
         test_user = TensorDataset(torch.arange(self.n_users + self.n_fakes, dtype=torch.int64, device=self.device))
         self.user_loader = DataLoader(test_user, batch_size=attacker_config['batch_size'],
                                       shuffle=True, num_workers=0)
+        target_user = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
+        self.target_user = np.array(target_user)
 
         self.surrogate_config = attacker_config['surrogate_config']
         self.surrogate_config['device'] = self.device
@@ -107,7 +109,7 @@ class WRMFSGD(BasicAttacker):
                 scores.append(fmodel.forward(users))
                 all_users += users.cpu().numpy().tolist()
             norm_user_pos = np.argsort(all_users)[:-self.n_fakes]
-            scores = torch.cat(scores, dim=0)[norm_user_pos, :]
+            scores = torch.cat(scores, dim=0)[norm_user_pos, :][self.target_user, :]
             adv_loss = ce_loss(scores, self.target_item)
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()

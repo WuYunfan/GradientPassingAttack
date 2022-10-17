@@ -29,7 +29,7 @@ class BasicTrainer:
         self.topks = trainer_config['topks']
         self.device = trainer_config['device']
         self.n_epochs = trainer_config['n_epochs']
-        self.negative_sample_ratio = trainer_config['neg_ratio']
+        self.negative_sample_ratio = trainer_config.get('neg_ratio', 1)
         self.max_patience = trainer_config.get('max_patience', 50)
         self.val_interval = trainer_config.get('val_interval', 1)
         self.epoch = 0
@@ -261,12 +261,12 @@ class BCETrainer(BasicTrainer):
         self.mlp_pretrain_epochs = trainer_config['mlp_pretrain_epochs']
 
     def train_one_epoch(self):
-        if self.epoch == self.mf_pretrain_epochs:
+        if self.epoch == self.mf_pretrain_epochs and self.model.arch == 'gmf':
             self.model.arch = 'mlp'
             self.initialize_optimizer()
             self.best_ndcg = -np.inf
             self.model.load(self.save_path)
-        if self.epoch == self.mf_pretrain_epochs + self.mlp_pretrain_epochs:
+        if self.epoch == self.mf_pretrain_epochs + self.mlp_pretrain_epochs and self.model.arch == 'mlp':
             self.model.arch = 'neumf'
             self.initialize_optimizer()
             self.best_ndcg = -np.inf

@@ -3,7 +3,7 @@ import pandas as pd
 
 
 def main():
-    with open('../logs/hyperparameter/erap4.txt') as f:
+    with open('../logs/hyperparameter/erap4_2.txt') as f:
         text = f.read()
     reg = 'Hit ratio: (.*?), Parameters: ({.*?})'
     columns = ['hr']

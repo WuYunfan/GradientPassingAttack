@@ -60,6 +60,8 @@ class ItemAESGD(BasicAttacker):
         test_item = TensorDataset(torch.arange(self.n_items, dtype=torch.int64, device=self.device))
         self.item_loader = DataLoader(test_item, batch_size=attacker_config['batch_size'],
                                       shuffle=True, num_workers=0)
+        target_user = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
+        self.target_user = np.array(target_user)
 
         self.surrogate_config = attacker_config['surrogate_config']
         self.surrogate_config['device'] = self.device
@@ -104,7 +106,7 @@ class ItemAESGD(BasicAttacker):
                 batch_data = self.poisoned_data_mat[items, :]
                 scores.append(fmodel.forward(batch_data))
                 all_items += items.cpu().numpy().tolist()
-            scores = torch.cat(scores, dim=0).t()[:-self.n_fakes, :]
+            scores = torch.cat(scores, dim=0).t()[self.target_user, :]
             target_item = all_items.index(self.target_item)
             adv_loss = ce_loss(scores, target_item)
             _, topk_items = scores.topk(self.topk, dim=1)

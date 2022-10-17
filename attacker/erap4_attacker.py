@@ -216,6 +216,7 @@ class ERAP4(BasicAttacker):
         self.momentum = attacker_config['momentum']
         self.adv_epochs = attacker_config['adv_epochs']
         self.topk = attacker_config['topk']
+        self.alpha = attacker_config['alpha']
 
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
@@ -229,7 +230,6 @@ class ERAP4(BasicAttacker):
 
         self.surrogate_model = getattr(sys.modules[__name__], self.surrogate_model_config['name'])
         self.surrogate_model = self.surrogate_model(self.surrogate_model_config)
-        self.surrogate_trainer_config['dataset'] = self.dataset
         self.surrogate_trainer_config['model'] = self.surrogate_model
         self.surrogate_trainer = IGCNTrainer(self.surrogate_trainer_config)
         ckpt_path = self.surrogate_trainer_config.get('ckpt_path', None)
@@ -238,8 +238,9 @@ class ERAP4(BasicAttacker):
         else:
             self.surrogate_model.load(ckpt_path)
         self.retrain_opt = SGD(self.surrogate_model.parameters(), lr=self.retraining_lr)
-        test_user = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
-        self.user_loader = DataLoader(test_user, batch_size=self.surrogate_trainer_config['test_batch_size'])
+        target_user = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
+        target_user = TensorDataset(torch.tensor(target_user, dtype=torch.int64, device=self.device))
+        self.target_user_loader = DataLoader(target_user, batch_size=self.surrogate_trainer_config['test_batch_size'])
 
     def init_fake_tensor(self):
         return WRMFSGD.init_fake_tensor(self)
@@ -255,12 +256,12 @@ class ERAP4(BasicAttacker):
             users_r = rep[self.n_users:self.n_users + self.n_fakes, :]
             all_items_r = rep[self.n_users + self.n_fakes:, :]
             scores = torch.mm(users_r, all_items_r.t())
-            loss = F.softplus(-scores * self.fake_tensor) + F.softplus(scores - scores * self.fake_tensor)
+            loss = F.softplus(-scores * self.fake_tensor) + self.alpha * F.softplus(scores - scores * self.fake_tensor)
             loss = loss.mean()
             diffopt.step(loss)
 
             scores = []
-            for users in self.user_loader:
+            for users in self.target_user_loader:
                 users = users[0]
                 scores.append(fmodel.predict(users, self.fake_tensor))
             scores = torch.cat(scores, dim=0)
