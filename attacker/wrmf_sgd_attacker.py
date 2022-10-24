@@ -73,8 +73,7 @@ class WRMFSGD(BasicAttacker):
         with torch.no_grad():
             _, items = self.fake_tensor.topk(self.n_inters, dim=1)
             self.fake_tensor.zero_()
-            for fake_user in range(self.n_fakes):
-                self.fake_tensor[fake_user, items[fake_user, :]] = 1.
+            self.fake_tensor.data = torch.scatter(self.fake_tensor, 1, items, 1.)
 
     def retrain_surrogate(self):
         surrogate_model = SurrogateWRMF(self.surrogate_config)
@@ -122,11 +121,6 @@ class WRMFSGD(BasicAttacker):
             start_time = time.time()
             adv_loss, hit_k, adv_grads = self.retrain_surrogate()
 
-            normalized_adv_grads = F.normalize(adv_grads, p=2, dim=1)
-            self.adv_opt.zero_grad()
-            self.fake_tensor.grad = normalized_adv_grads
-            self.adv_opt.step()
-            self.project_fake_tensor()
             consumed_time = time.time() - start_time
             if verbose:
                 print('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}%, Time: {:.3f}s'.
@@ -138,4 +132,10 @@ class WRMFSGD(BasicAttacker):
                 print('Minimal loss, save fake users.')
                 self.fake_users = self.fake_tensor.detach().cpu().numpy()
                 min_loss = adv_loss
+
+            normalized_adv_grads = F.normalize(adv_grads, p=2, dim=1)
+            self.adv_opt.zero_grad()
+            self.fake_tensor.grad = normalized_adv_grads
+            self.adv_opt.step()
+            self.project_fake_tensor()
             self.scheduler.step()

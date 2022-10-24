@@ -24,13 +24,14 @@ class DPA2DL(BasicAttacker):
         self.reg_u = attacker_config['reg_u']
         self.topk = attacker_config['topk']
         self.prob = attacker_config['prob']
-        self.kappa = attacker_config['kappa']
+        self.kappa = torch.tensor(attacker_config['kappa'], dtype=torch.float32, device=self.device)
         self.step = attacker_config['step']
         self.alpha = attacker_config['alpha']
         self.n_rounds = attacker_config['n_rounds']
         target_user = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         target_user = TensorDataset(torch.tensor(target_user, dtype=torch.int64, device=self.device))
-        self.target_user_loader = DataLoader(target_user, batch_size=self.surrogate_trainer_config['test_batch_size'])
+        self.target_user_loader = DataLoader(target_user, batch_size=self.surrogate_trainer_config['test_batch_size'],
+                                             shuffle=True)
 
     def get_target_hr(self, surrogate_model):
         surrogate_model.eval()
@@ -51,7 +52,7 @@ class DPA2DL(BasicAttacker):
             scores = surrogate_model.predict(users)
             top_scores, _ = scores.topk(self.topk, dim=1)
             target_scores = scores[:, self.target_item]
-            loss = F.logsigmoid(top_scores[:, self.topk]) - F.logsigmoid(target_scores)
+            loss = F.logsigmoid(top_scores[:, -1]) - F.logsigmoid(target_scores)
             loss = self.alpha * self.reg_u * torch.max(loss, -self.kappa).mean()
             surrogate_trainer.opt.zero_grad()
             loss.backward()
@@ -59,12 +60,12 @@ class DPA2DL(BasicAttacker):
             losses.update(loss.item(), users.shape[0])
 
         scores = surrogate_model.predict(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device))
-        scores[:, self.target_item] = 0.
-        loss = self.alpha * (F.sigmoid(scores) ** 2).mean()
+        scores = torch.cat([scores[:, :self.target_item], scores[:, self.target_item + 1:]], dim=1)
+        loss = self.alpha * (torch.sigmoid(scores) ** 2).mean()
         surrogate_trainer.opt.zero_grad()
         loss.backward()
         surrogate_trainer.opt.step()
-        losses.update(loss.item(), temp_fake_users.shape[0])
+        losses.update(loss.item(), temp_fake_users.shape[0] * (self.n_items - 1))
         return losses.avg
 
     def choose_filler_items(self, surrogate_model, temp_fake_users, prob):
@@ -72,7 +73,7 @@ class DPA2DL(BasicAttacker):
         with torch.no_grad():
             scores = surrogate_model.predict(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device))
         for u_idx in range(temp_fake_users.shape[0]):
-            row_score = F.sigmoid(scores[u_idx, :]) * prob
+            row_score = torch.sigmoid(scores[u_idx, :]) * prob
             row_score[self.target_item] = 0.
             filler_items = row_score.topk(self.n_inters - 1).indices
             prob[filler_items] *= self.prob
@@ -108,7 +109,7 @@ class DPA2DL(BasicAttacker):
             self.dataset.n_users += n_temp_fakes
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
-            surrogate_model.arch = 'meumf'
+            surrogate_model.arch = 'neumf'
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.dataset, surrogate_model)
             surrogate_trainer.train(verbose=False)
 
@@ -135,7 +136,7 @@ class DPA2DL(BasicAttacker):
                                                                format(self.dataset.name, target_hr))
                     best_hr = target_hr
                     surrogate_model.save(surrogate_trainer.save_path)
-                    print('Maximal hit ratio, save poisoned model to {:.s}.'.format(surrogate_trainer.save_path))
+                    print('Maximal hit ratio, save poisoned model to {:s}.'.format(surrogate_trainer.save_path))
             surrogate_model.load(surrogate_trainer.save_path)
             os.remove(surrogate_trainer.save_path)
 

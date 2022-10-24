@@ -7,18 +7,18 @@ from utils import set_seed, init_run, get_target_items
 from config import get_gowalla_config
 
 
-def fitness(re_lr, aux_reg, s_l2, propagation_order, lr, momentum, alpha, n_train_epochs):
+def fitness(reg_u, alpha, kapaa, prob, s_l2, n_rounds, n_pretrain_epochs, lr):
     set_seed(2021)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
-    surrogate_model_config = {'name': 'IMF', 'n_layers': 0, 'embedding_size': 64}
-    surrogate_trainer_config = {'name': 'IGCNTrainer', 'optimizer': 'Adam', 'lr': 1.e-2,
-                                'l2_reg': s_l2, 'aux_reg': aux_reg, 'neg_ratio': 4,
-                                'n_epochs': n_train_epochs, 'batch_size': 2 ** 14, 'dataloader_num_workers': 16,
-                                'test_batch_size': 2048, 'topks': [20]}
-    attacker_config = {'name': 'ERAP4', 'device': device, 'n_fakes': 131, 're_lr': re_lr, 'topk': 20,
-                       'n_inters': 41, 'lr': lr, 'momentum': momentum, 'adv_epochs': 30, 'alpha': alpha,
-                       'propagation_order': propagation_order,
+    surrogate_model_config = {'name': 'NeuMF', 'embedding_size': 64, 'device': device, 'layer_sizes': [64, 64, 64]}
+    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': lr, 'l2_reg': s_l2,
+                                'n_epochs': n_pretrain_epochs, 'batch_size': 2 ** 13, 'dataloader_num_workers': 16,
+                                'test_batch_size': 256, 'topks': [20], 'neg_ratio': 4,
+                                'mf_pretrain_epochs': 0, 'mlp_pretrain_epochs': 0}
+    attacker_config = {'name': 'DPA2DL', 'device': device, 'n_fakes': 131, 'topk': 20,
+                       'n_inters': 41, 'reg_u': reg_u, 'prob': prob, 'kappa': kapaa,
+                       'step': 4, 'alpha': alpha, 'n_rounds': n_rounds,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     dataset = get_dataset(dataset_config)
@@ -32,15 +32,15 @@ def fitness(re_lr, aux_reg, s_l2, propagation_order, lr, momentum, alpha, n_trai
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
-    param_grid = {'re_lr': [0.1, 1.], 'aux_reg': [1.e-4], 's_l2': [1.e-3, 1.e-4],
-                  'propagation_order':  [2], 'lr': [1., 10.], 'momentum': [0.9],
-                  'alpha': [0.1, 0.01], 'n_train_epochs': [100, 200, 500]}
+    param_grid = {'reg_u': [1e2, 1e3, 1e4], 'alpha': [1.e-4, 1.e-3, 1.e-2], 'kapaa': [1.],
+                  'prob':  [0.9], 's_l2': [1.e-2, 1.e-3, 0.], 'n_rounds': [5],
+                  'n_pretrain_epochs': [20], 'lr': [1.e-2, 1.e-3]}
     grid = ParameterGrid(param_grid)
     max_hr = -np.inf
     best_params = None
     for params in grid:
-        hr = fitness(params['re_lr'], params['aux_reg'], params['s_l2'], params['propagation_order'],
-                     params['lr'], params['momentum'], params['alpha'], params['n_train_epochs'])
+        hr = fitness(params['reg_u'], params['alpha'], params['kapaa'], params['prob'],
+                     params['s_l2'], params['n_rounds'], params['n_pretrain_epochs'])
         print('Hit ratio: {:.3f}, Parameters: {:s}'.format(hr, str(params)))
         if hr > max_hr:
             max_hr = hr

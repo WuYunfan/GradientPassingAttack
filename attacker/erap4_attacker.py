@@ -29,10 +29,10 @@ class TorchSparseMat:
         col = torch.tensor(col, dtype=torch.int64, device=device)
         self.g = dgl.graph((col, row), num_nodes=max(shape), device=device)
         self.inv_g = dgl.graph((row, col), num_nodes=max(shape), device=device)
+        self.n_non_zeros = self.g.num_edges()
 
     def spmm(self, r_mat, value_tensor, norm=None):
-        n_non_zeros = self.g.num_edges()
-        values = torch.ones([n_non_zeros - value_tensor.shape[0]], dtype=torch.float32, device=self.device)
+        values = torch.ones([self.n_non_zeros - value_tensor.shape[0]], dtype=torch.float32, device=self.device)
         values = torch.cat([values, value_tensor], dim=0)
 
         padding_tensor = torch.empty([max(self.shape) - r_mat.shape[0], r_mat.shape[1]],
@@ -89,7 +89,7 @@ class IGCN(BasicModel):
             indices.append([self.n_users + item, self.n_norm_users + self.n_items + 1])
         indices = np.array(indices)
         row, col = indices[:, 0], indices[:, 1]
-        fake_row = np.arange(self.n_fake_users, dtype=np.int64) + self.n_users - self.n_fake_users
+        fake_row = np.arange(self.n_fake_users, dtype=np.int64) + self.n_norm_users
         fake_row = fake_row[:, None].repeat(self.n_items, axis=1).flatten()
         fake_col = np.arange(self.n_items, dtype=np.int64) + self.n_norm_users
         fake_col = fake_col[None, :].repeat(self.n_fake_users, axis=0).flatten()
@@ -251,12 +251,13 @@ class ERAP4(BasicAttacker):
     def retrain_surrogate(self):
         with higher.innerloop_ctx(self.surrogate_model, self.retrain_opt) as (fmodel, diffopt):
             fmodel.eval()
-            rep = fmodel.get_rep(self.fake_tensor)
-            rep = ParameterPropagation.apply(rep, fmodel.adj_mat, self.propagation_order, self.fake_tensor)
+            rep = fmodel.get_rep(self.fake_tensor.detach())
+            rep = ParameterPropagation.apply(rep, fmodel.adj_mat,
+                                             self.propagation_order, self.fake_tensor)
             users_r = rep[self.n_users:self.n_users + self.n_fakes, :]
             all_items_r = rep[self.n_users + self.n_fakes:, :]
             scores = torch.mm(users_r, all_items_r.t())
-            loss = F.softplus(-scores * self.fake_tensor) + self.alpha * F.softplus(scores - scores * self.fake_tensor)
+            loss = F.softplus(-scores) * self.fake_tensor + self.alpha * F.softplus(scores) * (1. - self.fake_tensor)
             loss = loss.mean()
             diffopt.step(loss)
 
