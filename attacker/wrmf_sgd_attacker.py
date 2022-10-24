@@ -117,8 +117,8 @@ class WRMFSGD(BasicAttacker):
 
     def generate_fake_users(self, verbose=True, writer=None):
         min_loss = np.inf
+        start_time = time.time()
         for epoch in range(self.adv_epochs):
-            start_time = time.time()
             adv_loss, hit_k, adv_grads = self.retrain_surrogate()
 
             consumed_time = time.time() - start_time
@@ -133,6 +133,7 @@ class WRMFSGD(BasicAttacker):
                 self.fake_users = self.fake_tensor.detach().cpu().numpy()
                 min_loss = adv_loss
 
+            start_time = time.time()
             normalized_adv_grads = F.normalize(adv_grads, p=2, dim=1)
             self.adv_opt.zero_grad()
             self.fake_tensor.grad = normalized_adv_grads
