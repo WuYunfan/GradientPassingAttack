@@ -42,30 +42,31 @@ class SurrogateItemAE(nn.Module):
 class ItemAESGD(BasicAttacker):
     def __init__(self, attacker_config):
         super(ItemAESGD, self).__init__(attacker_config)
+        self.surrogate_config = attacker_config['surrogate_config']
+        self.surrogate_config['device'] = self.device
+        self.surrogate_config['layer_sizes'].insert(0, self.n_users + self.n_fakes)
+
         self.adv_epochs = attacker_config['adv_epochs']
         self.train_epochs = attacker_config['train_epochs']
         self.unroll_steps = attacker_config['unroll_steps']
         self.weight = attacker_config['weight']
         self.topk = attacker_config['topk']
         self.initial_lr = attacker_config['lr']
+        self.momentum = attacker_config['momentum']
+
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
-
         self.fake_tensor = self.init_fake_tensor()
-        self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=attacker_config['momentum'])
+        self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=self.momentum)
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
         poisoned_data_mat = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
         self.poisoned_data_mat = torch.cat([poisoned_data_mat, self.fake_tensor], dim=0).t()
-        test_item = TensorDataset(torch.arange(self.n_items, dtype=torch.int64, device=self.device))
-        self.item_loader = DataLoader(test_item, batch_size=attacker_config['batch_size'],
+        test_items = TensorDataset(torch.arange(self.n_items, dtype=torch.int64, device=self.device))
+        self.item_loader = DataLoader(test_items, batch_size=self.surrogate_config['batch_size'],
                                       shuffle=True, num_workers=0)
-        target_user = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
-        self.target_user = np.array(target_user)
-
-        self.surrogate_config = attacker_config['surrogate_config']
-        self.surrogate_config['device'] = self.device
-        self.surrogate_config['layer_sizes'].insert(0, self.n_users + self.n_fakes)
+        target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
+        self.target_users = np.array(target_users)
 
     def init_fake_tensor(self):
         return WRMFSGD.init_fake_tensor(self)
@@ -106,7 +107,7 @@ class ItemAESGD(BasicAttacker):
                 batch_data = self.poisoned_data_mat[items, :]
                 scores.append(fmodel.forward(batch_data))
                 all_items += items.cpu().numpy().tolist()
-            scores = torch.cat(scores, dim=0).t()[self.target_user, :]
+            scores = torch.cat(scores, dim=0).t()[self.target_users, :]
             target_item = all_items.index(self.target_item)
             adv_loss = ce_loss(scores, target_item)
             _, topk_items = scores.topk(self.topk, dim=1)

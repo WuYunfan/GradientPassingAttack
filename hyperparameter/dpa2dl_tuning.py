@@ -40,7 +40,7 @@ def main():
     best_params = None
     for params in grid:
         hr = fitness(params['reg_u'], params['alpha'], params['kapaa'], params['prob'],
-                     params['s_l2'], params['n_rounds'], params['n_pretrain_epochs'])
+                     params['s_l2'], params['n_rounds'], params['n_pretrain_epochs'], params['lr'])
         print('Hit ratio: {:.3f}, Parameters: {:s}'.format(hr, str(params)))
         if hr > max_hr:
             max_hr = hr

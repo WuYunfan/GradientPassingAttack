@@ -11,8 +11,8 @@ def fitness(lr, s_lr, s_l2, momentum):
     set_seed(2021)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
-    surrogate_config = {'embedding_size': 64, 'lr': s_lr, 'l2_reg': s_l2}
-    attacker_config = {'name': 'WRMFSGD', 'lr': lr, 'momentum': momentum, 'batch_size': 2048,
+    surrogate_config = {'embedding_size': 64, 'lr': s_lr, 'l2_reg': s_l2, 'batch_size': 2048}
+    attacker_config = {'name': 'WRMFSGD', 'lr': lr, 'momentum': momentum,
                        'device': device, 'n_fakes': 131, 'unroll_steps': 5, 'train_epochs': 50,
                        'n_inters': 41, 'topk': 20, 'weight': 20., 'adv_epochs': 30,
                        'surrogate_config': surrogate_config}

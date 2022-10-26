@@ -6,6 +6,7 @@ from attacker.basic_attacker import BasicAttacker
 from attacker.itemae_sgd_attacker import ItemAESGD
 from attacker.erap4_attacker import ERAP4
 from attacker.dpa2dl_attacker import DPA2DL
+from attacker.pga_attacker import PGA
 
 
 def get_attacker(config, dataset):

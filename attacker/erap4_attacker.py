@@ -238,9 +238,9 @@ class ERAP4(BasicAttacker):
         else:
             self.surrogate_model.load(ckpt_path)
         self.retrain_opt = SGD(self.surrogate_model.parameters(), lr=self.retraining_lr)
-        target_user = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
-        target_user = TensorDataset(torch.tensor(target_user, dtype=torch.int64, device=self.device))
-        self.target_user_loader = DataLoader(target_user, batch_size=self.surrogate_trainer_config['test_batch_size'])
+        target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
+        target_users = TensorDataset(torch.tensor(target_users, dtype=torch.int64, device=self.device))
+        self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'])
 
     def init_fake_tensor(self):
         return WRMFSGD.init_fake_tensor(self)

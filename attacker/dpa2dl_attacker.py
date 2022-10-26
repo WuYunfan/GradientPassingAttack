@@ -1,5 +1,4 @@
 import random
-
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 from attacker.basic_attacker import BasicAttacker
@@ -28,9 +27,9 @@ class DPA2DL(BasicAttacker):
         self.step = attacker_config['step']
         self.alpha = attacker_config['alpha']
         self.n_rounds = attacker_config['n_rounds']
-        target_user = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
-        target_user = TensorDataset(torch.tensor(target_user, dtype=torch.int64, device=self.device))
-        self.target_user_loader = DataLoader(target_user, batch_size=self.surrogate_trainer_config['test_batch_size'],
+        target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
+        target_users = TensorDataset(torch.tensor(target_users, dtype=torch.int64, device=self.device))
+        self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=True)
 
     def get_target_hr(self, surrogate_model):
