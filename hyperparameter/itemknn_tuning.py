@@ -14,7 +14,7 @@ def fitness(k):
                       'device': device}
     model_config = {'name': 'ItemKNN', 'k': k, 'device': device}
     trainer_config = {'name': 'BasicTrainer',  'device': device, 'n_epochs': 0,
-                      'test_batch_size': 512, 'topks': [20]}
+                      'test_batch_size': 2048, 'topks': [20]}
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, dataset, model)

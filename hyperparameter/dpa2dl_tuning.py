@@ -13,8 +13,8 @@ def fitness(reg_u, alpha, kapaa, prob, s_l2, n_rounds, n_pretrain_epochs, lr):
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
     surrogate_model_config = {'name': 'NeuMF', 'embedding_size': 64, 'device': device, 'layer_sizes': [64, 64, 64]}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': lr, 'l2_reg': s_l2,
-                                'n_epochs': n_pretrain_epochs, 'batch_size': 2 ** 13, 'dataloader_num_workers': 16,
-                                'test_batch_size': 256, 'topks': [20], 'neg_ratio': 4,
+                                'n_epochs': n_pretrain_epochs, 'batch_size': 2 ** 14, 'dataloader_num_workers': 16,
+                                'test_batch_size': 128, 'topks': [20], 'neg_ratio': 4,
                                 'mf_pretrain_epochs': 0, 'mlp_pretrain_epochs': 0}
     attacker_config = {'name': 'DPA2DL', 'device': device, 'n_fakes': 131, 'topk': 20,
                        'n_inters': 41, 'reg_u': reg_u, 'prob': prob, 'kappa': kapaa,

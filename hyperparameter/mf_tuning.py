@@ -14,8 +14,8 @@ def fitness(lr, l2_reg):
                       'device': device}
     model_config = {'name': 'MF', 'embedding_size': 64, 'device': device}
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam', 'lr': lr, 'l2_reg': l2_reg,
-                      'device': device, 'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6,
-                      'test_batch_size': 512, 'topks': [20]}
+                      'device': device, 'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 16,
+                      'test_batch_size': 2048, 'topks': [20]}
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, dataset, model)
