@@ -1,3 +1,4 @@
+import gc
 import random
 import torch
 from torch.utils.data import TensorDataset, DataLoader
@@ -141,6 +142,7 @@ class DPA2DL(BasicAttacker):
 
             self.choose_filler_items(surrogate_model, temp_fake_users, prob)
             print('Poison #{:s} has been generated!'.format(fake_nums_str))
+            gc.collect()
 
         self.dataset.train_data = self.dataset.train_data[:-self.n_fakes]
         self.dataset.val_data = self.dataset.val_data[:-self.n_fakes]

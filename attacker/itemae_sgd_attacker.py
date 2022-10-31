@@ -10,6 +10,7 @@ import higher
 from attacker.basic_attacker import BasicAttacker
 from attacker.wrmf_sgd_attacker import WRMFSGD
 from model import init_one_layer
+import gc
 
 
 class SurrogateItemAE(nn.Module):
@@ -113,6 +114,7 @@ class ItemAESGD(BasicAttacker):
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, target_item).float().sum(dim=1).mean()
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
+        gc.collect()
         return adv_loss.item(), hr.item(), adv_grads
 
     def generate_fake_users(self, verbose=True, writer=None):

@@ -11,6 +11,7 @@ import higher
 import time
 from attacker.basic_attacker import BasicAttacker
 from torch.nn.init import normal_
+import gc
 
 
 class SurrogateWRMF(nn.Module):
@@ -114,6 +115,7 @@ class WRMFSGD(BasicAttacker):
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
+        gc.collect()
         return adv_loss.item(), hr.item(), adv_grads
 
     def generate_fake_users(self, verbose=True, writer=None):

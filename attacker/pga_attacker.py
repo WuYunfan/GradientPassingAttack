@@ -7,6 +7,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import torch
 from torch.optim import Adam, SGD
 from utils import mse_loss, ce_loss
+import gc
 
 
 class PGA(BasicAttacker):
@@ -86,6 +87,7 @@ class PGA(BasicAttacker):
             adv_grad = torch.mm(adv_grads_wrt_item_embedding[item:item + 1, :], item_embedding_wrt_fake_inters)
             adv_grads.append(adv_grad)
         adv_grads = torch.cat(adv_grads, dim=0).t()
+        gc.collect()
         return adv_loss.item(), hr.item(), adv_grads
 
     def generate_fake_users(self, verbose=True, writer=None):
