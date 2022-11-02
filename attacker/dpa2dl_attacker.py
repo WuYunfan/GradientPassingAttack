@@ -6,7 +6,7 @@ from attacker.basic_attacker import BasicAttacker
 import numpy as np
 from model import get_model
 from trainer import get_trainer
-from utils import AverageMeter
+from utils import AverageMeter, topk_loss
 import torch.nn.functional as F
 import time
 import os
@@ -22,7 +22,6 @@ class DPA2DL(BasicAttacker):
         self.surrogate_trainer_config['device'] = self.device
 
         self.reg_u = attacker_config['reg_u']
-        self.topk = attacker_config['topk']
         self.prob = attacker_config['prob']
         self.kappa = torch.tensor(attacker_config['kappa'], dtype=torch.float32, device=self.device)
         self.step = attacker_config['step']
@@ -50,10 +49,7 @@ class DPA2DL(BasicAttacker):
         for users in self.target_user_loader:
             users = users[0]
             scores = surrogate_model.predict(users)
-            top_scores, _ = scores.topk(self.topk, dim=1)
-            target_scores = scores[:, self.target_item]
-            loss = F.logsigmoid(top_scores[:, -1]) - F.logsigmoid(target_scores)
-            loss = self.alpha * self.reg_u * torch.max(loss, -self.kappa).mean()
+            loss = self.alpha * self.reg_u * topk_loss(scores, self.target_item, self.topk, self.kappa)
             surrogate_trainer.opt.zero_grad()
             loss.backward()
             surrogate_trainer.opt.step()

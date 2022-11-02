@@ -22,7 +22,6 @@ class PGA(BasicAttacker):
         self.train_epochs = attacker_config['train_epochs']
         self.lmd = self.surrogate_config['l2_reg']
         self.weight = attacker_config['weight']
-        self.topk = attacker_config['topk']
         self.initial_lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
 
@@ -36,7 +35,7 @@ class PGA(BasicAttacker):
         self.poisoned_data_mat = torch.cat([poisoned_data_mat, self.fake_tensor], dim=0)
         test_users = TensorDataset(torch.arange(self.n_users + self.n_fakes, dtype=torch.int64, device=self.device))
         self.user_loader = DataLoader(test_users, batch_size=self.surrogate_config['batch_size'],
-                                      shuffle=True, num_workers=0)
+                                      shuffle=True,)
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         self.target_users = np.array(target_users)
 
@@ -57,7 +56,7 @@ class PGA(BasicAttacker):
                 users = users[0]
                 batch_data = self.poisoned_data_mat[users, :]
                 scores = surrogate_model.forward(users)
-                loss = mse_loss(batch_data, scores, self.device, self.weight)
+                loss = mse_loss(batch_data, scores, self.weight)
                 train_opt.zero_grad()
                 loss.backward()
                 train_opt.step()
@@ -76,16 +75,18 @@ class PGA(BasicAttacker):
         hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
 
         adv_grads = []
-        adv_grads_wrt_item_embedding = torch.autograd.grad(adv_loss, surrogate_model.item_embedding.weight)[0]
-        for item in range(self.n_items):
-            interacted_users = torch.nonzero(self.poisoned_data_mat[:, item])
-            interacted_user_embeddings = surrogate_model.user_embedding(interacted_users)
-            sum_v_mat = torch.mm(interacted_user_embeddings.t(), interacted_user_embeddings)
-            inv_mat = torch.linalg.inv(sum_v_mat + self.lmd * torch.eye(surrogate_model.embedding_size))
-            item_embedding_wrt_fake_inters = torch.mm(inv_mat,
-                                                      surrogate_model.user_embedding.weight[-self.fake_users:].t())
-            adv_grad = torch.mm(adv_grads_wrt_item_embedding[item:item + 1, :], item_embedding_wrt_fake_inters)
-            adv_grads.append(adv_grad)
+        adv_grads_wrt_item_embeddings = torch.autograd.grad(adv_loss, surrogate_model.item_embedding.weight)[0]
+        with torch.no_grad():
+            for item in range(self.n_items):
+                interacted_users = torch.nonzero(self.poisoned_data_mat[:, item])[:, 0]
+                interacted_user_embeddings = surrogate_model.user_embedding(interacted_users)
+                sum_v_mat = torch.mm(interacted_user_embeddings.t(), interacted_user_embeddings)
+                inv_mat = torch.linalg.inv(sum_v_mat +
+                                           self.lmd * torch.eye(surrogate_model.embedding_size, device=self.device))
+                item_embedding_wrt_fake_inters = torch.mm(inv_mat,
+                                                          surrogate_model.user_embedding.weight[-self.n_fakes:, :].t())
+                adv_grad = torch.mm(adv_grads_wrt_item_embeddings[item:item + 1, :], item_embedding_wrt_fake_inters)
+                adv_grads.append(adv_grad)
         adv_grads = torch.cat(adv_grads, dim=0).t()
         gc.collect()
         return adv_loss.item(), hr.item(), adv_grads

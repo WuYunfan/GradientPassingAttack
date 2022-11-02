@@ -84,8 +84,8 @@ def get_target_items(dataset):
     return target_items
 
 
-def mse_loss(profiles, scores, device, weight):
-    weights = torch.ones_like(profiles, dtype=torch.float32, device=device)
+def mse_loss(profiles, scores, weight):
+    weights = torch.ones_like(profiles, dtype=torch.float32, device=scores.device)
     weights[profiles > 0] = weight
     loss = weights * (profiles - scores) ** 2
     loss = torch.mean(loss)
@@ -97,9 +97,9 @@ def ce_loss(scores, target_item):
     return -log_probs[:, target_item].mean()
 
 
-def wmw_loss(scores, target_item, topk, b):
+def topk_loss(scores, target_item, topk, kappa):
     top_scores, _ = scores.topk(topk, dim=1)
     target_scores = scores[:, target_item]
-    loss = top_scores - target_scores[:, None]
-    loss = torch.sigmoid(loss / b).mean()
+    loss = F.logsigmoid(top_scores[:, -1]) - F.logsigmoid(target_scores)
+    loss = torch.max(loss, -kappa).mean()
     return loss

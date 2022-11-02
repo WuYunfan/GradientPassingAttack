@@ -1,7 +1,7 @@
 from attacker.basic_attacker import BasicAttacker
 import torch.nn as nn
 from model import LightGCN, BasicModel
-from utils import get_sparse_tensor, generate_daj_mat, AverageMeter, ce_loss
+from utils import get_sparse_tensor, generate_daj_mat, AverageMeter, ce_loss, topk_loss
 import scipy.sparse as sp
 import numpy as np
 import torch
@@ -215,8 +215,8 @@ class ERAP4(BasicAttacker):
         self.initial_lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
         self.adv_epochs = attacker_config['adv_epochs']
-        self.topk = attacker_config['topk']
         self.alpha = attacker_config['alpha']
+        self.kappa = torch.tensor(attacker_config['kappa'], dtype=torch.float32, device=self.device)
 
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
@@ -266,7 +266,7 @@ class ERAP4(BasicAttacker):
                 users = users[0]
                 scores.append(fmodel.predict(users, self.fake_tensor))
             scores = torch.cat(scores, dim=0)
-            adv_loss = ce_loss(scores, self.target_item)
+            adv_loss = topk_loss(scores, self.target_item, self.topk, self.kappa)
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]

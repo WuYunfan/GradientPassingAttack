@@ -16,7 +16,7 @@ def fitness(re_lr, aux_reg, s_l2, propagation_order, lr, momentum, alpha, n_trai
                                 'l2_reg': s_l2, 'aux_reg': aux_reg, 'neg_ratio': 4,
                                 'n_epochs': n_train_epochs, 'batch_size': 2 ** 14, 'dataloader_num_workers': 16,
                                 'test_batch_size': 2048, 'topks': [20]}
-    attacker_config = {'name': 'ERAP4', 'device': device, 'n_fakes': 131, 're_lr': re_lr, 'topk': 20,
+    attacker_config = {'name': 'ERAP4', 'device': device, 'n_fakes': 131, 're_lr': re_lr, 'topk': 20, 'kappa': 1.,
                        'n_inters': 41, 'lr': lr, 'momentum': momentum, 'adv_epochs': 30, 'alpha': alpha,
                        'propagation_order': propagation_order,
                        'surrogate_model_config': surrogate_model_config,
@@ -32,9 +32,9 @@ def fitness(re_lr, aux_reg, s_l2, propagation_order, lr, momentum, alpha, n_trai
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
-    param_grid = {'re_lr': [1.], 'aux_reg': [1.e-4], 's_l2': [1.e-4],
-                  'propagation_order':  [2], 'lr': [1., 10., 100.], 'momentum': [0., 0.9],
-                  'alpha': [0.01], 'n_train_epochs': [100, 200]}
+    param_grid = {'re_lr': [0.1, 1., 10.], 'aux_reg': [1.e-4], 's_l2': [1.e-4],
+                  'propagation_order':  [2], 'lr': [1., 10.], 'momentum': [0., 0.9, 0.99],
+                  'alpha': [0.01, 0.001], 'n_train_epochs': [200]}
     grid = ParameterGrid(param_grid)
     max_hr = -np.inf
     best_params = None

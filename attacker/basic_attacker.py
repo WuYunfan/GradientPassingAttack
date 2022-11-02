@@ -20,6 +20,7 @@ class BasicAttacker:
         self.n_train_inters = int(self.n_inters * attacker_config.get('train_ratio', 0.8))
         self.target_item = attacker_config['target_item']
         self.device = attacker_config['device']
+        self.topk = attacker_config['topk']
         self.fake_users = None
         self.model = None
         self.trainer = None

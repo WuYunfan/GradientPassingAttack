@@ -28,7 +28,7 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
     param_grid = {'lr': [0.1, 1., 10.], 's_lr': [1.e-2, 1.e-3],
-                  's_l2':  [1.e-4, 1.e-5, 0.], 'momentum': [0., 0.9]}
+                  's_l2':  [1.e-4, 1.e-5, 0.], 'momentum': [0., 0.9, 0.99]}
     grid = ParameterGrid(param_grid)
     max_hr = -np.inf
     best_params = None

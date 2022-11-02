@@ -51,7 +51,6 @@ class ItemAESGD(BasicAttacker):
         self.train_epochs = attacker_config['train_epochs']
         self.unroll_steps = attacker_config['unroll_steps']
         self.weight = attacker_config['weight']
-        self.topk = attacker_config['topk']
         self.initial_lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
 
@@ -65,7 +64,7 @@ class ItemAESGD(BasicAttacker):
         self.poisoned_data_mat = torch.cat([poisoned_data_mat, self.fake_tensor], dim=0).t()
         test_items = TensorDataset(torch.arange(self.n_items, dtype=torch.int64, device=self.device))
         self.item_loader = DataLoader(test_items, batch_size=self.surrogate_config['batch_size'],
-                                      shuffle=True, num_workers=0)
+                                      shuffle=True)
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         self.target_users = np.array(target_users)
 
@@ -86,7 +85,7 @@ class ItemAESGD(BasicAttacker):
                 items = items[0]
                 batch_data = self.poisoned_data_mat[items, :]
                 scores = surrogate_model.forward(batch_data)
-                loss = mse_loss(batch_data, scores, self.device, self.weight)
+                loss = mse_loss(batch_data, scores, self.weight)
                 train_opt.zero_grad()
                 loss.backward()
                 train_opt.step()
@@ -97,7 +96,7 @@ class ItemAESGD(BasicAttacker):
                     items = items[0]
                     batch_data = self.poisoned_data_mat[items, :]
                     scores = fmodel.forward(batch_data)
-                    loss = mse_loss(batch_data, scores, self.device, self.weight)
+                    loss = mse_loss(batch_data, scores, self.weight)
                     diffopt.step(loss)
 
             fmodel.eval()

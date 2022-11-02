@@ -45,7 +45,6 @@ class WRMFSGD(BasicAttacker):
         self.train_epochs = attacker_config['train_epochs']
         self.unroll_steps = attacker_config['unroll_steps']
         self.weight = attacker_config['weight']
-        self.topk = attacker_config['topk']
         self.initial_lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
 
@@ -59,7 +58,7 @@ class WRMFSGD(BasicAttacker):
         self.poisoned_data_mat = torch.cat([poisoned_data_mat, self.fake_tensor], dim=0)
         test_users = TensorDataset(torch.arange(self.n_users + self.n_fakes, dtype=torch.int64, device=self.device))
         self.user_loader = DataLoader(test_users, batch_size=self.surrogate_config['batch_size'],
-                                      shuffle=True, num_workers=0)
+                                      shuffle=True)
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         self.target_users = np.array(target_users)
 
@@ -88,7 +87,7 @@ class WRMFSGD(BasicAttacker):
                 users = users[0]
                 batch_data = self.poisoned_data_mat[users, :]
                 scores = surrogate_model.forward(users)
-                loss = mse_loss(batch_data, scores, self.device, self.weight)
+                loss = mse_loss(batch_data, scores, self.weight)
                 train_opt.zero_grad()
                 loss.backward()
                 train_opt.step()
@@ -99,7 +98,7 @@ class WRMFSGD(BasicAttacker):
                     users = users[0]
                     batch_data = self.poisoned_data_mat[users, :]
                     scores = fmodel.forward(users)
-                    loss = mse_loss(batch_data, scores, self.device, self.weight)
+                    loss = mse_loss(batch_data, scores, self.weight)
                     diffopt.step(loss)
 
             fmodel.eval()
