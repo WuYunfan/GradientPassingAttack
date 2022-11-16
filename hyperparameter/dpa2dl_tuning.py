@@ -32,8 +32,8 @@ def fitness(reg_u, alpha, kappa, prob, s_l2, n_rounds, n_pretrain_epochs, lr):
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
-    param_grid = {'reg_u': [1e2, 1e3, 1e4], 'alpha': [1.e-4, 1.e-3, 1.e-2], 'kappa': [1.],
-                  'prob':  [0.9], 's_l2': [1.e-2, 1.e-3, 0.], 'n_rounds': [5],
+    param_grid = {'reg_u': [1e1, 1e2, 1e3], 'alpha': [1.e-5, 1.e-4, 1.e-3], 'kappa': [1.],
+                  'prob':  [0.9], 's_l2': [1.e-3, 1.e-4, 0.], 'n_rounds': [5],
                   'n_pretrain_epochs': [20], 'lr': [1.e-2, 1.e-3]}
     grid = ParameterGrid(param_grid)
     max_hr = -np.inf
