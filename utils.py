@@ -36,7 +36,7 @@ def get_sparse_tensor(mat, device):
     return sp_tensor
 
 
-def generate_daj_mat(dataset):
+def generate_adj_mat(dataset):
     train_array = np.array(dataset.train_array)
     users, items = train_array[:, 0], train_array[:, 1]
     row = np.concatenate([users, items + dataset.n_users], axis=0)
@@ -85,9 +85,14 @@ def get_target_items(dataset):
 
 
 def mse_loss(profiles, scores, weight):
-    weights = torch.ones_like(profiles, dtype=torch.float32, device=scores.device)
-    weights[profiles > 0] = weight
+    weights = torch.where(profiles > 0, weight, 1.)
     loss = weights * (profiles - scores) ** 2
+    loss = torch.mean(loss)
+    return loss
+
+
+def bce_loss(profiles, scores, alpha):
+    loss = F.softplus(-scores) * profiles + alpha * F.softplus(scores) * (1. - profiles)
     loss = torch.mean(loss)
     return loss
 

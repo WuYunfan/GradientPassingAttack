@@ -165,20 +165,24 @@ class GowallaDataset(BasicDataset):
         input_file_path = os.path.join(dataset_config['path'], 'Gowalla_totalCheckins.txt')
         user_inter_sets, item_inter_sets = dict(), dict()
         with open(input_file_path, 'r') as f:
-            lines = f.read().strip().split('\n')
-        for line in lines:
-            u, _, _, _, i = line.strip().split('\t')
-            u, i = int(u), int(i)
-            update_ui_sets(u, i, user_inter_sets, item_inter_sets)
+            line = f.readline().strip()
+            while line:
+                u, _, _, _, i = line.split('\t')
+                u, i = int(u), int(i)
+                update_ui_sets(u, i, user_inter_sets, item_inter_sets)
+                line = f.readline().strip()
         user_map, item_map = self.remove_sparse_ui(user_inter_sets, item_inter_sets)
 
         self.user_inter_lists = [[] for _ in range(self.n_users)]
-        for line in lines:
-            u, t, _, _, i = line.split('\t')
-            t = time.strptime(t, '%Y-%m-%dT%H:%M:%SZ')
-            t = int(time.mktime(t))
-            u, i = int(u), int(i)
-            update_user_inter_lists(u, i, t, user_map, item_map, self.user_inter_lists)
+        with open(input_file_path, 'r') as f:
+            line = f.readline().strip()
+            while line:
+                u, t, _, _, i = line.split('\t')
+                t = time.strptime(t, '%Y-%m-%dT%H:%M:%SZ')
+                t = int(time.mktime(t))
+                u, i = int(u), int(i)
+                update_user_inter_lists(u, i, t, user_map, item_map, self.user_inter_lists)
+                line = f.readline().strip()
 
         self.generate_data()
 

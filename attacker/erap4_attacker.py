@@ -1,7 +1,9 @@
+from abc import ABC
+
 from attacker.basic_attacker import BasicAttacker
 import torch.nn as nn
 from model import LightGCN, BasicModel
-from utils import get_sparse_tensor, generate_daj_mat, AverageMeter, ce_loss, topk_loss
+from utils import get_sparse_tensor, generate_adj_mat, AverageMeter, ce_loss, mse_loss, bce_loss, topk_loss
 import scipy.sparse as sp
 import numpy as np
 import torch
@@ -10,15 +12,14 @@ import dgl
 import copy
 from torch.utils.data import TensorDataset, DataLoader
 from trainer import BasicTrainer
-from utils import AverageMeter
 import torch.nn.functional as F
 import sys
 from torch.autograd import Function
-from torch.optim import SGD
 import gc
 from torch.optim.lr_scheduler import StepLR
 from attacker.wrmf_sgd_attacker import WRMFSGD
 import higher
+from torch.optim import Adam, SGD
 
 
 class TorchSparseMat:
@@ -50,173 +51,35 @@ class TorchSparseMat:
         return x[:self.shape[0], :]
 
 
-class IGCN(BasicModel):
+class SurrogateEPRA4MF(BasicModel):
     def __init__(self, model_config):
-        super(IGCN, self).__init__(model_config)
-        self.n_fake_users = model_config['n_fake_users']
-        self.n_norm_users = self.n_users - self.n_fake_users
+        super(SurrogateEPRA4MF, self).__init__(model_config)
         self.embedding_size = model_config['embedding_size']
-        self.n_layers = model_config['n_layers']
-
-        self.adj_mat = self.generate_graph(model_config['dataset'])
-        self.feat_mat = self.generate_feat(model_config['dataset'])
-
-        self.embedding = nn.Embedding(self.feat_mat.shape[1], self.embedding_size)
+        self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
         normal_(self.embedding.weight, std=0.1)
         self.to(device=self.device)
 
-    def generate_graph(self, dataset):
-        adj_mat = generate_daj_mat(dataset).tocoo()
-        row, col = adj_mat.row, adj_mat.col
-        fake_row = np.arange(self.n_fake_users, dtype=np.int64) + self.n_users - self.n_fake_users
-        fake_row = fake_row[:, None].repeat(self.n_items, axis=1).flatten()
-        fake_col = np.arange(self.n_items, dtype=np.int64) + self.n_users
-        fake_col = fake_col[None, :].repeat(self.n_fake_users, axis=0).flatten()
-        row = np.concatenate([row, fake_row, fake_col])
-        col = np.concatenate([col, fake_col, fake_row])
-        adj_mat = TorchSparseMat(row, col, (self.n_users + self.n_items,
-                                            self.n_users + self.n_items), self.device)
-        return adj_mat
-
-    def generate_feat(self, dataset):
-        indices = []
-        for user, item in dataset.train_array:
-            indices.append([user, self.n_norm_users + item])
-            indices.append([self.n_users + item, user])
-        for user in range(self.n_users):
-            indices.append([user, self.n_norm_users + self.n_items])
-        for item in range(self.n_items):
-            indices.append([self.n_users + item, self.n_norm_users + self.n_items + 1])
-        indices = np.array(indices)
-        row, col = indices[:, 0], indices[:, 1]
-        fake_row = np.arange(self.n_fake_users, dtype=np.int64) + self.n_norm_users
-        fake_row = fake_row[:, None].repeat(self.n_items, axis=1).flatten()
-        fake_col = np.arange(self.n_items, dtype=np.int64) + self.n_norm_users
-        fake_col = fake_col[None, :].repeat(self.n_fake_users, axis=0).flatten()
-        row = np.concatenate([row, fake_row])
-        col = np.concatenate([col, fake_col])
-        feat_mat = TorchSparseMat(row, col, (self.n_users + self.n_items,
-                                             self.n_norm_users + self.n_items + 2), self.device)
-        return feat_mat
-
-    def inductive_rep_layer(self, fake_tensor):
-        x = self.feat_mat.spmm(self.embedding.weight, fake_tensor.flatten(), norm='left')
-        return x
-
-    def get_rep(self, fake_tensor=None):
-        if fake_tensor is None:
-            fake_tensor = torch.zeros([self.n_fake_users, self.n_items], dtype=torch.float32, device=self.device)
-
-        representations = self.inductive_rep_layer(fake_tensor)
-        all_layer_rep = [representations]
-        for _ in range(self.n_layers):
-            representations = self.adj_mat.spmm(representations, fake_tensor.flatten().repeat(2), norm='both')
-            all_layer_rep.append(representations)
-        all_layer_rep = torch.stack(all_layer_rep, dim=0)
-        final_rep = all_layer_rep.mean(dim=0)
-        return final_rep
-
-    def predict(self, users, fake_tensor=None):
-        rep = self.get_rep(fake_tensor)
-        users_r = rep[users, :]
-        all_items_r = rep[self.n_users:, :]
-        scores = torch.mm(users_r, all_items_r.t())
+    def predict(self, users):
+        user_e = self.embedding.weight[users, :]
+        scores = torch.mm(user_e, self.embedding.weight[-self.n_items:, :].t())
         return scores
 
 
-class IMF(IGCN):
-    def __init__(self, model_config):
-        super(IMF, self).__init__(model_config)
-
-    def get_rep(self, fake_tensor=None):
-        if fake_tensor is None:
-            fake_tensor = torch.zeros([self.n_fake_users, self.n_items], dtype=torch.float32, device=self.device)
-        representations = self.inductive_rep_layer(fake_tensor)
-        return representations
-
-
-class IGCNTrainer(BasicTrainer):
-    def __init__(self, trainer_config):
-        super(IGCNTrainer, self).__init__(trainer_config)
-
-        self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
-                                     num_workers=trainer_config['dataloader_num_workers'],
-                                     persistent_workers=True)
-        self.initialize_optimizer()
-        self.l2_reg = trainer_config['l2_reg']
-        self.aux_reg = trainer_config['aux_reg']
-
-    def train_one_epoch(self):
-        losses = AverageMeter()
-        for batch_data in self.dataloader:
-            rep = self.model.get_rep()
-            inputs = batch_data.to(device=self.device, dtype=torch.int64)
-
-            users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
-            users_r = rep[users, :]
-            pos_items_r = rep[self.model.n_users + pos_items, :]
-            bce_loss_p = F.softplus(-torch.sum(users_r * pos_items_r, dim=1))
-            l2_norm_sq_p = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2
-
-            users_e = self.model.embedding(users)
-            aux_loss = F.softplus(-torch.sum(users_r * users_e, dim=1)).mean()
-
-            inputs = inputs.reshape(-1, 3)
-            users, neg_items = inputs[:, 0], inputs[:, 2]
-            users_r = rep[users, :]
-            neg_items_r = rep[self.model.n_users + neg_items, :]
-            bce_loss_n = F.softplus(torch.sum(users_r * neg_items_r, dim=1))
-            l2_norm_sq_n = torch.norm(neg_items_r, p=2, dim=1) ** 2
-
-            l2_norm_sq = torch.cat([l2_norm_sq_p, l2_norm_sq_n], dim=0)
-            bce_loss = torch.cat([bce_loss_p, bce_loss_n], dim=0).mean()
-            reg_loss = self.l2_reg * l2_norm_sq.mean() + self.aux_reg * aux_loss
-            loss = bce_loss + reg_loss
-            self.opt.zero_grad()
-            loss.backward()
-            self.opt.step()
-            losses.update(loss.item(), l2_norm_sq.shape[0])
-        return losses.avg
-
-
-class ParameterPropagation(Function):
-    @staticmethod
-    def forward(ctx, rep, mat, order, fake_tensor):
-        ctx.order = order
-        ctx.mat = mat
-        ctx.save_for_backward(fake_tensor)
-        return rep
-
-    @staticmethod
-    def backward(ctx, grad_out):
-        order = ctx.order
-        mat = ctx.mat
-        fake_tensor = ctx.saved_tensors[0]
-        grad = grad_out
-        for _ in range(order):
-            grad = mat.spmm(grad, fake_tensor.flatten().repeat(2)) + grad + grad_out
-        return grad, None, None, None
-
-
-class ERAP4(BasicAttacker):
+class EPRA4MF(BasicAttacker):
     def __init__(self, attacker_config):
-        super(ERAP4, self).__init__(attacker_config)
-        self.surrogate_model_config = attacker_config['surrogate_model_config']
-        self.surrogate_model_config['device'] = self.device
-        self.surrogate_model_config['dataset'] = self.dataset
-        self.surrogate_model_config['n_fake_users'] = self.n_fakes
+        super(EPRA4MF, self).__init__(attacker_config)
+        self.surrogate_config = attacker_config['surrogate_config']
+        self.surrogate_config['device'] = self.device
+        self.surrogate_config['dataset'] = self.dataset
 
-        self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
-        self.surrogate_trainer_config['device'] = self.device
-        self.surrogate_trainer_config['dataset'] = self.dataset
-
-        self.propagation_order = attacker_config['propagation_order']
-        self.retraining_lr = attacker_config['re_lr']
+        self.adv_epochs = attacker_config['adv_epochs']
+        self.train_epochs = attacker_config['train_epochs']
+        self.unroll_steps = attacker_config['unroll_steps']
         self.initial_lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
-        self.adv_epochs = attacker_config['adv_epochs']
+        self.propagation_order = attacker_config['propagation_order']
         self.alpha = attacker_config['alpha']
-        self.kappa = torch.tensor(attacker_config['kappa'], dtype=torch.float32, device=self.device)
+        self.kappa = attacker_config['kappa']
 
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
@@ -228,19 +91,13 @@ class ERAP4(BasicAttacker):
         self.dataset.val_data += [[]] * self.n_fakes
         self.dataset.n_users += self.n_fakes
 
-        self.surrogate_model = getattr(sys.modules[__name__], self.surrogate_model_config['name'])
-        self.surrogate_model = self.surrogate_model(self.surrogate_model_config)
-        self.surrogate_trainer_config['model'] = self.surrogate_model
-        self.surrogate_trainer = IGCNTrainer(self.surrogate_trainer_config)
-        ckpt_path = self.surrogate_trainer_config.get('ckpt_path', None)
-        if not ckpt_path:
-            self.surrogate_trainer.train(verbose=False)
-        else:
-            self.surrogate_model.load(ckpt_path)
-        self.retrain_opt = SGD(self.surrogate_model.parameters(), lr=self.retraining_lr)
+        poisoned_data_mat = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
+        self.poisoned_data_mat = torch.cat([poisoned_data_mat, self.fake_tensor], dim=0)
+        test_users = TensorDataset(torch.arange(self.n_users + self.n_fakes, dtype=torch.int64, device=self.device))
+        self.user_loader = DataLoader(test_users, batch_size=self.surrogate_config['batch_size'],
+                                      shuffle=True)
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
-        target_users = TensorDataset(torch.tensor(target_users, dtype=torch.int64, device=self.device))
-        self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'])
+        self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
 
     def init_fake_tensor(self):
         return WRMFSGD.init_fake_tensor(self)
@@ -249,23 +106,34 @@ class ERAP4(BasicAttacker):
         WRMFSGD.project_fake_tensor(self)
 
     def retrain_surrogate(self):
-        with higher.innerloop_ctx(self.surrogate_model, self.retrain_opt) as (fmodel, diffopt):
-            fmodel.eval()
-            rep = fmodel.get_rep(self.fake_tensor.detach())
-            rep = ParameterPropagation.apply(rep, fmodel.adj_mat,
-                                             self.propagation_order, self.fake_tensor)
-            users_r = rep[self.n_users:self.n_users + self.n_fakes, :]
-            all_items_r = rep[self.n_users + self.n_fakes:, :]
-            scores = torch.mm(users_r, all_items_r.t())
-            loss = F.softplus(-scores) * self.fake_tensor + self.alpha * F.softplus(scores) * (1. - self.fake_tensor)
-            loss = loss.mean()
-            diffopt.step(loss)
+        surrogate_model = getattr(sys.modules[__name__], self.surrogate_config['name'])
+        surrogate_model = surrogate_model(self.surrogate_config)
+        surrogate_model.train()
+        train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'],
+                         weight_decay=self.surrogate_config['l2_reg'])
 
-            scores = []
-            for users in self.target_user_loader:
+        for _ in range(self.train_epochs - self.unroll_steps):
+            for users in self.user_loader:
                 users = users[0]
-                scores.append(fmodel.predict(users, self.fake_tensor))
-            scores = torch.cat(scores, dim=0)
+                batch_data = self.poisoned_data_mat[users, :]
+                scores = surrogate_model.forward(users)
+                loss = bce_loss(batch_data, scores, self.alpha)
+                train_opt.zero_grad()
+                loss.backward()
+                train_opt.step()
+
+        with higher.innerloop_ctx(surrogate_model, train_opt) as (fmodel, diffopt):
+            fmodel.train()
+            for _ in range(self.unroll_steps):
+                for users in self.user_loader:
+                    users = users[0]
+                    batch_data = self.poisoned_data_mat[users, :]
+                    scores = fmodel.forward(users)
+                    loss = bce_loss(batch_data, scores, self.alpha)
+                    diffopt.step(loss)
+
+            fmodel.eval()
+            scores = fmodel.forward(self.target_users)
             adv_loss = topk_loss(scores, self.target_item, self.topk, self.kappa)
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
@@ -278,3 +146,4 @@ class ERAP4(BasicAttacker):
         self.dataset.train_data = self.dataset.train_data[:-self.n_fakes]
         self.dataset.val_data = self.dataset.val_data[:-self.n_fakes]
         self.dataset.n_users -= self.n_fakes
+

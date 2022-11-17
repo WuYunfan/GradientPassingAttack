@@ -60,7 +60,7 @@ class WRMFSGD(BasicAttacker):
         self.user_loader = DataLoader(test_users, batch_size=self.surrogate_config['batch_size'],
                                       shuffle=True)
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
-        self.target_users = np.array(target_users)
+        self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
 
     def init_fake_tensor(self):
         degree = np.array(np.sum(self.data_mat, axis=1)).squeeze()
@@ -93,6 +93,7 @@ class WRMFSGD(BasicAttacker):
                 train_opt.step()
 
         with higher.innerloop_ctx(surrogate_model, train_opt) as (fmodel, diffopt):
+            fmodel.train()
             for _ in range(self.unroll_steps):
                 for users in self.user_loader:
                     users = users[0]
@@ -102,14 +103,7 @@ class WRMFSGD(BasicAttacker):
                     diffopt.step(loss)
 
             fmodel.eval()
-            scores = []
-            all_users = []
-            for users in self.user_loader:
-                users = users[0]
-                scores.append(fmodel.forward(users))
-                all_users += users.cpu().numpy().tolist()
-            norm_user_pos = np.argsort(all_users)[:-self.n_fakes]
-            scores = torch.cat(scores, dim=0)[norm_user_pos, :][self.target_users, :]
+            scores = fmodel.forward(self.target_users)
             adv_loss = ce_loss(scores, self.target_item)
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()

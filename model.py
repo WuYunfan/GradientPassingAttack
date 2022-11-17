@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import scipy.sparse as sp
 import numpy as np
-from utils import get_sparse_tensor, generate_daj_mat
+from utils import get_sparse_tensor, generate_adj_mat
 from torch.nn.init import kaiming_uniform_, xavier_normal, normal_, zeros_, ones_
 import sys
 import torch.nn.functional as F
@@ -83,7 +83,7 @@ class LightGCN(BasicModel):
         self.to(device=self.device)
 
     def generate_graph(self, dataset):
-        adj_mat = generate_daj_mat(dataset)
+        adj_mat = generate_adj_mat(dataset)
         degree = np.array(np.sum(adj_mat, axis=1)).squeeze()
         degree = np.maximum(1., degree)
         d_inv = np.power(degree, -0.5)

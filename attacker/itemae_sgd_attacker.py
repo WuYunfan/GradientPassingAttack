@@ -62,11 +62,11 @@ class ItemAESGD(BasicAttacker):
 
         poisoned_data_mat = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
         self.poisoned_data_mat = torch.cat([poisoned_data_mat, self.fake_tensor], dim=0).t()
-        test_items = TensorDataset(torch.arange(self.n_items, dtype=torch.int64, device=self.device))
-        self.item_loader = DataLoader(test_items, batch_size=self.surrogate_config['batch_size'],
+        self.test_items = TensorDataset(torch.arange(self.n_items, dtype=torch.int64, device=self.device))
+        self.item_loader = DataLoader(self.test_items, batch_size=self.surrogate_config['batch_size'],
                                       shuffle=True)
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
-        self.target_users = np.array(target_users)
+        self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
 
     def init_fake_tensor(self):
         return WRMFSGD.init_fake_tensor(self)
@@ -91,6 +91,7 @@ class ItemAESGD(BasicAttacker):
                 train_opt.step()
 
         with higher.innerloop_ctx(surrogate_model, train_opt) as (fmodel, diffopt):
+            fmodel.train()
             for _ in range(self.unroll_steps):
                 for items in self.item_loader:
                     items = items[0]
@@ -100,18 +101,10 @@ class ItemAESGD(BasicAttacker):
                     diffopt.step(loss)
 
             fmodel.eval()
-            scores = []
-            all_items = []
-            for items in self.item_loader:
-                items = items[0]
-                batch_data = self.poisoned_data_mat[items, :]
-                scores.append(fmodel.forward(batch_data))
-                all_items += items.cpu().numpy().tolist()
-            scores = torch.cat(scores, dim=0).t()[self.target_users, :]
-            target_item = all_items.index(self.target_item)
-            adv_loss = ce_loss(scores, target_item)
+            scores = fmodel.forward(self.test_items).t()[self.target_users, :]
+            adv_loss = ce_loss(scores, self.target_item)
             _, topk_items = scores.topk(self.topk, dim=1)
-            hr = torch.eq(topk_items, target_item).float().sum(dim=1).mean()
+            hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
         gc.collect()
         return adv_loss.item(), hr.item(), adv_grads
