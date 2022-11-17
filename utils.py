@@ -92,8 +92,10 @@ def mse_loss(profiles, scores, weight):
 
 
 def bce_loss(profiles, scores, alpha):
-    loss = F.softplus(-scores) * profiles + alpha * F.softplus(scores) * (1. - profiles)
-    loss = torch.mean(loss)
+    n_profiles = 1. - profiles
+    loss_p = (F.softplus(-scores) * profiles).sum() / profiles.sum()
+    loss_n = (F.softplus(scores) * n_profiles).sum() / n_profiles.sum()
+    loss = loss_p + alpha * loss_n
     return loss
 
 

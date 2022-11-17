@@ -13,7 +13,7 @@ def fitness(lr, s_lr, s_l2, momentum):
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
     surrogate_config = {'layer_sizes': [64, 32], 'lr': s_lr, 'l2_reg': s_l2, 'batch_size': 2048}
     attacker_config = {'name': 'ItemAESGD', 'lr': lr, 'momentum': momentum,
-                       'device': device, 'n_fakes': 131, 'unroll_steps': 5, 'train_epochs': 50,
+                       'device': device, 'n_fakes': 131, 'unroll_steps': 3, 'train_epochs': 50,
                        'n_inters': 41, 'topk': 20, 'weight': 20., 'adv_epochs': 30,
                        'surrogate_config': surrogate_config}
     dataset = get_dataset(dataset_config)

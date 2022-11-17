@@ -51,9 +51,9 @@ class TorchSparseMat:
         return x[:self.shape[0], :]
 
 
-class SurrogateEPRA4MF(BasicModel):
+class SurrogateERAP4MF(BasicModel):
     def __init__(self, model_config):
-        super(SurrogateEPRA4MF, self).__init__(model_config)
+        super(SurrogateERAP4MF, self).__init__(model_config)
         self.embedding_size = model_config['embedding_size']
         self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
         normal_(self.embedding.weight, std=0.1)
@@ -65,12 +65,13 @@ class SurrogateEPRA4MF(BasicModel):
         return scores
 
 
-class EPRA4MF(BasicAttacker):
+class ERAP4(BasicAttacker):
     def __init__(self, attacker_config):
-        super(EPRA4MF, self).__init__(attacker_config)
+        super(ERAP4, self).__init__(attacker_config)
         self.surrogate_config = attacker_config['surrogate_config']
         self.surrogate_config['device'] = self.device
         self.surrogate_config['dataset'] = self.dataset
+        self.surrogate_config['verbose'] = False
 
         self.adv_epochs = attacker_config['adv_epochs']
         self.train_epochs = attacker_config['train_epochs']
@@ -79,7 +80,8 @@ class EPRA4MF(BasicAttacker):
         self.momentum = attacker_config['momentum']
         self.propagation_order = attacker_config['propagation_order']
         self.alpha = attacker_config['alpha']
-        self.kappa = attacker_config['kappa']
+        self.s_l2 = self.surrogate_config['l2_reg']
+        self.kappa = torch.tensor(attacker_config['kappa'], dtype=torch.float32, device=self.device)
 
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
@@ -109,15 +111,15 @@ class EPRA4MF(BasicAttacker):
         surrogate_model = getattr(sys.modules[__name__], self.surrogate_config['name'])
         surrogate_model = surrogate_model(self.surrogate_config)
         surrogate_model.train()
-        train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'],
-                         weight_decay=self.surrogate_config['l2_reg'])
+        train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'])
 
         for _ in range(self.train_epochs - self.unroll_steps):
             for users in self.user_loader:
                 users = users[0]
                 batch_data = self.poisoned_data_mat[users, :]
-                scores = surrogate_model.forward(users)
+                scores = surrogate_model.predict(users)
                 loss = bce_loss(batch_data, scores, self.alpha)
+                loss += self.s_l2 * torch.pow(scores, 2).mean()
                 train_opt.zero_grad()
                 loss.backward()
                 train_opt.step()
@@ -128,16 +130,17 @@ class EPRA4MF(BasicAttacker):
                 for users in self.user_loader:
                     users = users[0]
                     batch_data = self.poisoned_data_mat[users, :]
-                    scores = fmodel.forward(users)
+                    scores = fmodel.predict(users)
                     loss = bce_loss(batch_data, scores, self.alpha)
+                    loss += self.s_l2 * torch.pow(scores, 2).mean()
                     diffopt.step(loss)
 
             fmodel.eval()
-            scores = fmodel.forward(self.target_users)
+            scores = fmodel.predict(self.target_users)
             adv_loss = topk_loss(scores, self.target_item, self.topk, self.kappa)
+            adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
-            adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
         gc.collect()
         return adv_loss.item(), hr.item(), adv_grads
 

@@ -31,7 +31,8 @@ def init_one_layer(in_features, out_features):
 class BasicModel(nn.Module):
     def __init__(self, model_config):
         super(BasicModel, self).__init__()
-        print(model_config)
+        if model_config.get('verbose', True):
+            print(model_config)
         self.config = model_config
         self.name = model_config['name']
         self.device = model_config['device']
