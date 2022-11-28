@@ -51,11 +51,31 @@ class TorchSparseMat:
         return x[:self.shape[0], :]
 
 
+class ParameterPropagation(Function):
+    @staticmethod
+    def forward(ctx, rep, mat, order, fake_tensor):
+        ctx.order = order
+        ctx.mat = mat
+        ctx.save_for_backward(fake_tensor)
+        return rep
+
+    @staticmethod
+    def backward(ctx, grad_out):
+        order = ctx.order
+        mat = ctx.mat
+        fake_tensor = ctx.saved_tensors[0]
+        grad = grad_out
+        for _ in range(order):
+            grad = mat.spmm(grad, fake_tensor.flatten().repeat(2)) + grad + grad_out
+        return grad, None, None, None
+
+
 class SurrogateERAP4MF(BasicModel):
     def __init__(self, model_config):
         super(SurrogateERAP4MF, self).__init__(model_config)
         self.embedding_size = model_config['embedding_size']
         self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
+        self.adj_mat = self.generate_graph(model_config['dataset'])
         normal_(self.embedding.weight, std=0.1)
         self.to(device=self.device)
 
@@ -63,6 +83,19 @@ class SurrogateERAP4MF(BasicModel):
         user_e = self.embedding.weight[users, :]
         scores = torch.mm(user_e, self.embedding.weight[-self.n_items:, :].t())
         return scores
+
+    def generate_graph(self, dataset):
+        adj_mat = generate_adj_mat(dataset).tocoo()
+        row, col = adj_mat.row, adj_mat.col
+        fake_row = np.arange(self.n_fake_users, dtype=np.int64) + self.n_users - self.n_fake_users
+        fake_row = fake_row[:, None].repeat(self.n_items, axis=1).flatten()
+        fake_col = np.arange(self.n_items, dtype=np.int64) + self.n_users
+        fake_col = fake_col[None, :].repeat(self.n_fake_users, axis=0).flatten()
+        row = np.concatenate([row, fake_row, fake_col])
+        col = np.concatenate([col, fake_col, fake_row])
+        adj_mat = TorchSparseMat(row, col, (self.n_users + self.n_items,
+                                            self.n_users + self.n_items), self.device)
+        return adj_mat
 
 
 class ERAP4(BasicAttacker):
@@ -78,7 +111,6 @@ class ERAP4(BasicAttacker):
         self.unroll_steps = attacker_config['unroll_steps']
         self.initial_lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
-        self.propagation_order = attacker_config['propagation_order']
         self.alpha = attacker_config['alpha']
         self.s_l2 = self.surrogate_config['l2_reg']
         self.kappa = torch.tensor(attacker_config['kappa'], dtype=torch.float32, device=self.device)

@@ -12,11 +12,11 @@ def fitness(lr, momentum, s_lr, s_l2, propagation_order, alpha):
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
     surrogate_config = {'name': 'SurrogateERAP4MF', 'embedding_size': 64, 'lr': s_lr,
-                        'l2_reg': s_l2, 'batch_size': 2048}
+                        'propagation_order': propagation_order, 'l2_reg': s_l2, 'batch_size': 2048}
     attacker_config = {'name': 'ERAP4', 'lr': lr, 'momentum': momentum,
-                       'device': device, 'n_fakes': 131, 'unroll_steps': 5, 'train_epochs': 50,
+                       'device': device, 'n_fakes': 131, 'unroll_steps': 3, 'train_epochs': 50,
                        'n_inters': 41, 'topk': 20, 'alpha': alpha, 'kappa': 1., 'adv_epochs': 30,
-                       'propagation_order': propagation_order, 'surrogate_config': surrogate_config}
+                       'surrogate_config': surrogate_config}
     dataset = get_dataset(dataset_config)
     target_item = get_target_items(dataset)[0]
     attacker_config['target_item'] = target_item
@@ -28,8 +28,8 @@ def fitness(lr, momentum, s_lr, s_l2, propagation_order, alpha):
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
-    param_grid = {'lr': [0.1, 1., 10.], 's_lr': [1.e-2, 1.e-3], 's_l2':  [1.e-4, 0.],
-                  'momentum': [0., 0.9, 0.99], 'propagation_order': [2, 3], 'alpha': [1.e-2, 1.e-3]}
+    param_grid = {'lr': [0.1, 1., 10.], 's_lr': [1.e-2, 1.e-3], 's_l2':  [1.e-1, 1.e-2, 1.e-3],
+                  'momentum': [0., 0.9, 0.99], 'propagation_order': [2, 3], 'alpha': [1.]}
     grid = ParameterGrid(param_grid)
     max_hr = -np.inf
     best_params = None
