@@ -73,15 +73,22 @@ class ParameterPropagation(Function):
 class SurrogateERAP4MF(BasicModel):
     def __init__(self, model_config):
         super(SurrogateERAP4MF, self).__init__(model_config)
+        self.n_fake_users = model_config['n_fake_users']
         self.embedding_size = model_config['embedding_size']
+        self.propagation_order = model_config['propagation_order']
         self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
         self.adj_mat = self.generate_graph(model_config['dataset'])
         normal_(self.embedding.weight, std=0.1)
         self.to(device=self.device)
 
-    def predict(self, users):
-        user_e = self.embedding.weight[users, :]
-        scores = torch.mm(user_e, self.embedding.weight[-self.n_items:, :].t())
+    def predict(self, users, fake_tensor=None):
+        if fake_tensor is None:
+            embeddings = self.embedding.weight
+        else:
+            embeddings = ParameterPropagation.apply(self.embedding.weight, self.adj_mat,
+                                                    self.propagation_order, fake_tensor)
+        user_e = embeddings[users, :]
+        scores = torch.mm(user_e, embeddings[-self.n_items:, :].t())
         return scores
 
     def generate_graph(self, dataset):
@@ -98,21 +105,50 @@ class SurrogateERAP4MF(BasicModel):
         return adj_mat
 
 
+class EPAR4Trainer(BasicTrainer):
+    def __init__(self, trainer_config):
+        super(EPAR4Trainer, self).__init__(trainer_config)
+
+        test_users = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
+        self.user_loader = DataLoader(test_users, batch_size=self.config['test_batch_size'], shuffle=True)
+        self.poisoned_data_mat = self.config['poisoned_data_mat']
+        self.initialize_optimizer()
+        self.l2_reg = trainer_config['l2_reg']
+        self.alpha = trainer_config['alpha']
+
+    def train_one_epoch(self):
+        losses = AverageMeter()
+        for users in self.user_loader:
+            users = users[0]
+            batch_data = self.poisoned_data_mat[users, :]
+            scores = self.model.predict(users)
+            loss = bce_loss(batch_data, scores, self.alpha)
+            loss += self.l2_reg * torch.pow(scores, 2).mean()
+            self.opt.zero_grad()
+            loss.backward()
+            self.opt.step()
+            losses.update(loss.item(), users.shape[0] * self.dataset.n_items)
+        return losses.avg
+
+
 class ERAP4(BasicAttacker):
     def __init__(self, attacker_config):
         super(ERAP4, self).__init__(attacker_config)
-        self.surrogate_config = attacker_config['surrogate_config']
-        self.surrogate_config['device'] = self.device
-        self.surrogate_config['dataset'] = self.dataset
-        self.surrogate_config['verbose'] = False
+        self.surrogate_model_config = attacker_config['surrogate_model_config']
+        self.surrogate_model_config['device'] = self.device
+        self.surrogate_model_config['dataset'] = self.dataset
+        self.surrogate_model_config['n_fake_users'] = self.n_fakes
+        self.surrogate_model_config['verbose'] = False
+
+        self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
+        self.surrogate_trainer_config['device'] = self.device
+        self.surrogate_trainer_config['dataset'] = self.dataset
+        self.surrogate_trainer_config['topks'] = [self.topk]
 
         self.adv_epochs = attacker_config['adv_epochs']
-        self.train_epochs = attacker_config['train_epochs']
         self.unroll_steps = attacker_config['unroll_steps']
         self.initial_lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
-        self.alpha = attacker_config['alpha']
-        self.s_l2 = self.surrogate_config['l2_reg']
         self.kappa = torch.tensor(attacker_config['kappa'], dtype=torch.float32, device=self.device)
 
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
@@ -125,13 +161,22 @@ class ERAP4(BasicAttacker):
         self.dataset.val_data += [[]] * self.n_fakes
         self.dataset.n_users += self.n_fakes
 
-        poisoned_data_mat = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
-        self.poisoned_data_mat = torch.cat([poisoned_data_mat, self.fake_tensor], dim=0)
-        test_users = TensorDataset(torch.arange(self.n_users + self.n_fakes, dtype=torch.int64, device=self.device))
-        self.user_loader = DataLoader(test_users, batch_size=self.surrogate_config['batch_size'],
-                                      shuffle=True)
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
+
+        self.surrogate_model = getattr(sys.modules[__name__], self.surrogate_model_config['name'])
+        self.surrogate_model = self.surrogate_model(self.surrogate_model_config)
+
+        self.data_tensor = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
+        poisoned_data_mat = torch.cat([self.data_tensor, torch.zeros_like(self.fake_tensor)], dim=0)
+        self.surrogate_trainer_config['model'] = self.surrogate_model
+        self.surrogate_trainer_config['poisoned_data_mat'] = poisoned_data_mat
+        self.surrogate_trainer = EPAR4Trainer(self.surrogate_trainer_config)
+        ckpt_path = self.surrogate_trainer_config.get('ckpt_path', None)
+        if ckpt_path is None:
+            self.surrogate_trainer.train()
+        else:
+            self.surrogate_model.load(ckpt_path)
 
     def init_fake_tensor(self):
         return WRMFSGD.init_fake_tensor(self)
@@ -140,31 +185,17 @@ class ERAP4(BasicAttacker):
         WRMFSGD.project_fake_tensor(self)
 
     def retrain_surrogate(self):
-        surrogate_model = getattr(sys.modules[__name__], self.surrogate_config['name'])
-        surrogate_model = surrogate_model(self.surrogate_config)
-        surrogate_model.train()
-        train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'])
-
-        for _ in range(self.train_epochs - self.unroll_steps):
-            for users in self.user_loader:
-                users = users[0]
-                batch_data = self.poisoned_data_mat[users, :]
-                scores = surrogate_model.predict(users)
-                loss = bce_loss(batch_data, scores, self.alpha)
-                loss += self.s_l2 * torch.pow(scores, 2).mean()
-                train_opt.zero_grad()
-                loss.backward()
-                train_opt.step()
-
-        with higher.innerloop_ctx(surrogate_model, train_opt) as (fmodel, diffopt):
+        poisoned_data_mat = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
+        with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
             fmodel.train()
-            for _ in range(self.unroll_steps):
-                for users in self.user_loader:
+            for i in range(self.unroll_steps):
+                g = (i + 1.) / self.unroll_steps
+                for users in self.surrogate_trainer.user_loader:
                     users = users[0]
-                    batch_data = self.poisoned_data_mat[users, :]
-                    scores = fmodel.predict(users)
-                    loss = bce_loss(batch_data, scores, self.alpha)
-                    loss += self.s_l2 * torch.pow(scores, 2).mean()
+                    batch_data = poisoned_data_mat[users, :]
+                    scores = fmodel.predict(users, self.fake_tensor * g)
+                    loss = bce_loss(batch_data, scores, self.surrogate_trainer.alpha)
+                    loss += self.surrogate_trainer.l2_reg * torch.pow(scores, 2).mean()
                     diffopt.step(loss)
 
             fmodel.eval()

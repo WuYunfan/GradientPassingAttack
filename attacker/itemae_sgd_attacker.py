@@ -60,8 +60,7 @@ class ItemAESGD(BasicAttacker):
         self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=self.momentum)
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
-        poisoned_data_mat = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
-        self.poisoned_data_mat = torch.cat([poisoned_data_mat, self.fake_tensor], dim=0).t()
+        self.data_tensor = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
         self.test_items = TensorDataset(torch.arange(self.n_items, dtype=torch.int64, device=self.device))
         self.item_loader = DataLoader(self.test_items, batch_size=self.surrogate_config['batch_size'],
                                       shuffle=True)
@@ -79,11 +78,12 @@ class ItemAESGD(BasicAttacker):
         surrogate_model.train()
         train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'],
                          weight_decay=self.surrogate_config['l2_reg'])
+        poisoned_data_mat = torch.cat([self.data_tensor, self.fake_tensor], dim=0).t()
 
         for _ in range(self.train_epochs - self.unroll_steps):
             for items in self.item_loader:
                 items = items[0]
-                batch_data = self.poisoned_data_mat[items, :]
+                batch_data = poisoned_data_mat[items, :]
                 scores = surrogate_model.forward(batch_data)
                 loss = mse_loss(batch_data, scores, self.weight)
                 train_opt.zero_grad()
@@ -95,13 +95,13 @@ class ItemAESGD(BasicAttacker):
             for _ in range(self.unroll_steps):
                 for items in self.item_loader:
                     items = items[0]
-                    batch_data = self.poisoned_data_mat[items, :]
+                    batch_data = poisoned_data_mat[items, :]
                     scores = fmodel.forward(batch_data)
                     loss = mse_loss(batch_data, scores, self.weight)
                     diffopt.step(loss)
 
             fmodel.eval()
-            scores = fmodel.forward(self.test_items).t()[self.target_users, :]
+            scores = fmodel.forward(poisoned_data_mat).t()[self.target_users, :]
             adv_loss = ce_loss(scores, self.target_item)
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
             _, topk_items = scores.topk(self.topk, dim=1)

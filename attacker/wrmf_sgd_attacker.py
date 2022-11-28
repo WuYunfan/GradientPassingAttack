@@ -54,8 +54,7 @@ class WRMFSGD(BasicAttacker):
         self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=self.momentum)
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
-        poisoned_data_mat = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
-        self.poisoned_data_mat = torch.cat([poisoned_data_mat, self.fake_tensor], dim=0)
+        self.data_tensor = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
         test_users = TensorDataset(torch.arange(self.n_users + self.n_fakes, dtype=torch.int64, device=self.device))
         self.user_loader = DataLoader(test_users, batch_size=self.surrogate_config['batch_size'],
                                       shuffle=True)
@@ -82,10 +81,11 @@ class WRMFSGD(BasicAttacker):
         train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'],
                          weight_decay=self.surrogate_config['l2_reg'])
 
+
         for _ in range(self.train_epochs - self.unroll_steps):
             for users in self.user_loader:
                 users = users[0]
-                batch_data = self.poisoned_data_mat[users, :]
+                batch_data = poisoned_data_mat[users, :]
                 scores = surrogate_model.forward(users)
                 loss = mse_loss(batch_data, scores, self.weight)
                 train_opt.zero_grad()
@@ -97,7 +97,7 @@ class WRMFSGD(BasicAttacker):
             for _ in range(self.unroll_steps):
                 for users in self.user_loader:
                     users = users[0]
-                    batch_data = self.poisoned_data_mat[users, :]
+                    batch_data = poisoned_data_mat[users, :]
                     scores = fmodel.forward(users)
                     loss = mse_loss(batch_data, scores, self.weight)
                     diffopt.step(loss)
