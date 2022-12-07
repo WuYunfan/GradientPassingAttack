@@ -1,5 +1,4 @@
 from abc import ABC
-
 from attacker.basic_attacker import BasicAttacker
 import torch.nn as nn
 from model import LightGCN, BasicModel
@@ -123,7 +122,7 @@ class EPAR4Trainer(BasicTrainer):
             batch_data = self.poisoned_data_mat[users, :]
             scores = self.model.predict(users)
             loss = bce_loss(batch_data, scores, self.alpha)
-            loss += self.l2_reg * torch.pow(scores, 2).mean()
+            loss += self.l2_reg * torch.norm(scores, p=2) ** 2 / (users.shape[0] * self.dataset.n_items)
             self.opt.zero_grad()
             loss.backward()
             self.opt.step()
@@ -185,17 +184,23 @@ class ERAP4(BasicAttacker):
         WRMFSGD.project_fake_tensor(self)
 
     def retrain_surrogate(self):
+        with torch.no_grad():
+            aggregated_embedding = self.surrogate_model.adj_mat.spmm(self.surrogate_model.embedding.weight,
+                                                                     self.fake_tensor.flatten().repeat(2), norm='left')
+            self.surrogate_model.embedding.weight[self.n_users:self.n_users + self.n_fakes, :] = \
+                aggregated_embedding[self.n_users:self.n_users + self.n_fakes, :]
+
         poisoned_data_mat = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
         with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
             fmodel.train()
             for i in range(self.unroll_steps):
-                g = (i + 1.) / self.unroll_steps
                 for users in self.surrogate_trainer.user_loader:
                     users = users[0]
                     batch_data = poisoned_data_mat[users, :]
-                    scores = fmodel.predict(users, self.fake_tensor * g)
+                    scores = fmodel.predict(users, self.fake_tensor)
                     loss = bce_loss(batch_data, scores, self.surrogate_trainer.alpha)
-                    loss += self.surrogate_trainer.l2_reg * torch.pow(scores, 2).mean()
+                    loss += self.surrogate_trainer.l2_reg * torch.norm(scores, p=2) ** 2 / \
+                            (users.shape[0] * self.dataset.n_items)
                     diffopt.step(loss)
 
             fmodel.eval()

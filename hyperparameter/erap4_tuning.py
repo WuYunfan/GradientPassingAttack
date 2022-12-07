@@ -30,8 +30,8 @@ def fitness(lr, momentum, s_lr, s_l2, propagation_order, alpha, n_pretrain_epoch
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2021)
-    param_grid = {'lr': [0.1, 1., 10.], 's_lr': [1.e-2, 1.e-3], 's_l2':  [1.e-1, 1.e-2, 1.e-3],
-                  'momentum': [0., 0.9, 0.99], 'propagation_order': [2, 3], 'alpha': [1.],
+    param_grid = {'lr': [0.1, 1., 10.], 's_lr': [1.e-2, 1.e-3], 's_l2':  [1.e-2, 1.e-3],
+                  'momentum': [0., 0.9, 0.99], 'propagation_order': [2], 'alpha': [1.],
                   'n_pretrain_epochs': [50, 200]}
     grid = ParameterGrid(param_grid)
     max_hr = -np.inf

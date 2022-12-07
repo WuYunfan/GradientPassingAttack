@@ -80,7 +80,7 @@ class WRMFSGD(BasicAttacker):
         surrogate_model.train()
         train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'],
                          weight_decay=self.surrogate_config['l2_reg'])
-
+        poisoned_data_mat = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
 
         for _ in range(self.train_epochs - self.unroll_steps):
             for users in self.user_loader:
