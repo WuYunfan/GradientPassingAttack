@@ -1,4 +1,3 @@
-from abc import ABC
 from attacker.basic_attacker import BasicAttacker
 import torch.nn as nn
 from model import LightGCN, BasicModel
@@ -113,7 +112,7 @@ class EPAR4Trainer(BasicTrainer):
         self.poisoned_data_mat = self.config['poisoned_data_mat']
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
-        self.alpha = trainer_config['alpha']
+        self.weight = trainer_config['weight']
 
     def train_one_epoch(self):
         losses = AverageMeter()
@@ -121,7 +120,7 @@ class EPAR4Trainer(BasicTrainer):
             users = users[0]
             batch_data = self.poisoned_data_mat[users, :]
             scores = self.model.predict(users)
-            loss = bce_loss(batch_data, scores, self.alpha)
+            loss = mse_loss(batch_data, scores, self.weight)
             loss += self.l2_reg * torch.norm(scores, p=2) ** 2 / (users.shape[0] * self.dataset.n_items)
             self.opt.zero_grad()
             loss.backward()
@@ -191,21 +190,22 @@ class ERAP4(BasicAttacker):
                 aggregated_embedding[self.n_users:self.n_users + self.n_fakes, :]
 
         poisoned_data_mat = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
-        with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
+        opt = Adam(self.surrogate_model.parameters(), lr=self.config['s_lr'])
+        with higher.innerloop_ctx(self.surrogate_model, opt) as (fmodel, diffopt):
             fmodel.train()
             for i in range(self.unroll_steps):
                 for users in self.surrogate_trainer.user_loader:
                     users = users[0]
                     batch_data = poisoned_data_mat[users, :]
-                    scores = fmodel.predict(users, self.fake_tensor)
-                    loss = bce_loss(batch_data, scores, self.surrogate_trainer.alpha)
+                    scores = fmodel.predict(users, self.fake_tensor.detach())
+                    loss = mse_loss(batch_data, scores, self.surrogate_trainer.weight)
                     loss += self.surrogate_trainer.l2_reg * torch.norm(scores, p=2) ** 2 / \
                             (users.shape[0] * self.dataset.n_items)
                     diffopt.step(loss)
 
             fmodel.eval()
             scores = fmodel.predict(self.target_users)
-            adv_loss = topk_loss(scores, self.target_item, self.topk, self.kappa)
+            adv_loss = ce_loss(scores, self.target_item)
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
