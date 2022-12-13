@@ -126,7 +126,7 @@ class WRMFSGD(BasicAttacker):
                 writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), hit_k, epoch)
             if adv_loss < min_loss:
                 print('Minimal loss, save fake users.')
-                self.fake_users = self.fake_tensor.detach().cpu().numpy()
+                self.fake_users = self.fake_tensor.detach().cpu().numpy().copy()
                 min_loss = adv_loss
 
             start_time = time.time()
