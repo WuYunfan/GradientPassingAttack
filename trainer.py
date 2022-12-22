@@ -5,9 +5,10 @@ from torch.optim import Adam, SGD
 import time
 import numpy as np
 import os
-from utils import AverageMeter, get_sparse_tensor
+from utils import AverageMeter, get_sparse_tensor, generate_adj_mat
 import torch.nn.functional as F
 import scipy.sparse as sp
+import dgl
 
 
 def get_trainer(config, dataset, model):
@@ -36,6 +37,8 @@ class BasicTrainer:
         self.best_ndcg = -np.inf
         self.save_path = None
         self.opt = None
+        self.parameter_propagation = 0
+        self.ajd_mat = None
 
         test_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_user, batch_size=trainer_config['test_batch_size'])
@@ -138,7 +141,7 @@ class BasicTrainer:
             results['NDCG'][k] = ndcgs[user_masks].mean()
         return results
 
-    def eval(self, val_or_test):
+    def eval(self, val_or_test, banned_items=None):
         self.model.eval()
         eval_data = getattr(self.dataset, val_or_test + '_data')
         rec_items = []
@@ -153,11 +156,11 @@ class BasicTrainer:
                     exclude_items = []
                     for user_idx, user in enumerate(users):
                         items = self.dataset.train_data[user]
-                        if val_or_test == 'test':
-                            items = items + self.dataset.val_data[user]
                         exclude_user_indexes.extend([user_idx] * len(items))
                         exclude_items.extend(items)
                     scores[exclude_user_indexes, exclude_items] = -np.inf
+                if banned_items is not None:
+                    scores[:, banned_items] = -np.inf
 
                 _, items = torch.topk(scores, k=max(self.topks))
                 rec_items.append(items.cpu().numpy())
@@ -174,6 +177,66 @@ class BasicTrainer:
             ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100., k)
         results = 'Precision: {:s}Recall: {:s}NDCG: {:s}'.format(precison, recall, ndcg)
         return results, metrics
+
+    def retrain_eval(self, n_old_users, n_old_items):
+        val_data = self.dataset.val_data.copy()
+
+        results, _ = self.eval('val')
+        print('All users and all items result. {:s}'.format(results))
+
+        for user in range(n_old_users, self.dataset.n_users):
+            self.dataset.val_data[user] = []
+        results, _ = self.eval('val')
+        print('Old users and all items result. {:s}'.format(results))
+
+        self.dataset.val_data = val_data.copy()
+        for user in range(n_old_users):
+            self.dataset.val_data[user] = []
+        results, _ = self.eval('val')
+        print('New users and all items result. {:s}'.format(results))
+
+        self.dataset.val_data = val_data.copy()
+        for user in range(self.dataset.n_users):
+            val_items = np.array(self.dataset.val_data[user])
+            self.dataset.val_data[user] = val_items[val_items < n_old_items].tolist()
+        results, _ = self.eval('val', banned_items=np.arange(n_old_items, self.dataset.n_items))
+        print('All users and old items result. {:s}'.format(results))
+
+        self.dataset.val_data = val_data.copy()
+        for user in range(self.dataset.n_users):
+            val_items = np.array(self.dataset.val_data[user])
+            self.dataset.val_data[user] = val_items[val_items >= n_old_items].tolist()
+        results, _ = self.eval('val', banned_items=np.arange(n_old_items))
+        print('All users and new items result. {:s}'.format(results))
+
+        self.dataset.val_data = val_data.copy()
+        for user in range(n_old_users, self.dataset.n_users):
+            self.dataset.val_data[user] = []
+        for user in range(n_old_users):
+            val_items = np.array(self.dataset.val_data[user])
+            self.dataset.val_data[user] = val_items[val_items < n_old_items].tolist()
+        results, _ = self.eval('val', banned_items=np.arange(n_old_items, self.dataset.n_items))
+        print('Old users and old items result. {:s}'.format(results))
+
+        self.dataset.val_data = val_data.copy()
+
+    def do_parameter_propagation(self):
+        if self.parameter_propagation == 0:
+            return
+        if self.ajd_mat is None:
+            self.ajd_mat = get_sparse_tensor(generate_adj_mat(self.dataset), self.device)
+        if self.model.name == 'NeuMF':
+            params = [self.model.mf_embedding, self.model.mlp_embedding]
+        else:
+            params = [self.model.embedding]
+        for param in params:
+            row, column = self.ajd_mat.indices()
+            g = dgl.graph((column, row), num_nodes=self.ajd_mat.shape[0], device=self.device)
+            grad = param.grad
+            for _ in range(self.parameter_propagation):
+                mm_out = dgl.ops.gspmm(g, 'mul', 'sum', lhs_data=grad, rhs_data=self.ajd_mat.values())
+                grad = mm_out + grad + param.grad
+            param.grad = grad
 
 
 class BPRTrainer(BasicTrainer):
@@ -201,6 +264,7 @@ class BPRTrainer(BasicTrainer):
             loss = bpr_loss + reg_loss
             self.opt.zero_grad()
             loss.backward()
+            self.do_parameter_propagation()
             self.opt.step()
             losses.update(loss.item(), inputs.shape[0])
         return losses.avg
@@ -290,6 +354,7 @@ class BCETrainer(BasicTrainer):
             loss = bce_loss + reg_loss
             self.opt.zero_grad()
             loss.backward()
+            self.do_parameter_propagation()
             self.opt.step()
             losses.update(loss.item(), l2_norm_sq.shape[0])
         return losses.avg
@@ -328,3 +393,5 @@ class MLTrainer(BasicTrainer):
             self.opt.step()
             losses.update(loss.item(), users.shape[0])
         return losses.avg
+
+

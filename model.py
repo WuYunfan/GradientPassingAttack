@@ -54,15 +54,13 @@ class MF(BasicModel):
     def __init__(self, model_config):
         super(MF, self).__init__(model_config)
         self.embedding_size = model_config['embedding_size']
-        self.user_embedding = nn.Embedding(self.n_users, self.embedding_size)
-        self.item_embedding = nn.Embedding(self.n_items, self.embedding_size)
-        normal_(self.user_embedding.weight, std=0.1)
-        normal_(self.item_embedding.weight, std=0.1)
+        self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
+        normal_(self.embedding.weight, std=0.1)
         self.to(device=self.device)
 
     def bpr_forward(self, users, pos_items, neg_items):
-        users_e = self.user_embedding(users)
-        pos_items_e, neg_items_e = self.item_embedding(pos_items), self.item_embedding(neg_items)
+        users_e = self.embedding(users)
+        pos_items_e, neg_items_e = self.embedding(self.n_users + pos_items), self.embedding(self.n_users + neg_items)
         l2_norm_sq = torch.norm(users_e, p=2, dim=1) ** 2 + torch.norm(pos_items_e, p=2, dim=1) ** 2 \
                      + torch.norm(neg_items_e, p=2, dim=1) ** 2
         return users_e, pos_items_e, neg_items_e, l2_norm_sq
@@ -239,10 +237,8 @@ class NeuMF(BasicModel):
         super(NeuMF, self).__init__(model_config)
         self.embedding_size = model_config['embedding_size']
         self.layer_sizes = model_config['layer_sizes']
-        self.mf_user_embedding = nn.Embedding(self.n_users, self.embedding_size)
-        self.mf_item_embedding = nn.Embedding(self.n_items, self.embedding_size)
-        self.mlp_user_embedding = nn.Embedding(self.n_users, self.layer_sizes[0] // 2)
-        self.mlp_item_embedding = nn.Embedding(self.n_items, self.layer_sizes[0] // 2)
+        self.mf_embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
+        self.mlp_embedding = nn.Embedding(self.n_users + self.n_items, self.layer_sizes[0] // 2)
         self.mlp_layers = []
         for layer_idx in range(1, len(self.layer_sizes)):
             dense_layer = nn.Linear(self.layer_sizes[layer_idx - 1], self.layer_sizes[layer_idx])
@@ -250,10 +246,8 @@ class NeuMF(BasicModel):
         self.mlp_layers = nn.ModuleList(self.mlp_layers)
         self.output_layer = nn.Linear(self.layer_sizes[-1] + self.embedding_size, 1, bias=False)
 
-        kaiming_uniform_(self.mf_user_embedding.weight)
-        kaiming_uniform_(self.mf_item_embedding.weight)
-        kaiming_uniform_(self.mlp_user_embedding.weight)
-        kaiming_uniform_(self.mlp_item_embedding.weight)
+        kaiming_uniform_(self.mf_embedding.weight)
+        kaiming_uniform_(self.mlp_embedding.weight)
         self.init_mlp_layers()
         self.arch = 'gmf'
         self.to(device=self.device)
@@ -265,8 +259,8 @@ class NeuMF(BasicModel):
         ones_(self.output_layer.weight)
 
     def bce_forward(self, users, items):
-        users_mf_e, items_mf_e = self.mf_user_embedding(users), self.mf_item_embedding(items)
-        users_mlp_e, items_mlp_e = self.mlp_user_embedding(users), self.mlp_item_embedding(items)
+        users_mf_e, items_mf_e = self.mf_embedding(users), self.mf_embedding(self.n_users + items)
+        users_mlp_e, items_mlp_e = self.mlp_embedding(users), self.mlp_embedding(self.n_users + items)
 
         mf_vectors = users_mf_e * items_mf_e
         mlp_vectors = torch.cat([users_mlp_e, items_mlp_e], dim=1)
