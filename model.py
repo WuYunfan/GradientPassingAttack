@@ -66,8 +66,8 @@ class MF(BasicModel):
         return users_e, pos_items_e, neg_items_e, l2_norm_sq
 
     def predict(self, users):
-        user_e = self.user_embedding(users)
-        scores = torch.mm(user_e, self.item_embedding.weight.t())
+        user_e = self.embedding(users)
+        scores = torch.mm(user_e, self.embedding.weight[self.n_users:].t())
         return scores
 
 
