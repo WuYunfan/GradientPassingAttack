@@ -82,6 +82,7 @@ class WRMFSGD(BasicAttacker):
                          weight_decay=self.surrogate_config['l2_reg'])
         poisoned_data_mat = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
 
+        start_time = time.time()
         for _ in range(self.train_epochs - self.unroll_steps):
             for users in self.user_loader:
                 users = users[0]
@@ -102,6 +103,9 @@ class WRMFSGD(BasicAttacker):
                     loss = mse_loss(batch_data, scores, self.weight)
                     diffopt.step(loss)
 
+            consumed_time = time.time() - start_time
+            self.retrain_time += consumed_time
+
             fmodel.eval()
             scores = fmodel.forward(self.target_users)
             adv_loss = ce_loss(scores, self.target_item)
@@ -118,6 +122,7 @@ class WRMFSGD(BasicAttacker):
             adv_loss, hit_k, adv_grads = self.retrain_surrogate()
 
             consumed_time = time.time() - start_time
+            self.consumed_time += consumed_time
             if verbose:
                 print('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}%, Time: {:.3f}s'.
                       format(epoch, self.adv_epochs, adv_loss, self.topk, hit_k * 100., consumed_time))

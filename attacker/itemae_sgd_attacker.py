@@ -11,6 +11,7 @@ from attacker.basic_attacker import BasicAttacker
 from attacker.wrmf_sgd_attacker import WRMFSGD
 from model import init_one_layer
 import gc
+import time
 
 
 class SurrogateItemAE(nn.Module):
@@ -80,6 +81,7 @@ class ItemAESGD(BasicAttacker):
                          weight_decay=self.surrogate_config['l2_reg'])
         poisoned_data_mat = torch.cat([self.data_tensor, self.fake_tensor], dim=0).t()
 
+        start_time = time.time()
         for _ in range(self.train_epochs - self.unroll_steps):
             for items in self.item_loader:
                 items = items[0]
@@ -99,6 +101,9 @@ class ItemAESGD(BasicAttacker):
                     scores = fmodel.forward(batch_data)
                     loss = mse_loss(batch_data, scores, self.weight)
                     diffopt.step(loss)
+
+            consumed_time = time.time() - start_time
+            self.retrain_time += consumed_time
 
             fmodel.eval()
             scores = fmodel.forward(poisoned_data_mat).t()[self.target_users, :]

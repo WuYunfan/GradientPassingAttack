@@ -24,6 +24,8 @@ class BasicAttacker:
         self.fake_users = None
         self.model = None
         self.trainer = None
+        self.consumed_time = 0.
+        self.retrain_time = 0.
 
     def generate_fake_users(self, verbose=True, writer=None):
         self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)

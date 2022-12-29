@@ -8,6 +8,7 @@ import torch
 from torch.optim import Adam, SGD
 from utils import mse_loss, ce_loss
 import gc
+import time
 
 
 class PGA(BasicAttacker):
@@ -51,6 +52,7 @@ class PGA(BasicAttacker):
         train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'],
                          weight_decay=self.surrogate_config['l2_reg'])
 
+        start_time = time.time()
         for _ in range(self.train_epochs):
             for users in self.user_loader:
                 users = users[0]
@@ -60,6 +62,9 @@ class PGA(BasicAttacker):
                 train_opt.zero_grad()
                 loss.backward()
                 train_opt.step()
+
+        consumed_time = time.time() - start_time
+        self.retrain_time += consumed_time
 
         surrogate_model.eval()
         scores = []

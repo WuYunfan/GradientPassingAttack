@@ -227,7 +227,7 @@ class BasicTrainer:
             adj_mat = generate_adj_mat(self.dataset)
             degree = np.array(np.sum(adj_mat, axis=1)).squeeze()
             degree = np.maximum(1., degree)
-            d_inv = np.power(degree, -0.3)
+            d_inv = np.power(degree, -0.5)
             d_mat = sp.diags(d_inv, format='csr', dtype=np.float32)
 
             norm_adj = d_mat.dot(adj_mat).dot(d_mat)

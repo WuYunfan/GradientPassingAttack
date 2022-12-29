@@ -95,8 +95,10 @@ class DPA2DL(BasicAttacker):
         prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step, dtype=np.int64)) + [self.n_fakes]
         for i_step in range(1, len(fake_user_end_indices)):
+            step_start_time = time.time()
             fake_nums_str = '{}-{}'.format(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step])
             print('Start generating poison #{:s} !'.format(fake_nums_str))
+
             temp_fake_users = np.arange(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step]) + self.n_users
             n_temp_fakes = temp_fake_users.shape[0]
             self.dataset.train_data += [[self.target_item]] * n_temp_fakes
@@ -107,20 +109,22 @@ class DPA2DL(BasicAttacker):
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
             surrogate_model.arch = 'neumf'
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.dataset, surrogate_model)
+
+            start_time = time.time()
             surrogate_trainer.train(verbose=False)
+            consumed_time = time.time() - start_time
+            self.retrain_time += consumed_time
 
             best_hr = self.get_target_hr(surrogate_model)
             print('Initial target HR: {:.4f}'.format(best_hr))
             for i_round in range(self.n_rounds):
-                start_time = time.time()
                 surrogate_model.train()
                 p_loss = self.poison_train(surrogate_model, surrogate_trainer, temp_fake_users)
                 t_loss = surrogate_trainer.train_one_epoch()
                 target_hr = self.get_target_hr(surrogate_model)
-                consumed_time = time.time() - start_time
                 if verbose:
-                    print('Round {:d}/{:d}, Poison Loss: {:.6f}, Train Loss: {:.6f}, Target Hit Ratio {:.6f}, '
-                          'Time: {:.3f}s'.format(i_round, self.n_rounds, p_loss, t_loss, target_hr, consumed_time))
+                    print('Round {:d}/{:d}, Poison Loss: {:.6f}, Train Loss: {:.6f}, Target Hit Ratio {:.6f}'.
+                          format(i_round, self.n_rounds, p_loss, t_loss, target_hr))
                 if writer:
                     writer.add_scalar('{:s}_{.s}/Poison_Loss'.format(self.name, fake_nums_str), p_loss, i_round)
                     writer.add_scalar('{:s}_{.s}/Train_Loss'.format(self.name, fake_nums_str), t_loss, i_round)
@@ -138,6 +142,8 @@ class DPA2DL(BasicAttacker):
 
             self.choose_filler_items(surrogate_model, temp_fake_users, prob)
             print('Poison #{:s} has been generated!'.format(fake_nums_str))
+            consumed_time = time.time() - step_start_time
+            self.consumed_time += consumed_time
             gc.collect()
 
         self.dataset.train_data = self.dataset.train_data[:-self.n_fakes]
