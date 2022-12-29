@@ -141,9 +141,7 @@ class BasicTrainer:
             results['NDCG'][k] = ndcgs[user_masks].mean()
         return results
 
-    def eval(self, val_or_test, banned_items=None):
-        self.model.eval()
-        eval_data = getattr(self.dataset, val_or_test + '_data')
+    def get_rec_items(self, val_or_test, banned_items):
         rec_items = []
         with torch.no_grad():
             for users in self.test_user_loader:
@@ -166,16 +164,23 @@ class BasicTrainer:
                 rec_items.append(items.cpu().numpy())
 
         rec_items = np.concatenate(rec_items, axis=0)
+        return rec_items
+
+    def eval(self, val_or_test, banned_items=None):
+        self.model.eval()
+        eval_data = getattr(self.dataset, val_or_test + '_data')
+
+        rec_items = self.get_rec_items(val_or_test, banned_items)
         metrics = self.calculate_metrics(eval_data, rec_items)
 
-        precison = ''
+        precision = ''
         recall = ''
         ndcg = ''
         for k in self.topks:
-            precison += '{:.3f}%@{:d}, '.format(metrics['Precision'][k] * 100., k)
+            precision += '{:.3f}%@{:d}, '.format(metrics['Precision'][k] * 100., k)
             recall += '{:.3f}%@{:d}, '.format(metrics['Recall'][k] * 100., k)
             ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100., k)
-        results = 'Precision: {:s}Recall: {:s}NDCG: {:s}'.format(precison, recall, ndcg)
+        results = 'Precision: {:s}Recall: {:s}NDCG: {:s}'.format(precision, recall, ndcg)
         return results, metrics
 
     def retrain_eval(self, n_old_users, n_old_items):

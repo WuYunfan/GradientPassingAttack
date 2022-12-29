@@ -5,6 +5,17 @@ import torch
 from utils import init_run
 from tensorboardX import SummaryWriter
 from config import get_gowalla_config
+import numpy as np
+
+
+def cal_overlap_rate(rec_items_a, rec_items_b):
+    rates = []
+    for user in range(rec_items_a.shape[0]):
+        set_a = set(rec_items_a[user, :].tolist())
+        set_b = set(rec_items_b[user, :].tolist())
+        rate = 1. * len(set_a & set_b) / rec_items_a.shape[1]
+        rates.append(rate)
+    return np.mean(rates)
 
 
 def main():
@@ -28,6 +39,15 @@ def main():
 
     writer = SummaryWriter(log_path)
     new_model = get_model(model_config, new_dataset)
+    new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+    new_trainer.train(verbose=True, writer=writer)
+    writer.close()
+    print('\nFull Retrain!')
+    new_trainer.retrain_eval(dataset.n_users, dataset.n_items)
+    full_rec_items = new_trainer.get_rec_items('val', None)
+
+    writer = SummaryWriter(log_path)
+    new_model = get_model(model_config, new_dataset)
     with torch.no_grad():
         new_model.embedding.weight.data[:dataset.n_users, :] = model.embedding.weight[:dataset.n_users, :]
         new_model.embedding.weight.data[new_dataset.n_users:new_dataset.n_users + dataset.n_items, :] = \
@@ -35,8 +55,11 @@ def main():
     new_trainer = get_trainer(trainer_config, new_dataset, new_model)
     new_trainer.train(verbose=True, writer=writer)
     writer.close()
-    print('\nRetrain!')
+    print('\nPart Retrain!')
     new_trainer.retrain_eval(dataset.n_users, dataset.n_items)
+    rec_items = new_trainer.get_rec_items('val', None)
+    overlap_rate = cal_overlap_rate(rec_items, full_rec_items)
+    print('Overlap rate between full and part retrain: {:.3f}'.format(overlap_rate * 100))
 
     writer = SummaryWriter(log_path)
     new_model = get_model(model_config, new_dataset)
@@ -48,8 +71,11 @@ def main():
     new_trainer = get_trainer(trainer_config, new_dataset, new_model)
     new_trainer.train(verbose=True, writer=writer)
     writer.close()
-    print('\nRetrain parameter propagation!')
+    print('\nRetrain with parameter propagation!')
     new_trainer.retrain_eval(dataset.n_users, dataset.n_items)
+    rec_items = new_trainer.get_rec_items('val', None)
+    overlap_rate = cal_overlap_rate(rec_items, full_rec_items)
+    print('Overlap rate between full retrain and parameter propagation:{:.3f}'.format(overlap_rate * 100))
 
 
 if __name__ == '__main__':
