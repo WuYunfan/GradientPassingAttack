@@ -5,7 +5,7 @@ from torch.optim import Adam, SGD
 import time
 import numpy as np
 import os
-from utils import AverageMeter, get_sparse_tensor, generate_adj_mat
+from utils import AverageMeter, generate_adj_mat
 import torch.nn.functional as F
 import scipy.sparse as sp
 import dgl
@@ -38,7 +38,10 @@ class BasicTrainer:
         self.best_ndcg = -np.inf
         self.save_path = None
         self.opt = None
-        self.ajd_mat = None
+        if self.parameter_propagation != 0:
+            self.ajd_mat = generate_adj_mat(self.dataset, self.device)
+        else:
+            self.ajd_mat = None
 
         test_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_user, batch_size=trainer_config['test_batch_size'])
@@ -228,29 +231,18 @@ class BasicTrainer:
     def do_parameter_propagation(self):
         if self.parameter_propagation == 0:
             return
-        if self.ajd_mat is None:
-            adj_mat = generate_adj_mat(self.dataset)
-            degree = np.array(np.sum(adj_mat, axis=1)).squeeze()
-            degree = np.maximum(1., degree)
-            d_inv = np.power(degree, -0.5)
-            d_mat = sp.diags(d_inv, format='csr', dtype=np.float32)
-
-            norm_adj = d_mat.dot(adj_mat).dot(d_mat)
-            self.ajd_mat = get_sparse_tensor(norm_adj, self.device)
         if self.model.name == 'NeuMF':
             params = [self.model.mf_embedding.weight, self.model.mlp_embedding.weight]
         else:
             params = [self.model.embedding.weight]
         for param in params:
-            row, column = self.ajd_mat.indices()
-            g = dgl.graph((column, row), num_nodes=self.ajd_mat.shape[0], device=self.device)
             grad = param.grad
-            grads = [grad]
+            all_grads = [grad]
             for _ in range(self.parameter_propagation):
-                grad = dgl.ops.gspmm(g, 'mul', 'sum', lhs_data=grad, rhs_data=self.ajd_mat.values())
-                grads.append(grad)
-            grads = torch.stack(grads, dim=0)
-            param.grad = grads.mean(dim=0)
+                grad = self.ajd_mat.spmm(grad, norm='both')
+                all_grads.append(grad)
+            all_grads = torch.stack(all_grads, dim=0)
+            param.grad = all_grads.mean(dim=0)
 
 
 class BPRTrainer(BasicTrainer):

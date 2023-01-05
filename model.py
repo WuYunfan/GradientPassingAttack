@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import scipy.sparse as sp
 import numpy as np
-from utils import get_sparse_tensor, generate_adj_mat
+from utils import generate_adj_mat
 from torch.nn.init import kaiming_uniform_, xavier_normal, normal_, zeros_, ones_
 import sys
 import torch.nn.functional as F
@@ -77,28 +77,19 @@ class LightGCN(BasicModel):
         self.embedding_size = model_config['embedding_size']
         self.n_layers = model_config['n_layers']
         self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
-        self.norm_adj = self.generate_graph(model_config['dataset'])
+        self.adj_mat = self.generate_graph(model_config['dataset'])
         normal_(self.embedding.weight, std=0.1)
         self.to(device=self.device)
 
     def generate_graph(self, dataset):
-        adj_mat = generate_adj_mat(dataset)
-        degree = np.array(np.sum(adj_mat, axis=1)).squeeze()
-        degree = np.maximum(1., degree)
-        d_inv = np.power(degree, -0.5)
-        d_mat = sp.diags(d_inv, format='csr', dtype=np.float32)
-
-        norm_adj = d_mat.dot(adj_mat).dot(d_mat)
-        norm_adj = get_sparse_tensor(norm_adj, self.device)
-        return norm_adj
+        adj_mat = generate_adj_mat(dataset, self.device)
+        return adj_mat
 
     def get_rep(self):
         representations = self.embedding.weight
         all_layer_rep = [representations]
-        row, column = self.norm_adj.indices()
-        g = dgl.graph((column, row), num_nodes=self.norm_adj.shape[0], device=self.device)
         for _ in range(self.n_layers):
-            representations = dgl.ops.gspmm(g, 'mul', 'sum', lhs_data=representations, rhs_data=self.norm_adj.values())
+            representations = self.adj_mat.spmm(representations, norm='both')
             all_layer_rep.append(representations)
         all_layer_rep = torch.stack(all_layer_rep, dim=0)
         final_rep = all_layer_rep.mean(dim=0)

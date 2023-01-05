@@ -5,6 +5,7 @@ import os
 import sys
 import scipy.sparse as sp
 import torch.nn.functional as F
+import dgl
 
 
 def set_seed(seed=0):
@@ -27,24 +28,49 @@ def init_run(log_path, seed):
     sys.stdout = f
 
 
-def get_sparse_tensor(mat, device):
-    coo = mat.tocoo()
-    indexes = np.stack([coo.row, coo.col], axis=0)
-    indexes = torch.tensor(indexes, dtype=torch.int64, device=device)
-    data = torch.tensor(coo.data, dtype=torch.float32, device=device)
-    sp_tensor = torch.sparse.FloatTensor(indexes, data, torch.Size(coo.shape)).coalesce()
-    return sp_tensor
-
-
-def generate_adj_mat(dataset):
+def generate_adj_mat(dataset, device):
     train_array = np.array(dataset.train_array)
     users, items = train_array[:, 0], train_array[:, 1]
     row = np.concatenate([users, items + dataset.n_users], axis=0)
     column = np.concatenate([items + dataset.n_users, users], axis=0)
-    adj_mat = sp.coo_matrix((np.ones(row.shape), np.stack([row, column], axis=0)),
-                            shape=(dataset.n_users + dataset.n_items, dataset.n_users + dataset.n_items),
-                            dtype=np.float32).tocsr()
+    adj_mat = TorchSparseMat(row, column,
+                             (dataset.n_users + dataset.n_items, dataset.n_users + dataset.n_items), device)
     return adj_mat
+
+
+class TorchSparseMat:
+    def __init__(self, row, col, shape, device):
+        self.shape = shape
+        self.device = device
+        row = torch.tensor(row, dtype=torch.int64, device=device)
+        col = torch.tensor(col, dtype=torch.int64, device=device)
+        self.g = dgl.graph((col, row), num_nodes=max(shape), device=device)
+        self.inv_g = dgl.graph((row, col), num_nodes=max(shape), device=device)
+        self.n_non_zeros = self.g.num_edges()
+        self.one = torch.tensor(1., dtype=torch.float32, device=self.device)
+
+    def spmm(self, r_mat, value_tensor=None, norm=None):
+        if value_tensor is None:
+            value_tensor = torch.empty([0], dtype=torch.float32, device=self.device)
+        values = torch.ones([self.n_non_zeros - value_tensor.shape[0]], dtype=torch.float32, device=self.device)
+        values = torch.cat([values, value_tensor], dim=0)
+
+        assert r_mat.shape[0] == self.shape[1]
+        padding_tensor = torch.empty([max(self.shape) - r_mat.shape[0], r_mat.shape[1]],
+                                     dtype=torch.float32, device=self.device)
+        padded_r_mat = torch.cat([r_mat, padding_tensor], dim=0)
+
+        x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)
+        if norm is not None:
+            row_sum = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
+            row_sum = torch.max(row_sum, self.one)
+            if norm == 'left':
+                x = x / row_sum[:, None]
+            if norm == 'both':
+                col_sum = dgl.ops.gspmm(self.inv_g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
+                col_sum = torch.max(col_sum, self.one)
+                x = x / (torch.pow(row_sum, 0.5) * torch.pow(col_sum, 0.5))[:, None]
+        return x[:self.shape[0], :]
 
 
 class AverageMeter:
