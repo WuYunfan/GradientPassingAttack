@@ -42,11 +42,10 @@ class TorchSparseMat:
     def __init__(self, row, col, shape, device):
         self.shape = shape
         self.device = device
-        row = torch.tensor(row, dtype=torch.int64, device=device)
-        col = torch.tensor(col, dtype=torch.int64, device=device)
-        self.g = dgl.graph((col, row), num_nodes=max(shape), device=device)
-        self.inv_g = dgl.graph((row, col), num_nodes=max(shape), device=device)
-        self.n_non_zeros = self.g.num_edges()
+        self.row = torch.tensor(row, dtype=torch.int64, device=device)
+        self.col = torch.tensor(col, dtype=torch.int64, device=device)
+        self.g = dgl.graph((self.col, self.row), num_nodes=max(shape), device=device)
+        self.n_non_zeros = self.row.shape[0]
         self.one = torch.tensor(1., dtype=torch.float32, device=self.device)
 
     def spmm(self, r_mat, value_tensor=None, norm=None):
@@ -60,16 +59,14 @@ class TorchSparseMat:
                                      dtype=torch.float32, device=self.device)
         padded_r_mat = torch.cat([r_mat, padding_tensor], dim=0)
 
-        x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)
         if norm is not None:
-            row_sum = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
-            row_sum = torch.max(row_sum, self.one)
+            degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
+            degree = torch.max(degree, self.one)
             if norm == 'left':
-                x = x / row_sum[:, None]
+                values = values / degree[self.row]
             if norm == 'both':
-                col_sum = dgl.ops.gspmm(self.inv_g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
-                col_sum = torch.max(col_sum, self.one)
-                x = x / (torch.pow(row_sum, 0.5) * torch.pow(col_sum, 0.5))[:, None]
+                values = values / (torch.pow(degree[self.row], 0.5) * torch.pow(degree[self.col], 0.5))
+        x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)
         return x[:self.shape[0], :]
 
 

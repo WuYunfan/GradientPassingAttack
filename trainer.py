@@ -31,17 +31,14 @@ class BasicTrainer:
         self.device = trainer_config['device']
         self.n_epochs = trainer_config['n_epochs']
         self.negative_sample_ratio = trainer_config.get('neg_ratio', 1)
-        self.max_patience = trainer_config.get('max_patience', 50)
+        self.max_patience = trainer_config.get('max_patience', 100)
         self.val_interval = trainer_config.get('val_interval', 1)
         self.parameter_propagation = trainer_config.get('parameter_propagation', 0)
         self.epoch = 0
         self.best_ndcg = -np.inf
         self.save_path = None
         self.opt = None
-        if self.parameter_propagation != 0:
-            self.ajd_mat = generate_adj_mat(self.dataset, self.device)
-        else:
-            self.ajd_mat = None
+        self.adj_mat = None
 
         test_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_user, batch_size=trainer_config['test_batch_size'])
@@ -228,21 +225,25 @@ class BasicTrainer:
 
         self.dataset.val_data = val_data.copy()
 
-    def do_parameter_propagation(self):
-        if self.parameter_propagation == 0:
-            return
-        if self.model.name == 'NeuMF':
-            params = [self.model.mf_embedding.weight, self.model.mlp_embedding.weight]
-        else:
-            params = [self.model.embedding.weight]
-        for param in params:
-            grad = param.grad
-            all_grads = [grad]
-            for _ in range(self.parameter_propagation):
-                grad = self.ajd_mat.spmm(grad, norm='both')
-                all_grads.append(grad)
-            all_grads = torch.stack(all_grads, dim=0)
-            param.grad = all_grads.mean(dim=0)
+    def do_loss(self, loss):
+        loss.backward()
+        if self.parameter_propagation != 0:
+            if self.adj_mat is None:
+                self.adj_mat = generate_adj_mat(self.dataset, self.device)
+            if self.model.name == 'NeuMF':
+                params = [self.model.mf_embedding.weight, self.model.mlp_embedding.weight]
+            else:
+                params = [self.model.embedding.weight]
+            for param in params:
+                grad = param.grad
+                all_grads = [grad]
+                for _ in range(self.parameter_propagation):
+                    grad = self.adj_mat.spmm(grad, norm='both')
+                    all_grads.append(grad)
+                all_grads = torch.stack(all_grads, dim=0)
+                param.grad = all_grads.mean(dim=0)
+        self.opt.step()
+        self.opt.zero_grad()
 
 
 class BPRTrainer(BasicTrainer):
@@ -268,10 +269,7 @@ class BPRTrainer(BasicTrainer):
             bpr_loss = F.softplus(neg_scores - pos_scores).mean()
             reg_loss = self.l2_reg * l2_norm_sq.mean()
             loss = bpr_loss + reg_loss
-            self.opt.zero_grad()
-            loss.backward()
-            self.do_parameter_propagation()
-            self.opt.step()
+            self.do_loss(loss)
             losses.update(loss.item(), inputs.shape[0])
         return losses.avg
 
@@ -358,10 +356,7 @@ class BCETrainer(BasicTrainer):
             l2_norm_sq = torch.cat([l2_norm_sq_p, l2_norm_sq_n], dim=0)
             reg_loss = self.l2_reg * l2_norm_sq.mean()
             loss = bce_loss + reg_loss
-            self.opt.zero_grad()
-            loss.backward()
-            self.do_parameter_propagation()
-            self.opt.step()
+            self.do_loss(loss)
             losses.update(loss.item(), l2_norm_sq.shape[0])
         return losses.avg
 
@@ -389,7 +384,7 @@ class MLTrainer(BasicTrainer):
             scores = F.log_softmax(scores, dim=1)
             users = users.cpu().numpy()
             profiles = self.data_mat[users, :]
-            profiles = get_sparse_tensor(profiles, self.device).to_dense()
+            profiles = torch.tensor(profiles.toarray(), dtype=torch.float32, device=self.device)
             ml_loss = -torch.sum(profiles * scores, dim=1).mean()
 
             reg_loss = kl_reg * kl.mean() + self.l2_reg * l2_norm_sq.mean()
