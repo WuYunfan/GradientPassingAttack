@@ -141,7 +141,7 @@ class BasicTrainer:
             results['NDCG'][k] = ndcgs[user_masks].mean()
         return results
 
-    def get_rec_items(self, val_or_test, banned_items):
+    def get_rec_items(self, val_or_test, banned_items, k=None):
         rec_items = []
         with torch.no_grad():
             for users in self.test_user_loader:
@@ -160,7 +160,9 @@ class BasicTrainer:
                 if banned_items is not None:
                     scores[:, banned_items] = -np.inf
 
-                _, items = torch.topk(scores, k=max(self.topks))
+                if k is None:
+                    k = max(self.topks)
+                _, items = torch.topk(scores, k=k)
                 rec_items.append(items.cpu().numpy())
 
         rec_items = np.concatenate(rec_items, axis=0)
