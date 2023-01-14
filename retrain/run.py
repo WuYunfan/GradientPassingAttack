@@ -64,7 +64,7 @@ def main():
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, dataset, model)
-    trainer.train(verbose=True, writer=writer)
+    trainer.train(verbose=False, writer=writer)
     old_rec_items = trainer.get_rec_items('train', None, k=100)
     writer.close()
 

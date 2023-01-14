@@ -63,6 +63,7 @@ class BasicAttacker:
             results = 'Hit Ratio: {:s}NDCG: {:s}'.format(hit_ratio, ndcg)
             print('Target Item: {:d}'.format(self.target_item))
             print('Attack result. {:s}'.format(results))
+            print('Consumed time: {:.3f}s, retrain time: {:.3f}'.format(self.consumed_time, self.retrain_time))
 
         hr = metrics['Recall'][self.trainer.topks[0]]
         return hr
