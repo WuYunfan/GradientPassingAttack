@@ -101,13 +101,15 @@ class BasicTrainer:
                 self.best_ndcg = ndcg
                 self.model.save(self.save_path)
                 patience = self.max_patience
-                print('Best NDCG, save model to {:s}'.format(self.save_path))
+                if verbose:
+                    print('Best NDCG, save model to {:s}'.format(self.save_path))
             else:
                 patience -= self.val_interval
                 if patience <= 0:
-                    print('Early stopping!')
+                    print('Early stopping at epoch {:d}!'.format(self.epoch))
                     break
         self.model.load(self.save_path)
+        print('Best NDCG {:.3f}'.format(self.best_ndcg))
         return self.best_ndcg
 
     def calculate_metrics(self, eval_data, rec_items):

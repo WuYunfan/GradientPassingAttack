@@ -222,32 +222,3 @@ class YelpDataset(BasicDataset):
 
         self.generate_data()
 
-
-class AmazonDataset(BasicDataset):
-    def __init__(self, dataset_config):
-        super(AmazonDataset, self).__init__(dataset_config)
-
-        input_file_path = os.path.join(dataset_config['path'], 'ratings_Books.csv')
-        user_inter_sets, item_inter_sets = dict(), dict()
-        with open(input_file_path, 'r') as f:
-            line = f.readline().strip()
-            while line:
-                u, i, r, _ = line.split(',')
-                r = float(r)
-                if r > 3.:
-                    update_ui_sets(u, i, user_inter_sets, item_inter_sets)
-                line = f.readline().strip()
-        user_map, item_map = self.remove_sparse_ui(user_inter_sets, item_inter_sets)
-
-        self.user_inter_lists = [[] for _ in range(self.n_users)]
-        with open(input_file_path, 'r') as f:
-            line = f.readline().strip()
-            while line:
-                u, i, r, t = line.split(',')
-                r = float(r)
-                if r > 3.:
-                    t = int(t)
-                    update_user_inter_lists(u, i, t, user_map, item_map, self.user_inter_lists)
-                line = f.readline().strip()
-
-        self.generate_data()

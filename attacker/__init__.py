@@ -4,7 +4,7 @@ from attacker.heuristic import RandomAttacker
 from attacker.heuristic import BandwagonAttacker
 from attacker.basic_attacker import BasicAttacker
 from attacker.itemae_sgd_attacker import ItemAESGD
-from attacker.erap4_attacker import ERAP4
+# from attacker.erap4_attacker import ERAP4
 from attacker.dpa2dl_attacker import DPA2DL
 from attacker.pga_attacker import PGA
 

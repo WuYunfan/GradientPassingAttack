@@ -51,7 +51,7 @@ class BasicAttacker:
         if self.model is None or retrain:
             self.model = get_model(model_config, self.dataset)
             self.trainer = get_trainer(trainer_config, self.dataset, self.model)
-            self.trainer.train(verbose=verbose, writer=writer)
+            self.trainer.train(verbose=False, writer=writer)
         _, metrics = self.trainer.eval('attack')
 
         if verbose:

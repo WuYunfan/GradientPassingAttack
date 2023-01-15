@@ -63,7 +63,9 @@ def main():
     writer = SummaryWriter(os.path.join(log_path, 'pre_train'))
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
-    trainer = get_trainer(trainer_config, dataset, model)
+    pre_trainer_config = trainer_config.copy()
+    pre_trainer_config['n_epochs'] = 500
+    trainer = get_trainer(pre_trainer_config, dataset, model)
     trainer.train(verbose=False, writer=writer)
     old_rec_items = trainer.get_rec_items('train', None, k=100)
     writer.close()
@@ -117,8 +119,7 @@ def main():
         print('Recall of part retrain: {:.3f}, n_epochs {:d}\n'.format(recall * 100, n_epochs))
 
         trainer_config['parameter_propagation'] = 2
-        trainer_config['lr'] = 2.e-4
-        trainer_config['n_epochs'] = trainer_config['n_epochs'] // 2
+        trainer_config['n_epochs'] = n_epochs // 5
         writer = SummaryWriter(os.path.join(log_path, 'pp_retrain_1' + str(n_epochs)))
         train_data = new_dataset.train_data
         additional_train_data = [[item for item in train_data[u] if item > dataset.n_items] for u in
@@ -131,6 +132,7 @@ def main():
         new_trainer.train(verbose=True, writer=writer)
         writer.close()
 
+        trainer_config['n_epochs'] = trainer_config['n_epochs'] * 4
         writer = SummaryWriter(os.path.join(log_path, 'pp_retrain_2' + str(n_epochs)))
         new_dataset.train_data = train_data
         new_trainer = get_trainer(trainer_config, new_dataset, new_model)
