@@ -240,12 +240,9 @@ class BasicTrainer:
                 params = [self.model.embedding.weight]
             for param in params:
                 grad = param.grad
-                all_grads = [grad]
                 for _ in range(self.parameter_propagation):
-                    grad = self.adj_mat.spmm(grad, norm='both')
-                    all_grads.append(grad)
-                all_grads = torch.stack(all_grads, dim=0)
-                param.grad = all_grads.mean(dim=0)
+                    grad = self.adj_mat.spmm(grad, norm='both') + grad + param.grad
+                param.grad = grad
         self.opt.step()
         self.opt.zero_grad()
 

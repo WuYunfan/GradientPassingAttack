@@ -189,10 +189,18 @@ class MultiVAE(BasicModel):
         out = torch.sparse.FloatTensor(i, v, mat.shape).coalesce()
         return out
 
+    def get_sparse_tensor(self, mat):
+        coo = mat.tocoo()
+        indexes = np.stack([coo.row, coo.col], axis=0)
+        indexes = torch.tensor(indexes, dtype=torch.int64, device=self.device)
+        data = torch.tensor(coo.data, dtype=torch.float32, device=self.device)
+        sp_tensor = torch.sparse.FloatTensor(indexes, data, torch.Size(coo.shape)).coalesce()
+        return sp_tensor
+
     def ml_forward(self, users):
         users = users.cpu().numpy()
         profiles = self.normalized_data_mat[users, :]
-        representations = get_sparse_tensor(profiles, self.device)
+        representations = self.get_sparse_tensor(profiles)
 
         representations = self.dropout_sp_mat(representations)
         representations = torch.sparse.mm(representations, self.encoder_layers[0].weight.t())
