@@ -14,7 +14,7 @@ def fitness(reg_u, alpha, kappa, prob, s_l2, n_rounds, n_pretrain_epochs, lr):
     surrogate_model_config = {'name': 'NeuMF', 'embedding_size': 64, 'device': device, 'layer_sizes': [64, 64, 64]}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': lr, 'l2_reg': s_l2,
                                 'n_epochs': n_pretrain_epochs, 'batch_size': 2 ** 12, 'dataloader_num_workers': 16,
-                                'test_batch_size': 64, 'topks': [20], 'neg_ratio': 4,
+                                'test_batch_size': 64, 'topks': [50], 'neg_ratio': 4,
                                 'mf_pretrain_epochs': 0, 'mlp_pretrain_epochs': 0}
     attacker_config = {'name': 'DPA2DL', 'device': device, 'n_fakes': 131, 'topk': 20,
                        'n_inters': 41, 'reg_u': reg_u, 'prob': prob, 'kappa': kappa,
@@ -22,7 +22,7 @@ def fitness(reg_u, alpha, kappa, prob, s_l2, n_rounds, n_pretrain_epochs, lr):
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     dataset = get_dataset(dataset_config)
-    target_item = get_target_items(dataset)[0]
+    target_item = get_target_items(dataset, 0.1)[0]
     attacker_config['target_item'] = target_item
     attacker = get_attacker(attacker_config, dataset)
     attacker.generate_fake_users()

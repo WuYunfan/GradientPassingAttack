@@ -17,7 +17,7 @@ def fitness(lr, s_lr, s_l2, momentum):
                        'n_inters': 41, 'topk': 20, 'weight': 20., 'adv_epochs': 30,
                        'surrogate_config': surrogate_config}
     dataset = get_dataset(dataset_config)
-    target_item = get_target_items(dataset)[0]
+    target_item = get_target_items(dataset, 0.1)[0]
     attacker_config['target_item'] = target_item
     attacker = get_attacker(attacker_config, dataset)
     attacker.generate_fake_users()
