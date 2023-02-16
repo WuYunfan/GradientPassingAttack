@@ -33,19 +33,10 @@ def get_new_rec_items(rec_items_a, rec_items_b):
 
 def initial_parameter(new_model, model):
     dataset = model.config['dataset']
-    new_dataset = new_model.config['dataset']
     with torch.no_grad():
         new_model.embedding.weight.zero_()
         new_model.embedding.weight.data[:dataset.n_users, :] = model.embedding.weight[:dataset.n_users, :]
-        new_model.embedding.weight.data[new_dataset.n_users:new_dataset.n_users + dataset.n_items, :] = \
-            model.embedding.weight[dataset.n_users:, :]
-
-        adj_mat = generate_adj_mat(new_dataset, new_dataset.device)
-        aggregated_embedding = adj_mat.spmm(new_model.embedding.weight, norm='both')
-        new_model.embedding.weight.data[dataset.n_users:new_dataset.n_users, :] = \
-            aggregated_embedding[dataset.n_users:new_dataset.n_users, :]
-        new_model.embedding.weight.data[new_dataset.n_users + dataset.n_items:, :] = \
-            aggregated_embedding[new_dataset.n_users + dataset.n_items:, :]
+        new_model.embedding.weight.data[-dataset.n_items:, :] = model.embedding.weight[-dataset.n_items:, :]
 
 
 def main():
@@ -93,6 +84,7 @@ def main():
             else:
                 for user in range(len(full_retrain_new_rec_items)):
                     full_retrain_new_rec_items[user] &= new_rec_items[user]
+        np.save('retrain/new_rec_items.npy', full_retrain_new_rec_items)
 
     for n_epochs in [10, 20, 50, 200]:
         trainer_config['n_epochs'] = n_epochs
@@ -122,32 +114,12 @@ def main():
         recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
         print('Recall of part retrain: {:.3f}, n_epochs {:d}\n'.format(recall * 100, n_epochs))
 
-        writer = SummaryWriter(os.path.join(log_path, 'ci_retrain' + str(n_epochs)))
-        new_model = get_model(model_config, new_dataset)
-        new_trainer = get_trainer(trainer_config, new_dataset, new_model)
-        initial_parameter(new_model, model)
-        with torch.no_grad():
-            prob = torch.full(new_model.embedding.weight.shape, 0.1, device=new_model.device)
-            mask = torch.bernoulli(prob)
-            new_model.embedding.weight.data = new_model.embedding.weight * mask
-        new_trainer.train(verbose=True, writer=writer)
-        writer.close()
-        print('Retrain with careful initialize!')
-        new_trainer.retrain_eval(dataset.n_users, dataset.n_items)
-        rec_items = new_trainer.get_rec_items('train', None)[:dataset.n_users, :]
-        new_rec_items = get_new_rec_items(rec_items, old_rec_items)
-        recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
-        print('Recall of careful initialize:{:.3f}, n_epochs {:d}\n'.format(recall * 100, n_epochs))
-
         trainer_config['parameter_propagation'] = 2
         writer = SummaryWriter(os.path.join(log_path, 'pp_retrain' + str(n_epochs)))
         new_model = get_model(model_config, new_dataset)
         new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+        new_trainer.generate_pp_mat(dataset.n_users)
         initial_parameter(new_model, model)
-        with torch.no_grad():
-            prob = torch.full(new_model.embedding.weight.shape, 0.1, device=new_model.device)
-            mask = torch.bernoulli(prob)
-            new_model.embedding.weight.data = new_model.embedding.weight * mask
         new_trainer.train(verbose=True, writer=writer)
         writer.close()
         print('Retrain with parameter propagation!')

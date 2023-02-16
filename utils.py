@@ -28,8 +28,14 @@ def init_run(log_path, seed):
     sys.stdout = f
 
 
-def generate_adj_mat(dataset, device):
-    train_array = np.array(dataset.train_array)
+def generate_adj_mat(dataset, device, num_old_users=None):
+    if num_old_users is None:
+        train_array = dataset.train_array
+    else:
+        train_array = []
+        for user in range(num_old_users, dataset.n_users):
+            train_array.extend([[user, item] for item in dataset.train_data[user]])
+    train_array = np.array(train_array)
     users, items = train_array[:, 0], train_array[:, 1]
     row = np.concatenate([users, items + dataset.n_users], axis=0)
     column = np.concatenate([items + dataset.n_users, users], axis=0)

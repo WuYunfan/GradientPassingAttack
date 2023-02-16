@@ -38,7 +38,7 @@ class BasicTrainer:
         self.best_ndcg = -np.inf
         self.save_path = None
         self.opt = None
-        self.adj_mat = None
+        self.pp_mat = None
 
         test_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_user, batch_size=trainer_config['test_batch_size'])
@@ -229,11 +229,12 @@ class BasicTrainer:
 
         self.dataset.val_data = val_data.copy()
 
+    def generate_pp_mat(self, num_old_users):
+        self.pp_mat = generate_adj_mat(self.dataset, self.device, num_old_users)
+
     def do_loss(self, loss):
         loss.backward()
-        if self.parameter_propagation != 0:
-            if self.adj_mat is None:
-                self.adj_mat = generate_adj_mat(self.dataset, self.device)
+        if self.parameter_propagation != 0 and self.pp_mat is not None:
             if self.model.name == 'NeuMF':
                 params = [self.model.mf_embedding.weight, self.model.mlp_embedding.weight]
             else:
@@ -241,7 +242,7 @@ class BasicTrainer:
             for param in params:
                 grad = param.grad
                 for _ in range(self.parameter_propagation):
-                    grad = self.adj_mat.spmm(grad, norm='both') + grad + param.grad
+                    grad = self.pp_mat.spmm(grad, norm='both') + grad + param.grad
                 param.grad = grad
         self.opt.step()
         self.opt.zero_grad()
