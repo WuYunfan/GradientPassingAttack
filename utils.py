@@ -28,14 +28,8 @@ def init_run(log_path, seed):
     sys.stdout = f
 
 
-def generate_adj_mat(dataset, device, num_old_users=None):
-    if num_old_users is None:
-        train_array = dataset.train_array
-    else:
-        train_array = []
-        for user in range(num_old_users, dataset.n_users):
-            train_array.extend([[user, item] for item in dataset.train_data[user]])
-    train_array = np.array(train_array)
+def generate_adj_mat(dataset, device):
+    train_array = np.array(dataset.train_array)
     users, items = train_array[:, 0], train_array[:, 1]
     row = np.concatenate([users, items + dataset.n_users], axis=0)
     column = np.concatenate([items + dataset.n_users, users], axis=0)
@@ -52,7 +46,7 @@ class TorchSparseMat:
         self.col = torch.tensor(col, dtype=torch.int64, device=device)
         self.g = dgl.graph((self.col, self.row), num_nodes=max(shape), device=device)
         self.n_non_zeros = self.row.shape[0]
-        self.one = torch.tensor(1., dtype=torch.float32, device=self.device)
+        self.eps = torch.tensor(1.e-8, dtype=torch.float32, device=self.device)
 
     def spmm(self, r_mat, value_tensor=None, norm=None):
         if value_tensor is None:
@@ -67,7 +61,7 @@ class TorchSparseMat:
 
         if norm is not None:
             degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
-            degree = torch.max(degree, self.one)
+            degree = torch.where(degree > 0, degree, self.eps)
             if norm == 'left':
                 values = values / degree[self.row]
             if norm == 'both':

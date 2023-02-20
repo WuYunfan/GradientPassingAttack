@@ -95,7 +95,7 @@ def main():
         new_trainer.train(verbose=True, writer=writer)
         writer.close()
         print('Limited full Retrain!')
-        new_trainer.retrain_eval(dataset.n_users, dataset.n_items)
+        new_trainer.retrain_eval(dataset.n_users)
         rec_items = new_trainer.get_rec_items('train', None)[:dataset.n_users, :]
         new_rec_items = get_new_rec_items(rec_items, old_rec_items)
         recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
@@ -108,7 +108,7 @@ def main():
         new_trainer.train(verbose=True, writer=writer)
         writer.close()
         print('Part Retrain!')
-        new_trainer.retrain_eval(dataset.n_users, dataset.n_items)
+        new_trainer.retrain_eval(dataset.n_users)
         rec_items = new_trainer.get_rec_items('train', None)[:dataset.n_users, :]
         new_rec_items = get_new_rec_items(rec_items, old_rec_items)
         recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
@@ -118,12 +118,11 @@ def main():
         writer = SummaryWriter(os.path.join(log_path, 'pp_retrain' + str(n_epochs)))
         new_model = get_model(model_config, new_dataset)
         new_trainer = get_trainer(trainer_config, new_dataset, new_model)
-        new_trainer.generate_pp_mat(dataset.n_users)
         initial_parameter(new_model, model)
         new_trainer.train(verbose=True, writer=writer)
         writer.close()
         print('Retrain with parameter propagation!')
-        new_trainer.retrain_eval(dataset.n_users, dataset.n_items)
+        new_trainer.retrain_eval(dataset.n_users)
         rec_items = new_trainer.get_rec_items('train', None)[:dataset.n_users, :]
         new_rec_items = get_new_rec_items(rec_items, old_rec_items)
         recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)

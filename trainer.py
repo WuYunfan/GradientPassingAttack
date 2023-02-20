@@ -20,6 +20,34 @@ def get_trainer(config, dataset, model):
     return trainer
 
 
+class ParameterPropagation:
+    def __init__(self, dataset, pp_step, model):
+        self.params = []
+        if model.name == 'NeuMF':
+            self.params.extend([model.mf_embedding.weight, model.mlp_embedding.weight])
+        elif model.name == 'MF' or model.name == 'LightGCN':
+            self.params.extend([model.embedding.weight])
+        self.pp_mat = generate_adj_mat(dataset, model.device)
+        self.pp_step = pp_step
+        self.pp_values = None
+
+    def cal_values(self):
+        self.pp_values = []
+        for param in self.params:
+            values = torch.sum(param[self.pp_mat.row, :] * param[self.pp_mat.col, :], dim=1)
+            self.pp_values.append(torch.sigmoid(values))
+
+    def do_pp(self):
+        for param, values in zip(self.params, self.pp_values):
+            grad = param.grad
+            grads = [grad]
+            for _ in range(self.pp_step):
+                grad = self.pp_mat.spmm(grad, value_tensor=values, norm='both')
+                grads.append(grad)
+            grads = torch.stack(grads, dim=0)
+            param.grad = grads.mean(dim=0)
+
+
 class BasicTrainer:
     def __init__(self, trainer_config):
         print(trainer_config)
@@ -33,12 +61,15 @@ class BasicTrainer:
         self.negative_sample_ratio = trainer_config.get('neg_ratio', 1)
         self.max_patience = trainer_config.get('max_patience', 100)
         self.val_interval = trainer_config.get('val_interval', 1)
-        self.parameter_propagation = trainer_config.get('parameter_propagation', 0)
         self.epoch = 0
         self.best_ndcg = -np.inf
         self.save_path = None
         self.opt = None
-        self.pp_mat = None
+        pp_step = trainer_config.get('parameter_propagation', 0)
+        if pp_step != 0:
+            self.pp = ParameterPropagation(self.dataset, pp_step, self.model)
+        else:
+            self.pp = None
 
         test_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_user, batch_size=trainer_config['test_batch_size'])
@@ -187,7 +218,7 @@ class BasicTrainer:
         results = 'Precision: {:s}Recall: {:s}NDCG: {:s}'.format(precision, recall, ndcg)
         return results, metrics
 
-    def retrain_eval(self, n_old_users, n_old_items):
+    def retrain_eval(self, n_old_users):
         val_data = self.dataset.val_data.copy()
 
         results, _ = self.eval('val')
@@ -203,7 +234,7 @@ class BasicTrainer:
             self.dataset.val_data[user] = []
         results, _ = self.eval('val')
         print('New users and all items result. {:s}'.format(results))
-
+        '''
         self.dataset.val_data = val_data.copy()
         for user in range(self.dataset.n_users):
             val_items = np.array(self.dataset.val_data[user])
@@ -226,24 +257,13 @@ class BasicTrainer:
             self.dataset.val_data[user] = val_items[val_items < n_old_items].tolist()
         results, _ = self.eval('val', banned_items=np.arange(n_old_items, self.dataset.n_items))
         print('Old users and old items result. {:s}'.format(results))
-
+        '''
         self.dataset.val_data = val_data.copy()
-
-    def generate_pp_mat(self, num_old_users):
-        self.pp_mat = generate_adj_mat(self.dataset, self.device, num_old_users)
 
     def do_loss(self, loss):
         loss.backward()
-        if self.parameter_propagation != 0 and self.pp_mat is not None:
-            if self.model.name == 'NeuMF':
-                params = [self.model.mf_embedding.weight, self.model.mlp_embedding.weight]
-            else:
-                params = [self.model.embedding.weight]
-            for param in params:
-                grad = param.grad
-                for _ in range(self.parameter_propagation):
-                    grad = self.pp_mat.spmm(grad, norm='both') + grad + param.grad
-                param.grad = grad
+        if self.pp is not None:
+            self.pp.do_pp()
         self.opt.step()
         self.opt.zero_grad()
 
@@ -259,6 +279,8 @@ class BPRTrainer(BasicTrainer):
         self.l2_reg = trainer_config['l2_reg']
 
     def train_one_epoch(self):
+        if self.pp is not None:
+            self.pp.cal_values()
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
@@ -342,6 +364,8 @@ class BCETrainer(BasicTrainer):
             self.best_ndcg = -np.inf
             self.model.load(self.save_path)
             self.model.init_mlp_layers()
+        if self.pp is not None:
+            self.pp.cal_values()
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data.to(device=self.device, dtype=torch.int64)
