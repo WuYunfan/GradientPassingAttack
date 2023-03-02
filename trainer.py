@@ -20,34 +20,6 @@ def get_trainer(config, dataset, model):
     return trainer
 
 
-class ParameterPropagation:
-    def __init__(self, dataset, pp_step, model):
-        self.params = []
-        if model.name == 'NeuMF':
-            self.params.extend([model.mf_embedding.weight, model.mlp_embedding.weight])
-        elif model.name == 'MF' or model.name == 'LightGCN':
-            self.params.extend([model.embedding.weight])
-        self.pp_mat = generate_adj_mat(dataset, model.device)
-        self.pp_step = pp_step
-        self.pp_values = None
-
-    def cal_values(self):
-        self.pp_values = []
-        for param in self.params:
-            values = torch.sum(param[self.pp_mat.row, :] * param[self.pp_mat.col, :], dim=1)
-            self.pp_values.append(torch.sigmoid(values))
-
-    def do_pp(self):
-        for param, values in zip(self.params, self.pp_values):
-            grad = param.grad
-            grads = [grad]
-            for _ in range(self.pp_step):
-                grad = self.pp_mat.spmm(grad, value_tensor=values, norm='both')
-                grads.append(grad)
-            grads = torch.stack(grads, dim=0)
-            param.grad = grads.mean(dim=0)
-
-
 class BasicTrainer:
     def __init__(self, trainer_config):
         print(trainer_config)
@@ -65,11 +37,7 @@ class BasicTrainer:
         self.best_ndcg = -np.inf
         self.save_path = None
         self.opt = None
-        pp_step = trainer_config.get('parameter_propagation', 0)
-        if pp_step != 0:
-            self.pp = ParameterPropagation(self.dataset, pp_step, self.model)
-        else:
-            self.pp = None
+        self.pp_order = trainer_config.get('parameter_propagation', 0)
 
         test_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_user, batch_size=trainer_config['test_batch_size'])
@@ -260,13 +228,6 @@ class BasicTrainer:
         '''
         self.dataset.val_data = val_data.copy()
 
-    def do_loss(self, loss):
-        loss.backward()
-        if self.pp is not None:
-            self.pp.do_pp()
-        self.opt.step()
-        self.opt.zero_grad()
-
 
 class BPRTrainer(BasicTrainer):
     def __init__(self, trainer_config):
@@ -279,21 +240,22 @@ class BPRTrainer(BasicTrainer):
         self.l2_reg = trainer_config['l2_reg']
 
     def train_one_epoch(self):
-        if self.pp is not None:
-            self.pp.cal_values()
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
             users, pos_items, neg_items = inputs[:, 0],  inputs[:, 1],  inputs[:, 2]
 
-            users_r, pos_items_r, neg_items_r, l2_norm_sq = self.model.bpr_forward(users, pos_items, neg_items)
+            users_r, pos_items_r, neg_items_r, l2_norm_sq = \
+                self.model.bpr_forward(users, pos_items, neg_items, self.pp_order)
             pos_scores = torch.sum(users_r * pos_items_r, dim=1)
             neg_scores = torch.sum(users_r * neg_items_r, dim=1)
 
             bpr_loss = F.softplus(neg_scores - pos_scores).mean()
             reg_loss = self.l2_reg * l2_norm_sq.mean()
             loss = bpr_loss + reg_loss
-            self.do_loss(loss)
+            loss.backward()
+            self.opt.step()
+            self.opt.zero_grad()
             losses.update(loss.item(), inputs.shape[0])
         return losses.avg
 
@@ -349,10 +311,11 @@ class BCETrainer(BasicTrainer):
                                      persistent_workers=True)
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
-        self.mf_pretrain_epochs = trainer_config['mf_pretrain_epochs']
-        self.mlp_pretrain_epochs = trainer_config['mlp_pretrain_epochs']
+        if self.model.name == 'NeuMF':
+            self.mf_pretrain_epochs = trainer_config['mf_pretrain_epochs']
+            self.mlp_pretrain_epochs = trainer_config['mlp_pretrain_epochs']
 
-    def train_one_epoch(self):
+    def change_arch(self):
         if self.epoch == self.mf_pretrain_epochs and self.model.arch == 'gmf':
             self.model.arch = 'mlp'
             self.initialize_optimizer()
@@ -364,25 +327,27 @@ class BCETrainer(BasicTrainer):
             self.best_ndcg = -np.inf
             self.model.load(self.save_path)
             self.model.init_mlp_layers()
-        if self.pp is not None:
-            self.pp.cal_values()
+
+    def train_one_epoch(self):
+        if self.model.name == 'NeuMF':
+            self.change_arch()
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data.to(device=self.device, dtype=torch.int64)
-            users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
-            logits, l2_norm_sq_p = self.model.bce_forward(users, pos_items)
-            bce_loss_p = F.softplus(-logits)
-
+            pos_users, pos_items = inputs[:, 0, 0], inputs[:, 0, 1]
             inputs = inputs.reshape(-1, 3)
-            users, neg_items = inputs[:, 0], inputs[:, 2]
-            logits, l2_norm_sq_n = self.model.bce_forward(users, neg_items)
-            bce_loss_n = F.softplus(logits)
+            neg_users, neg_items = inputs[:, 0], inputs[:, 2]
+            pos_scores, neg_scores, l2_norm_sq = self.model.bce_forward(pos_users, pos_items,
+                                                                        neg_users, neg_items, self.pp_order)
+            bce_loss_p = F.softplus(-pos_scores)
+            bce_loss_n = F.softplus(neg_scores)
 
             bce_loss = torch.cat([bce_loss_p, bce_loss_n], dim=0).mean()
-            l2_norm_sq = torch.cat([l2_norm_sq_p, l2_norm_sq_n], dim=0)
             reg_loss = self.l2_reg * l2_norm_sq.mean()
             loss = bce_loss + reg_loss
-            self.do_loss(loss)
+            loss.backward()
+            self.opt.step()
+            self.opt.zero_grad()
             losses.update(loss.item(), l2_norm_sq.shape[0])
         return losses.avg
 

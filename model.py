@@ -2,15 +2,35 @@ import torch
 import torch.nn as nn
 import scipy.sparse as sp
 import numpy as np
-from utils import generate_adj_mat
-from torch.nn.init import kaiming_uniform_, xavier_normal, normal_, zeros_, ones_
+from utils import generate_adj_mat, TorchSparseMat
+from torch.nn.init import kaiming_uniform_, normal_, zeros_, ones_
 import sys
 import torch.nn.functional as F
 from sklearn.preprocessing import normalize
-from torch.utils.checkpoint import checkpoint
-import dgl
-import multiprocessing as mp
-import time
+from torch.autograd import Function
+
+
+class PPFunction(Function):
+    @staticmethod
+    def forward(ctx, rep, pos_mat, neg_mat, pp_order):
+        ctx.order = pp_order
+        ctx.pos_mat = pos_mat
+        ctx.neg_mat = neg_mat
+        ctx.save_for_backward(rep)
+        return rep
+
+    @staticmethod
+    def backward(ctx, grad_out):
+        order = ctx.order
+        pos_mat = ctx.pos_mat
+        neg_mat = ctx.neg_mat
+        rep = ctx.saved_tensors[0]
+        grad = grad_out
+        for _ in range(order):
+            pos_values = 1. - torch.sigmoid(torch.sum(rep[pos_mat.row, :] * rep[pos_mat.col, :], dim=1))
+            neg_values = torch.sigmoid(torch.sum(rep[neg_mat.row, :] * rep[neg_mat.col, :], dim=1))
+            grad = pos_mat.spmm(grad, pos_values) - neg_mat.spmm(grad, neg_values) + grad + grad_out
+        return grad, None, None, None
 
 
 def get_model(config, dataset):
@@ -49,6 +69,34 @@ class BasicModel(nn.Module):
     def load(self, path):
         self.load_state_dict(torch.load(path, map_location=self.device))
 
+    def pp_rep(self, rep, pos_users, pos_items, neg_users, neg_items, pp_order):
+        row = torch.cat([pos_users, pos_items + self.n_users], dim=0)
+        col = torch.cat([pos_items + self.n_users, pos_users], dim=0)
+        pos_mat = TorchSparseMat(row, col, (self.n_users + self.n_items, self.n_users + self.n_items), self.device)
+        row = torch.cat([neg_users, neg_items + self.n_users], dim=0)
+        col = torch.cat([neg_items + self.n_users, neg_users], dim=0)
+        neg_mat = TorchSparseMat(row, col, (self.n_users + self.n_items, self.n_users + self.n_items), self.device)
+        return PPFunction.apply(rep, pos_mat, neg_mat, pp_order)
+
+    def bpr_forward(self, users, pos_items, neg_items, pp_order):
+        rep = self.get_rep(users, pos_items, users, neg_items, pp_order)
+        users_r = rep[users, :]
+        pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
+        l2_norm_sq = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2 \
+                     + torch.norm(neg_items_r, p=2, dim=1) ** 2
+        return users_r, pos_items_r, neg_items_r, l2_norm_sq
+
+    def bce_forward(self, pos_users, pos_items, neg_users, neg_items, pp_order):
+        rep = self.get_rep(pos_users, pos_items, neg_users, neg_items, pp_order)
+        pos_users_r, neg_users_r = rep[pos_users, :], rep[neg_users, :]
+        pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
+        pos_scores = torch.sum(pos_users_r * pos_items_r, dim=1)
+        neg_scores = torch.sum(neg_users_r * neg_items_r, dim=1)
+        pos_l2_norm_sq = torch.norm(pos_users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2
+        neg_l2_norm_sq = torch.norm(neg_users_r, p=2, dim=1) ** 2 + torch.norm(neg_items_r, p=2, dim=1) ** 2
+        l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)
+        return pos_scores, neg_scores, l2_norm_sq
+
 
 class MF(BasicModel):
     def __init__(self, model_config):
@@ -58,12 +106,10 @@ class MF(BasicModel):
         normal_(self.embedding.weight, std=0.1)
         self.to(device=self.device)
 
-    def bpr_forward(self, users, pos_items, neg_items):
-        users_e = self.embedding(users)
-        pos_items_e, neg_items_e = self.embedding(self.n_users + pos_items), self.embedding(self.n_users + neg_items)
-        l2_norm_sq = torch.norm(users_e, p=2, dim=1) ** 2 + torch.norm(pos_items_e, p=2, dim=1) ** 2 \
-                     + torch.norm(neg_items_e, p=2, dim=1) ** 2
-        return users_e, pos_items_e, neg_items_e, l2_norm_sq
+    def get_rep(self, pos_users, pos_items, neg_users, neg_items, pp_order):
+        if pp_order == 0:
+            return self.embedding.weight
+        return self.pp_rep(self.embedding.weight, pos_users, pos_items, neg_users, neg_items, pp_order)
 
     def predict(self, users):
         user_e = self.embedding(users)
@@ -85,7 +131,7 @@ class LightGCN(BasicModel):
         adj_mat = generate_adj_mat(dataset, self.device)
         return adj_mat
 
-    def get_rep(self):
+    def get_rep(self, pos_users, pos_items, neg_users, neg_items, pp_order):
         representations = self.embedding.weight
         all_layer_rep = [representations]
         for _ in range(self.n_layers):
@@ -93,17 +139,9 @@ class LightGCN(BasicModel):
             all_layer_rep.append(representations)
         all_layer_rep = torch.stack(all_layer_rep, dim=0)
         final_rep = all_layer_rep.mean(dim=0)
-        return final_rep
-
-    def bpr_forward(self, users, pos_items, neg_items):
-        rep = self.get_rep()
-        users_e = self.embedding(users)
-        pos_items_e, neg_items_e = self.embedding(self.n_users + pos_items), self.embedding(self.n_users + neg_items)
-        l2_norm_sq = torch.norm(users_e, p=2, dim=1) ** 2 + torch.norm(pos_items_e, p=2, dim=1) ** 2 \
-                     + torch.norm(neg_items_e, p=2, dim=1) ** 2
-        users_r = rep[users, :]
-        pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
-        return users_r, pos_items_r, neg_items_r, l2_norm_sq
+        if pp_order == 0:
+            return final_rep
+        return self.pp_rep(final_rep, pos_users, pos_items, neg_users, neg_items, pp_order)
 
     def predict(self, users):
         rep = self.get_rep()
@@ -257,7 +295,13 @@ class NeuMF(BasicModel):
             zeros_(layer.bias)
         ones_(self.output_layer.weight)
 
-    def bce_forward(self, users, items):
+    def bce_forward(self, pos_users, pos_items, neg_users, neg_items, pp_order):
+        pos_scores, pos_l2_norm_sq = self.forward(pos_users, pos_items)
+        neg_scores, neg_l2_norm_sq = self.forward(neg_users, neg_items)
+        l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)
+        return pos_scores, neg_scores, l2_norm_sq
+
+    def forward(self, users, items):
         users_mf_e, items_mf_e = self.mf_embedding(users), self.mf_embedding(self.n_users + items)
         users_mlp_e, items_mlp_e = self.mlp_embedding(users), self.mlp_embedding(self.n_users + items)
 
@@ -281,6 +325,6 @@ class NeuMF(BasicModel):
     def predict(self, users):
         items = torch.arange(self.n_items, dtype=torch.int64, device=self.device).repeat(users.shape[0])
         users = users[:, None].repeat(1, self.n_items).flatten()
-        scores, _ = self.bce_forward(users, items)
+        scores, _ = self.forward(users, items)
         scores = scores.reshape(-1, self.n_items)
         return scores

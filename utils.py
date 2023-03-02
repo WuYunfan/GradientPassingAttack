@@ -32,9 +32,10 @@ def generate_adj_mat(dataset, device):
     train_array = np.array(dataset.train_array)
     users, items = train_array[:, 0], train_array[:, 1]
     row = np.concatenate([users, items + dataset.n_users], axis=0)
-    column = np.concatenate([items + dataset.n_users, users], axis=0)
-    adj_mat = TorchSparseMat(row, column,
-                             (dataset.n_users + dataset.n_items, dataset.n_users + dataset.n_items), device)
+    col = np.concatenate([items + dataset.n_users, users], axis=0)
+    row = torch.tensor(row, dtype=torch.int64, device=device)
+    col = torch.tensor(col, dtype=torch.int64, device=device)
+    adj_mat = TorchSparseMat(row, col, (dataset.n_users + dataset.n_items, dataset.n_users + dataset.n_items), device)
     return adj_mat
 
 
@@ -42,8 +43,8 @@ class TorchSparseMat:
     def __init__(self, row, col, shape, device):
         self.shape = shape
         self.device = device
-        self.row = torch.tensor(row, dtype=torch.int64, device=device)
-        self.col = torch.tensor(col, dtype=torch.int64, device=device)
+        self.row = row
+        self.col = col
         self.g = dgl.graph((self.col, self.row), num_nodes=max(shape), device=device)
         self.n_non_zeros = self.row.shape[0]
         self.eps = torch.tensor(1.e-8, dtype=torch.float32, device=self.device)
