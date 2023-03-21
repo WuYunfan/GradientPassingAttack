@@ -65,6 +65,8 @@ class TorchSparseMat:
             degree = torch.where(degree > 0, degree, self.eps)
             if norm == 'left':
                 values = values / degree[self.row]
+            if norm == 'right':
+                values = values / degree[self.col]
             if norm == 'both':
                 values = values / (torch.pow(degree[self.row], 0.5) * torch.pow(degree[self.col], 0.5))
         x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)

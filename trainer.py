@@ -20,6 +20,13 @@ def get_trainer(config, dataset, model):
     return trainer
 
 
+class PPConfig:
+    def __init__(self, trainer_config):
+        self.order = trainer_config.get('parameter_propagation', 0)
+        if self.order != 0:
+            self.mat = generate_adj_mat(trainer_config['dataset'], trainer_config['device'])
+
+
 class BasicTrainer:
     def __init__(self, trainer_config):
         print(trainer_config)
@@ -37,7 +44,7 @@ class BasicTrainer:
         self.best_ndcg = -np.inf
         self.save_path = None
         self.opt = None
-        self.pp_order = trainer_config.get('parameter_propagation', 0)
+        self.pp_config = PPConfig(trainer_config)
 
         test_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
         self.test_user_loader = DataLoader(test_user, batch_size=trainer_config['test_batch_size'])
@@ -246,7 +253,7 @@ class BPRTrainer(BasicTrainer):
             users, pos_items, neg_items = inputs[:, 0],  inputs[:, 1],  inputs[:, 2]
 
             users_r, pos_items_r, neg_items_r, l2_norm_sq = \
-                self.model.bpr_forward(users, pos_items, neg_items, self.pp_order)
+                self.model.bpr_forward(users, pos_items, neg_items, self.pp_config)
             pos_scores = torch.sum(users_r * pos_items_r, dim=1)
             neg_scores = torch.sum(users_r * neg_items_r, dim=1)
 
@@ -279,7 +286,8 @@ class APRTrainer(BasicTrainer):
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
             users, pos_items, neg_items = inputs[:, 0],  inputs[:, 1],  inputs[:, 2]
 
-            users_r, pos_items_r, neg_items_r, l2_norm_sq = self.model.bpr_forward(users, pos_items, neg_items)
+            users_r, pos_items_r, neg_items_r, l2_norm_sq = \
+                self.model.bpr_forward(users, pos_items, neg_items, self.pp_config)
             pos_scores = torch.sum(users_r * pos_items_r, dim=1)
             neg_scores = torch.sum(users_r * neg_items_r, dim=1)
             bpr_loss = F.softplus(neg_scores - pos_scores).mean()
@@ -338,7 +346,7 @@ class BCETrainer(BasicTrainer):
             inputs = inputs.reshape(-1, 3)
             neg_users, neg_items = inputs[:, 0], inputs[:, 2]
             pos_scores, neg_scores, l2_norm_sq = self.model.bce_forward(pos_users, pos_items,
-                                                                        neg_users, neg_items, self.pp_order)
+                                                                        neg_users, neg_items, self.pp_config)
             bce_loss_p = F.softplus(-pos_scores)
             bce_loss_n = F.softplus(neg_scores)
 

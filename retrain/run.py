@@ -40,17 +40,14 @@ def initial_parameter(new_model, model):
 
 def main():
     seed_list = [0, 42, 2022, 131, 1024]
+    seed = seed_list[0]
 
     log_path = __file__[:-3]
-    init_run(log_path, seed_list[0])
+    init_run(log_path, seed)
 
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[2]
-
-    trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 1.e-3, 'l2_reg': 1.e-4,
-                      'device': device, 'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 16,
-                      'test_batch_size': 64, 'topks': [20], 'neg_ratio': 4}
     dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
 
     """
@@ -95,6 +92,7 @@ def main():
         tmp_trainer_config['n_epochs'] = n_epochs
 
         writer = SummaryWriter(os.path.join(log_path, 'full_retrain_' + str(n_epochs)))
+        set_seed(seed)
         new_model = get_model(model_config, new_dataset)
         new_trainer = get_trainer(tmp_trainer_config, new_dataset, new_model)
         new_trainer.train(verbose=True, writer=writer)
@@ -121,6 +119,7 @@ def main():
         """
         tmp_trainer_config['parameter_propagation'] = 2
         writer = SummaryWriter(os.path.join(log_path, 'pp_retrain' + str(n_epochs)))
+        set_seed(seed)
         new_model = get_model(model_config, new_dataset)
         new_trainer = get_trainer(tmp_trainer_config, new_dataset, new_model)
         # initial_parameter(new_model, model)
