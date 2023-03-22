@@ -63,7 +63,7 @@ class BasicTrainer:
                                   .format(self.model.name, self.name, stage, metric, k)
                                   , metrics[metric][k], self.epoch)
 
-    def train(self, verbose=True, writer=None):
+    def train(self, verbose=True, writer=None, extra_eval=None):
         if not self.model.trainable:
             results, metrics = self.eval('val')
             if verbose:
@@ -78,14 +78,12 @@ class BasicTrainer:
             start_time = time.time()
             self.model.train()
             loss = self.train_one_epoch()
-            _, metrics = self.eval('train')
             consumed_time = time.time() - start_time
             if verbose:
                 print('Epoch {:d}/{:d}, Loss: {:.6f}, Time: {:.3f}s'
                       .format(self.epoch, self.n_epochs, loss, consumed_time))
             if writer:
                 writer.add_scalar('{:s}_{:s}/train_loss'.format(self.model.name, self.name), loss, self.epoch)
-                self.record(writer, 'train', metrics)
 
             if (self.epoch + 1) % self.val_interval != 0:
                 continue
@@ -114,6 +112,9 @@ class BasicTrainer:
                 if patience <= 0:
                     print('Early stopping at epoch {:d}!'.format(self.epoch))
                     break
+
+            if extra_eval is not None:
+                extra_eval[0](self, *extra_eval[1])
         self.model.load(self.save_path)
         print('Best NDCG {:.3f}'.format(self.best_ndcg))
         return self.best_ndcg
@@ -192,48 +193,6 @@ class BasicTrainer:
             ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100., k)
         results = 'Precision: {:s}Recall: {:s}NDCG: {:s}'.format(precision, recall, ndcg)
         return results, metrics
-
-    def retrain_eval(self, n_old_users):
-        val_data = self.dataset.val_data.copy()
-
-        results, _ = self.eval('val')
-        print('All users and all items result. {:s}'.format(results))
-
-        for user in range(n_old_users, self.dataset.n_users):
-            self.dataset.val_data[user] = []
-        results, _ = self.eval('val')
-        print('Old users and all items result. {:s}'.format(results))
-
-        self.dataset.val_data = val_data.copy()
-        for user in range(n_old_users):
-            self.dataset.val_data[user] = []
-        results, _ = self.eval('val')
-        print('New users and all items result. {:s}'.format(results))
-        '''
-        self.dataset.val_data = val_data.copy()
-        for user in range(self.dataset.n_users):
-            val_items = np.array(self.dataset.val_data[user])
-            self.dataset.val_data[user] = val_items[val_items < n_old_items].tolist()
-        results, _ = self.eval('val', banned_items=np.arange(n_old_items, self.dataset.n_items))
-        print('All users and old items result. {:s}'.format(results))
-
-        self.dataset.val_data = val_data.copy()
-        for user in range(self.dataset.n_users):
-            val_items = np.array(self.dataset.val_data[user])
-            self.dataset.val_data[user] = val_items[val_items >= n_old_items].tolist()
-        results, _ = self.eval('val', banned_items=np.arange(n_old_items))
-        print('All users and new items result. {:s}'.format(results))
-
-        self.dataset.val_data = val_data.copy()
-        for user in range(n_old_users, self.dataset.n_users):
-            self.dataset.val_data[user] = []
-        for user in range(n_old_users):
-            val_items = np.array(self.dataset.val_data[user])
-            self.dataset.val_data[user] = val_items[val_items < n_old_items].tolist()
-        results, _ = self.eval('val', banned_items=np.arange(n_old_items, self.dataset.n_items))
-        print('Old users and old items result. {:s}'.format(results))
-        '''
-        self.dataset.val_data = val_data.copy()
 
 
 class BPRTrainer(BasicTrainer):

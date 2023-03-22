@@ -9,6 +9,16 @@ import numpy as np
 import os
 
 
+def eval_rec_on_new_users(trainer, n_old_users, writer):
+    val_data = trainer.dataset.val_data.copy()
+    for user in range(n_old_users):
+        trainer.dataset.val_data[user] = []
+    results, metrics = trainer.eval('val')
+    print('New users and all items result. {:s}'.format(results))
+    trainer.dataset.val_data = val_data
+    trainer.record(writer, 'new_user', metrics)
+
+
 def cal_recall_set(rec_items_a, rec_items_b):
     rates = []
     for user in range(len(rec_items_a)):
@@ -38,6 +48,16 @@ def initial_parameter(new_model, model):
         new_model.embedding.weight.data[-dataset.n_items:, :] = model.embedding.weight[-dataset.n_items:, :]
 
 
+def eval_rec_and_surrogate(trainer, old_rec_items, full_retrain_new_rec_items, writer):
+    n_old_users = old_rec_items.shape[0]
+    eval_rec_on_new_users(trainer, n_old_users, writer)
+    rec_items = trainer.get_rec_items('train', None)[:n_old_users, :]
+    new_rec_items = get_new_rec_items(rec_items, old_rec_items)
+    recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
+    print('Recall of new recommended items: {:.3f}\n'.format(recall * 100))
+    writer.add_scalar('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name), recall, trainer.epoch)
+
+
 def main():
     seed_list = [0, 42, 2022, 131, 1024]
     seed = seed_list[0]
@@ -50,7 +70,6 @@ def main():
     dataset_config, model_config, trainer_config = config[2]
     dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
 
-    """
     writer = SummaryWriter(os.path.join(log_path, 'pre_train'))
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
@@ -62,10 +81,10 @@ def main():
         model.save('retrain/pre_train_model.pth')
     old_rec_items = trainer.get_rec_items('train', None)
     writer.close()
-    """
+
     dataset_config['path'] = dataset_config['path'][:-7] + 'time'
     new_dataset = get_dataset(dataset_config)
-    """
+
     if os.path.exists('retrain/new_rec_items.npy'):
         full_retrain_new_rec_items = np.load('retrain/new_rec_items.npy', allow_pickle=True).tolist()
     else:
@@ -86,55 +105,40 @@ def main():
                 for user in range(len(full_retrain_new_rec_items)):
                     full_retrain_new_rec_items[user] &= new_rec_items[user]
         np.save('retrain/new_rec_items.npy', full_retrain_new_rec_items)
-    """
-    for n_epochs in [10, 20, 50, 200]:
-        tmp_trainer_config = trainer_config.copy()
-        tmp_trainer_config['n_epochs'] = n_epochs
 
-        writer = SummaryWriter(os.path.join(log_path, 'full_retrain_' + str(n_epochs)))
-        set_seed(seed)
-        new_model = get_model(model_config, new_dataset)
-        new_trainer = get_trainer(tmp_trainer_config, new_dataset, new_model)
-        new_trainer.train(verbose=True, writer=writer)
-        writer.close()
-        print('Limited full Retrain!')
-        # new_trainer.retrain_eval(dataset.n_users)
-        # rec_items = new_trainer.get_rec_items('train', None)[:dataset.n_users, :]
-        # new_rec_items = get_new_rec_items(rec_items, old_rec_items)
-        # recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
-        # print('Recall of limited full retrain: {:.3f}, n_epochs {:d}\n'.format(recall * 100, n_epochs))
-        """
-        writer = SummaryWriter(os.path.join(log_path, 'part_retrain' + str(n_epochs)))
-        new_model = get_model(model_config, new_dataset)
-        new_trainer = get_trainer(tmp_trainer_config, new_dataset, new_model)
-        initial_parameter(new_model, model)
-        new_trainer.train(verbose=True, writer=writer)
-        writer.close()
-        print('Part Retrain!')
-        new_trainer.retrain_eval(dataset.n_users)
-        rec_items = new_trainer.get_rec_items('train', None)[:dataset.n_users, :]
-        new_rec_items = get_new_rec_items(rec_items, old_rec_items)
-        recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
-        print('Recall of part retrain: {:.3f}, n_epochs {:d}\n'.format(recall * 100, n_epochs))
-        """
-        tmp_trainer_config['parameter_propagation'] = 2
-        writer = SummaryWriter(os.path.join(log_path, 'pp_retrain' + str(n_epochs)))
-        set_seed(seed)
-        new_model = get_model(model_config, new_dataset)
-        new_trainer = get_trainer(tmp_trainer_config, new_dataset, new_model)
-        # initial_parameter(new_model, model)
-        # with torch.no_grad():
-        #    prob = torch.full(new_model.embedding.weight.shape, 0.1, device=new_model.device)
-        #    mask = torch.bernoulli(prob)
-        #    new_model.embedding.weight.data = new_model.embedding.weight * mask
-        new_trainer.train(verbose=True, writer=writer)
-        writer.close()
-        print('Retrain with parameter propagation!')
-        # new_trainer.retrain_eval(dataset.n_users)
-        # rec_items = new_trainer.get_rec_items('train', None)[:dataset.n_users, :]
-        # new_rec_items = get_new_rec_items(rec_items, old_rec_items)
-        # recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
-        # print('Recall of parameter propagation:{:.3f}, n_epochs {:d}\n'.format(recall * 100, n_epochs))
+    writer = SummaryWriter(os.path.join(log_path, 'full_retrain'))
+    set_seed(seed)
+    new_model = get_model(model_config, new_dataset)
+    new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+    extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
+    new_trainer.train(verbose=True, writer=writer, extra_eval=extra_eval)
+    writer.close()
+    print('Limited full Retrain!')
+
+    writer = SummaryWriter(os.path.join(log_path, 'part_retrain'))
+    set_seed(seed)
+    new_model = get_model(model_config, new_dataset)
+    new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+    initial_parameter(new_model, model)
+    extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
+    new_trainer.train(verbose=True, writer=writer, extra_eval=extra_eval)
+    writer.close()
+    print('Part Retrain!')
+
+    trainer_config['parameter_propagation'] = 2
+    writer = SummaryWriter(os.path.join(log_path, 'pp_retrain'))
+    set_seed(seed)
+    new_model = get_model(model_config, new_dataset)
+    new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+    initial_parameter(new_model, model)
+    with torch.no_grad():
+        prob = torch.full(new_model.embedding.weight.shape, 0.1, device=new_model.device)
+        mask = torch.bernoulli(prob)
+        new_model.embedding.weight.data = new_model.embedding.weight * mask
+    extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
+    new_trainer.train(verbose=True, writer=writer, extra_eval=extra_eval)
+    writer.close()
+    print('Retrain with parameter propagation!')
 
 
 if __name__ == '__main__':

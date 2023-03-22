@@ -24,7 +24,7 @@ class PPFunction(Function):
         mat = ctx.mat
         rep = ctx.saved_tensors[0]
         values = torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1)
-        values = torch.relu(torch.sigmoid(values) - 0.95)
+        values = torch.gt(torch.sigmoid(values) - 0.99, 0.).to(torch.float32)
         grad = grad_out
         grads = [grad]
         for i in range(order):
