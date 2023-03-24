@@ -2,7 +2,7 @@ from dataset import get_dataset
 from model import get_model
 from trainer import get_trainer
 import torch
-from utils import init_run, generate_adj_mat, set_seed
+from utils import init_run, set_seed
 from tensorboardX import SummaryWriter
 from config import get_gowalla_config
 import numpy as np
@@ -54,7 +54,7 @@ def eval_rec_and_surrogate(trainer, old_rec_items, full_retrain_new_rec_items, w
     rec_items = trainer.get_rec_items('train', None)[:n_old_users, :]
     new_rec_items = get_new_rec_items(rec_items, old_rec_items)
     recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
-    print('Recall of new recommended items: {:.3f}\n'.format(recall * 100))
+    print('Recall of new recommended items: {:.3f}'.format(recall * 100))
     writer.add_scalar('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name), recall, trainer.epoch)
 
 
@@ -69,6 +69,7 @@ def main():
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[2]
     dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
+    trainer_config['max_patience'] = 1000
 
     writer = SummaryWriter(os.path.join(log_path, 'pre_train'))
     dataset = get_dataset(dataset_config)
@@ -125,7 +126,8 @@ def main():
     writer.close()
     print('Part Retrain!')
 
-    trainer_config['parameter_propagation'] = 2
+    trainer_config['pp_step'] = 2
+    trainer_config['pp_threshold'] = 0.99
     writer = SummaryWriter(os.path.join(log_path, 'pp_retrain'))
     set_seed(seed)
     new_model = get_model(model_config, new_dataset)

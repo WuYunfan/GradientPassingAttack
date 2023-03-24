@@ -22,9 +22,10 @@ def get_trainer(config, dataset, model):
 
 class PPConfig:
     def __init__(self, trainer_config):
-        self.order = trainer_config.get('parameter_propagation', 0)
+        self.order = trainer_config.get('pp_step', 0)
         if self.order != 0:
             self.mat = generate_adj_mat(trainer_config['dataset'], trainer_config['device'])
+            self.threshold = trainer_config['pp_threshold']
 
 
 class BasicTrainer:
@@ -63,7 +64,7 @@ class BasicTrainer:
                                   .format(self.model.name, self.name, stage, metric, k)
                                   , metrics[metric][k], self.epoch)
 
-    def train(self, verbose=True, writer=None, extra_eval=None):
+    def train(self, verbose=True, writer=None, extra_eval=None, trial=None):
         if not self.model.trainable:
             results, metrics = self.eval('val')
             if verbose:
@@ -115,6 +116,8 @@ class BasicTrainer:
 
             if extra_eval is not None:
                 extra_eval[0](self, *extra_eval[1])
+            if trial is not None:
+                trial.report(ndcg, self.epoch)
         self.model.load(self.save_path)
         print('Best NDCG {:.3f}'.format(self.best_ndcg))
         return self.best_ndcg
