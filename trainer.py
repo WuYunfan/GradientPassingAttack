@@ -8,7 +8,7 @@ import os
 from utils import AverageMeter, generate_adj_mat
 import torch.nn.functional as F
 import scipy.sparse as sp
-import dgl
+import optuna
 
 
 def get_trainer(config, dataset, model):
@@ -118,6 +118,9 @@ class BasicTrainer:
                 extra_eval[0](self, *extra_eval[1])
             if trial is not None:
                 trial.report(ndcg, self.epoch)
+                if trial.should_prune():
+                    raise optuna.exceptions.TrialPruned()
+
         self.model.load(self.save_path)
         print('Best NDCG {:.3f}'.format(self.best_ndcg))
         return self.best_ndcg

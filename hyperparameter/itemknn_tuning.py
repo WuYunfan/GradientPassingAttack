@@ -7,6 +7,7 @@ import optuna
 import logging
 import sys
 from optuna.trial import TrialState
+from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
@@ -33,7 +34,8 @@ def main():
     storage_name = 'sqlite:///../{}.db'.format(study_name)
     study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
 
-    study.optimize(objective, n_trials=5)
+    call_back = MaxTrialsCallback(50, states=(TrialState.RUNNING, TrialState.COMPLETE, TrialState.PRUNED))
+    study.optimize(objective, callbacks=[call_back])
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 
