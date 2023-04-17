@@ -7,6 +7,7 @@ from tensorboardX import SummaryWriter
 from config import get_gowalla_config
 import numpy as np
 import os
+from tensorboard.backend.event_processing import event_accumulator
 
 
 def eval_rec_on_new_users(trainer, n_old_users, writer):
@@ -58,7 +59,7 @@ def eval_rec_and_surrogate(trainer, old_rec_items, full_retrain_new_rec_items, w
     writer.add_scalar('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name), recall, trainer.epoch)
 
 
-def main():
+def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p):
     seed_list = [0, 42, 2022, 131, 1024]
     seed = seed_list[0]
 
@@ -112,7 +113,7 @@ def main():
     new_model = get_model(model_config, new_dataset)
     new_trainer = get_trainer(trainer_config, new_dataset, new_model)
     extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
-    new_trainer.train(verbose=True, writer=writer, extra_eval=extra_eval)
+    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval)
     writer.close()
     print('Limited full Retrain!')
 
@@ -122,25 +123,38 @@ def main():
     new_trainer = get_trainer(trainer_config, new_dataset, new_model)
     initial_parameter(new_model, model)
     extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
-    new_trainer.train(verbose=True, writer=writer, extra_eval=extra_eval)
+    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval)
     writer.close()
     print('Part Retrain!')
 
-    trainer_config['pp_step'] = 2
-    trainer_config['pp_threshold'] = 0.99
+    trainer_config['pp_step'] = pp_step
+    trainer_config['pp_threshold'] = 1. - m_pp_threshold
     writer = SummaryWriter(os.path.join(log_path, 'pp_retrain'))
     set_seed(seed)
     new_model = get_model(model_config, new_dataset)
     new_trainer = get_trainer(trainer_config, new_dataset, new_model)
     initial_parameter(new_model, model)
     with torch.no_grad():
-        prob = torch.full(new_model.embedding.weight.shape, 0.1, device=new_model.device)
+        prob = torch.full(new_model.embedding.weight.shape, bernoulli_p, device=new_model.device)
         mask = torch.bernoulli(prob)
         new_model.embedding.weight.data = new_model.embedding.weight * mask
     extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
-    new_trainer.train(verbose=True, writer=writer, extra_eval=extra_eval)
+    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval)
     writer.close()
     print('Retrain with parameter propagation!')
+
+    ea = event_accumulator.EventAccumulator('run/pp_retrain')
+    new_items_recall = ea.Scalars('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name))
+    maximum_recall = np.max([x.value for x in new_items_recall])
+    return maximum_recall
+
+
+def main():
+    pp_step = 2
+    m_pp_threshold = 0.01
+    bernoulli_p = 0.1
+    maximum_recall = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p)
+    print('Maximum recall', maximum_recall)
 
 
 if __name__ == '__main__':
