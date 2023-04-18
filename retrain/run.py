@@ -62,24 +62,24 @@ def eval_rec_and_surrogate(trainer, old_rec_items, full_retrain_new_rec_items, w
     return recall
 
 
-def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, trial=None):
+def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, trial=None, run_base_line=False):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[2]
     dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
     trainer_config['max_patience'] = 1000
 
-    writer = SummaryWriter(os.path.join(log_path, 'pre_train'))
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, dataset, model)
     if os.path.exists('retrain/pre_train_model.pth'):
         model.load('retrain/pre_train_model.pth')
     else:
+        writer = SummaryWriter(os.path.join(log_path, 'pre_train'))
         trainer.train(verbose=False, writer=writer)
         model.save('retrain/pre_train_model.pth')
+        writer.close()
     old_rec_items = trainer.get_rec_items('train', None)
-    writer.close()
 
     dataset_config['path'] = dataset_config['path'][:-7] + 'time'
     new_dataset = get_dataset(dataset_config)
@@ -105,24 +105,25 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
                     full_retrain_new_rec_items[user] &= new_rec_items[user]
         np.save('retrain/new_rec_items.npy', full_retrain_new_rec_items)
 
-    writer = SummaryWriter(os.path.join(log_path, 'full_retrain'))
-    set_seed(seed)
-    new_model = get_model(model_config, new_dataset)
-    new_trainer = get_trainer(trainer_config, new_dataset, new_model)
-    extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
-    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
-    writer.close()
-    print('Limited full Retrain!')
+    if run_base_line:
+        writer = SummaryWriter(os.path.join(log_path, 'limited_full_retrain'))
+        set_seed(seed)
+        new_model = get_model(model_config, new_dataset)
+        new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+        extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
+        new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
+        writer.close()
+        print('Limited full Retrain!')
 
-    writer = SummaryWriter(os.path.join(log_path, 'part_retrain'))
-    set_seed(seed)
-    new_model = get_model(model_config, new_dataset)
-    new_trainer = get_trainer(trainer_config, new_dataset, new_model)
-    initial_parameter(new_model, model)
-    extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
-    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
-    writer.close()
-    print('Part Retrain!')
+        writer = SummaryWriter(os.path.join(log_path, 'part_retrain'))
+        set_seed(seed)
+        new_model = get_model(model_config, new_dataset)
+        new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+        initial_parameter(new_model, model)
+        extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
+        new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
+        writer.close()
+        print('Part Retrain!')
 
     trainer_config['pp_step'] = pp_step
     trainer_config['pp_threshold'] = 1. - m_pp_threshold
@@ -140,7 +141,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
     writer.close()
     print('Retrain with parameter propagation!')
 
-    ea = event_accumulator.EventAccumulator('run/pp_retrain')
+    ea = event_accumulator.EventAccumulator(os.path.join(log_path, 'pp_retrain'))
     new_items_recall = ea.Scalars('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name))
     maximum_recall = np.max([x.value for x in new_items_recall])
     return maximum_recall
@@ -155,7 +156,7 @@ def main():
     pp_step = 2
     m_pp_threshold = 0.01
     bernoulli_p = 0.1
-    maximum_recall = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed)
+    maximum_recall = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, run_base_line=True)
     print('Maximum recall', maximum_recall)
 
 

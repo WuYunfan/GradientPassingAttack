@@ -5,6 +5,8 @@ import sys
 from optuna.trial import TrialState
 from optuna.study import MaxTrialsCallback
 from retrain.run import run_new_items_recall
+import shutil
+import os
 
 
 def objective(trial):
@@ -12,7 +14,9 @@ def objective(trial):
     pp_step = trial.suggest_int('pp_step', 1, 3)
     m_pp_threshold = trial.suggest_float('m_pp_threshold', 1e-4, 1., log=True)
     bernoulli_p = trial.suggest_float('bernoulli_p', 1e-3, 1., log=True)
-    return run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, 2023)
+    maximum_recall = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, 2023)
+    shutil.rmtree(os.path.join(log_path, 'pp_retrain'))
+    return maximum_recall
 
 
 def main():
