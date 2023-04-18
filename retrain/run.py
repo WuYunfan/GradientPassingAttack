@@ -10,12 +10,13 @@ import os
 from tensorboard.backend.event_processing import event_accumulator
 
 
-def eval_rec_on_new_users(trainer, n_old_users, writer):
+def eval_rec_on_new_users(trainer, n_old_users, writer, verbose):
     val_data = trainer.dataset.val_data.copy()
     for user in range(n_old_users):
         trainer.dataset.val_data[user] = []
     results, metrics = trainer.eval('val')
-    print('New users and all items result. {:s}'.format(results))
+    if verbose:
+        print('New users and all items result. {:s}'.format(results))
     trainer.dataset.val_data = val_data
     trainer.record(writer, 'new_user', metrics)
 
@@ -49,23 +50,19 @@ def initial_parameter(new_model, model):
         new_model.embedding.weight.data[-dataset.n_items:, :] = model.embedding.weight[-dataset.n_items:, :]
 
 
-def eval_rec_and_surrogate(trainer, old_rec_items, full_retrain_new_rec_items, writer):
+def eval_rec_and_surrogate(trainer, old_rec_items, full_retrain_new_rec_items, writer, verbose):
     n_old_users = old_rec_items.shape[0]
-    eval_rec_on_new_users(trainer, n_old_users, writer)
+    eval_rec_on_new_users(trainer, n_old_users, writer, verbose)
     rec_items = trainer.get_rec_items('train', None)[:n_old_users, :]
     new_rec_items = get_new_rec_items(rec_items, old_rec_items)
     recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
-    print('Recall of new recommended items: {:.3f}'.format(recall * 100))
+    if verbose:
+        print('Recall of new recommended items: {:.3f}'.format(recall * 100))
     writer.add_scalar('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name), recall, trainer.epoch)
+    return recall
 
 
-def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p):
-    seed_list = [0, 42, 2022, 131, 1024]
-    seed = seed_list[0]
-
-    log_path = __file__[:-3]
-    init_run(log_path, seed)
-
+def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, trial=None):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[2]
@@ -113,7 +110,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p):
     new_model = get_model(model_config, new_dataset)
     new_trainer = get_trainer(trainer_config, new_dataset, new_model)
     extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
-    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval)
+    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
     writer.close()
     print('Limited full Retrain!')
 
@@ -123,7 +120,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p):
     new_trainer = get_trainer(trainer_config, new_dataset, new_model)
     initial_parameter(new_model, model)
     extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
-    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval)
+    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
     writer.close()
     print('Part Retrain!')
 
@@ -139,7 +136,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p):
         mask = torch.bernoulli(prob)
         new_model.embedding.weight.data = new_model.embedding.weight * mask
     extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
-    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval)
+    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
     writer.close()
     print('Retrain with parameter propagation!')
 
@@ -150,10 +147,15 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p):
 
 
 def main():
+    seed_list = [0, 42, 2022, 131, 1024]
+    seed = seed_list[0]
+    log_path = __file__[:-3]
+    init_run(log_path, seed)
+
     pp_step = 2
     m_pp_threshold = 0.01
     bernoulli_p = 0.1
-    maximum_recall = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p)
+    maximum_recall = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed)
     print('Maximum recall', maximum_recall)
 
 

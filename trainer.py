@@ -115,9 +115,12 @@ class BasicTrainer:
                     break
 
             if extra_eval is not None:
-                extra_eval[0](self, *extra_eval[1])
+                recall = extra_eval[0](self, *extra_eval[1], verbose)
             if trial is not None:
-                trial.report(ndcg, self.epoch)
+                if extra_eval is not None:
+                    trial.report(recall, self.epoch)
+                else:
+                    trial.report(ndcg, self.epoch)
                 if trial.should_prune():
                     raise optuna.exceptions.TrialPruned()
 

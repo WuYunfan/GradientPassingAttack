@@ -8,10 +8,11 @@ from retrain.run import run_new_items_recall
 
 
 def objective(trial):
+    log_path = __file__[:-3]
     pp_step = trial.suggest_int('pp_step', 1, 3)
     m_pp_threshold = trial.suggest_float('m_pp_threshold', 1e-4, 1., log=True)
     bernoulli_p = trial.suggest_float('bernoulli_p', 1e-3, 1., log=True)
-    return run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p)
+    return run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, 2023)
 
 
 def main():
