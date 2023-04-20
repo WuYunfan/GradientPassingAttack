@@ -65,7 +65,7 @@ def eval_rec_and_surrogate(trainer, old_rec_items, full_retrain_new_rec_items, w
 def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, trial=None, run_base_line=False):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
-    dataset_config, model_config, trainer_config = config[2]
+    dataset_config, model_config, trainer_config = config[0]
     dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
     trainer_config['max_patience'] = 1000
 
@@ -105,6 +105,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
                     full_retrain_new_rec_items[user] &= new_rec_items[user]
         np.save('retrain/new_rec_items.npy', full_retrain_new_rec_items)
 
+    trainer_config['n_epochs'] = 200
     if run_base_line:
         writer = SummaryWriter(os.path.join(log_path, 'limited_full_retrain'))
         set_seed(seed)
@@ -142,6 +143,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
     print('Retrain with parameter propagation!')
 
     ea = event_accumulator.EventAccumulator(os.path.join(log_path, 'pp_retrain'))
+    ea.Reload()
     new_items_recall = ea.Scalars('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name))
     maximum_recall = np.max([x.value for x in new_items_recall])
     return maximum_recall

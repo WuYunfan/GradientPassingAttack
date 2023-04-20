@@ -62,7 +62,6 @@ class BasicModel(nn.Module):
         self.n_users = model_config['dataset'].n_users
         self.n_items = model_config['dataset'].n_items
         self.trainable = True
-        self.pp_mat = None
 
     def save(self, path):
         torch.save(self.state_dict(), path)
