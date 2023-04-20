@@ -10,12 +10,13 @@ def resize_dataset(dataset, ratio):
 
 
 def main():
+    name = 'Yelp'
     device = torch.device('cpu')
-    dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',
+    dataset_config = {'name': 'ProcessedDataset', 'path': 'data/' + name + '/time',
                       'device': device}
     dataset = get_dataset(dataset_config)
     resize_dataset(dataset, 0.95)
-    dataset.output_dataset('data/Gowalla/retrain')
+    dataset.output_dataset('data/' +name + '/retrain')
 
 
 if __name__ == '__main__':
