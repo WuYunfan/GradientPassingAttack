@@ -71,7 +71,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
 
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
-    trainer = get_trainer(trainer_config, dataset, model)
+    trainer = get_trainer(trainer_config, model)
     if os.path.exists('retrain/pre_train_model.pth'):
         model.load('retrain/pre_train_model.pth')
     else:
@@ -92,7 +92,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
         for i in range(n_full_retrain):
             writer = SummaryWriter(os.path.join(log_path, 'full_retrain_' + str(i)))
             new_model = get_model(model_config, new_dataset)
-            new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+            new_trainer = get_trainer(trainer_config, new_model)
             new_trainer.train(verbose=False, writer=writer)
             writer.close()
             print('Full Retrain ' + str(i) + ' !')
@@ -110,7 +110,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
         writer = SummaryWriter(os.path.join(log_path, 'limited_full_retrain'))
         set_seed(seed)
         new_model = get_model(model_config, new_dataset)
-        new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+        new_trainer = get_trainer(trainer_config, new_model)
         extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
         new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
@@ -119,7 +119,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
         writer = SummaryWriter(os.path.join(log_path, 'part_retrain'))
         set_seed(seed)
         new_model = get_model(model_config, new_dataset)
-        new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+        new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, model)
         extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
         new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
@@ -131,7 +131,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
     writer = SummaryWriter(os.path.join(log_path, 'pp_retrain'))
     set_seed(seed)
     new_model = get_model(model_config, new_dataset)
-    new_trainer = get_trainer(trainer_config, new_dataset, new_model)
+    new_trainer = get_trainer(trainer_config, new_model)
     initial_parameter(new_model, model)
     with torch.no_grad():
         prob = torch.full(new_model.embedding.weight.shape, bernoulli_p, device=new_model.device)

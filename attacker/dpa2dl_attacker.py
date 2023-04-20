@@ -108,7 +108,7 @@ class DPA2DL(BasicAttacker):
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
             surrogate_model.arch = 'neumf'
-            surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.dataset, surrogate_model)
+            surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
 
             start_time = time.time()
             surrogate_trainer.train(verbose=False)

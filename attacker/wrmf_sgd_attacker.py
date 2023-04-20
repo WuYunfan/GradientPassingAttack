@@ -14,25 +14,6 @@ from torch.nn.init import normal_
 import gc
 
 
-class SurrogateWRMF(nn.Module):
-    def __init__(self, config):
-        super(SurrogateWRMF, self).__init__()
-        self.embedding_size = config['embedding_size']
-        self.n_users = config['n_users']
-        self.n_items = config['n_items']
-        self.device = config['device']
-        self.user_embedding = nn.Embedding(self.n_users, self.embedding_size)
-        self.item_embedding = nn.Embedding(self.n_items, self.embedding_size)
-        normal_(self.user_embedding.weight, std=0.1)
-        normal_(self.item_embedding.weight, std=0.1)
-        self.to(device=self.device)
-
-    def forward(self, users):
-        user_e = self.user_embedding(users)
-        scores = torch.mm(user_e, self.item_embedding.weight.t())
-        return scores
-
-
 class WRMFSGD(BasicAttacker):
     def __init__(self, attacker_config):
         super(WRMFSGD, self).__init__(attacker_config)

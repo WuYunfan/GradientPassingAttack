@@ -11,9 +11,10 @@ import scipy.sparse as sp
 import optuna
 
 
-def get_trainer(config, dataset, model):
+def get_trainer(config, model):
     config = config.copy()
-    config['dataset'] = dataset
+    config['dataset'] = model.dataset
+    config['device'] = model.device
     config['model'] = model
     trainer = getattr(sys.modules['trainer'], config['name'])
     trainer = trainer(config)

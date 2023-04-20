@@ -39,6 +39,7 @@ class PPFunction(Function):
 def get_model(config, dataset):
     config = config.copy()
     config['dataset'] = dataset
+    config['device'] = dataset.device
     model = getattr(sys.modules['model'], config['name'])
     model = model(config)
     return model
@@ -96,6 +97,13 @@ class BasicModel(nn.Module):
         neg_l2_norm_sq = torch.norm(neg_users_r, p=2, dim=1) ** 2 + torch.norm(neg_items_r, p=2, dim=1) ** 2
         l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)
         return pos_scores, neg_scores, l2_norm_sq
+
+    def mse_forward(self, users, pp_config):
+        rep = self.pp_rep(pp_config)
+        users_r = rep[users, :]
+        all_items_r = rep[self.n_users:, :]
+        scores = torch.mm(users_r, all_items_r.t())
+        return scores
 
     def predict(self, users):
         rep = self.get_rep()
