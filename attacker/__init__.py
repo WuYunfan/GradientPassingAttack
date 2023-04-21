@@ -10,6 +10,7 @@ from attacker.pga_attacker import PGA
 def get_attacker(config, dataset):
     config = config.copy()
     config['dataset'] = dataset
+    config['device'] = dataset.device
     attacker = getattr(sys.modules['attacker'], config['name'])
     attacker = attacker(config)
     return attacker

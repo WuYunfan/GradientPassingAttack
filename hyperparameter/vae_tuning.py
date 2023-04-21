@@ -19,9 +19,9 @@ def objective(trial):
     dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',
                       'device': device}
     model_config = {'name': 'MultiVAE', 'layer_sizes': [64, 32],
-                    'device': device, 'dropout': dropout}
+                    'dropout': dropout}
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam', 'lr': lr, 'l2_reg': l2_reg, 'kl_reg': 0.2,
-                      'device': device, 'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 16,
+                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 16,
                       'test_batch_size': 2048, 'topks': [50]}
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)

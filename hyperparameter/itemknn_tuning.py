@@ -16,8 +16,8 @@ def objective(trial):
     device = torch.device('cuda')
     dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',
                       'device': device}
-    model_config = {'name': 'ItemKNN', 'k': k, 'device': device}
-    trainer_config = {'name': 'BasicTrainer',  'device': device, 'n_epochs': 0,
+    model_config = {'name': 'ItemKNN', 'k': k}
+    trainer_config = {'name': 'BasicTrainer', 'n_epochs': 0,
                       'test_batch_size': 2048, 'topks': [50]}
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)

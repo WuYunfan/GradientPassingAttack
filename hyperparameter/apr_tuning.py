@@ -17,10 +17,10 @@ def objective(trial):
     device = torch.device('cuda')
     dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',
                       'device': device}
-    model_config = {'name': 'MF', 'embedding_size': 64, 'device': device}
+    model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam', 'lr': 1.e-3, 'l2_reg': 1.e-3,
                       'eps': eps, 'adv_reg': adv_reg, 'ckpt_path': 'checkpoints/pretrain_mf.pth',
-                      'device': device, 'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 16,
+                      'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 16,
                       'test_batch_size': 2048, 'topks': [50]}
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
