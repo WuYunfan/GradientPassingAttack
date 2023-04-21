@@ -60,7 +60,7 @@ class BasicModel(nn.Module):
         self.config = model_config
         self.name = model_config['name']
         self.device = model_config['device']
-        self.n_users = model_config['dataset'].n_users
+        self.n_users = model_config['dataset'].n_users + model_config.get('n_fakes', 0)
         self.n_items = model_config['dataset'].n_items
         self.trainable = True
 

@@ -16,10 +16,7 @@ class DPA2DL(BasicAttacker):
     def __init__(self, attacker_config):
         super(DPA2DL, self).__init__(attacker_config)
         self.surrogate_model_config = attacker_config['surrogate_model_config']
-        self.surrogate_model_config['device'] = self.device
-
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
-        self.surrogate_trainer_config['device'] = self.device
 
         self.reg_u = attacker_config['reg_u']
         self.prob = attacker_config['prob']
@@ -48,14 +45,15 @@ class DPA2DL(BasicAttacker):
         losses = AverageMeter()
         for users in self.target_user_loader:
             users = users[0]
-            scores = surrogate_model.predict(users)
+            scores = surrogate_model.mse_forward(users, surrogate_trainer.pp_config)
             loss = self.alpha * self.reg_u * topk_loss(scores, self.target_item, self.topk, self.kappa)
             surrogate_trainer.opt.zero_grad()
             loss.backward()
             surrogate_trainer.opt.step()
             losses.update(loss.item(), users.shape[0])
 
-        scores = surrogate_model.predict(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device))
+        scores = surrogate_model.mse_forward(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device),
+                                             surrogate_trainer.pp_config)
         scores = torch.cat([scores[:, :self.target_item], scores[:, self.target_item + 1:]], dim=1)
         loss = self.alpha * (torch.sigmoid(scores) ** 2).mean()
         surrogate_trainer.opt.zero_grad()
@@ -107,7 +105,6 @@ class DPA2DL(BasicAttacker):
             self.dataset.n_users += n_temp_fakes
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
-            surrogate_model.arch = 'neumf'
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
 
             start_time = time.time()

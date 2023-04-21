@@ -3,24 +3,22 @@ from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import StepLR
 import scipy.sparse as sp
 import numpy as np
-import torch.nn as nn
 from utils import mse_loss, ce_loss
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
 import higher
 import time
 from attacker.basic_attacker import BasicAttacker
-from torch.nn.init import normal_
 import gc
+from model import get_model
+from trainer import PPConfig
 
 
 class WRMFSGD(BasicAttacker):
     def __init__(self, attacker_config):
         super(WRMFSGD, self).__init__(attacker_config)
         self.surrogate_config = attacker_config['surrogate_config']
-        self.surrogate_config['device'] = self.device
-        self.surrogate_config['n_users'] = self.n_users + self.n_fakes
-        self.surrogate_config['n_items'] = self.n_items
+        self.surrogate_config['n_fakes'] = self.n_fakes
 
         self.adv_epochs = attacker_config['adv_epochs']
         self.train_epochs = attacker_config['train_epochs']
@@ -42,6 +40,8 @@ class WRMFSGD(BasicAttacker):
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
 
+        self.pp_config = PPConfig(self.surrogate_config)
+
     def init_fake_tensor(self):
         degree = np.array(np.sum(self.data_mat, axis=1)).squeeze()
         qualified_users = self.data_mat[degree <= self.n_inters, :]
@@ -57,7 +57,7 @@ class WRMFSGD(BasicAttacker):
             self.fake_tensor.data = torch.scatter(self.fake_tensor, 1, items, 1.)
 
     def retrain_surrogate(self):
-        surrogate_model = SurrogateWRMF(self.surrogate_config)
+        surrogate_model = get_model(self.surrogate_config, self.dataset)
         surrogate_model.train()
         train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'],
                          weight_decay=self.surrogate_config['l2_reg'])
@@ -68,7 +68,7 @@ class WRMFSGD(BasicAttacker):
             for users in self.user_loader:
                 users = users[0]
                 batch_data = poisoned_data_mat[users, :]
-                scores = surrogate_model.forward(users)
+                scores = surrogate_model.mse_forward(users, self.pp_config)
                 loss = mse_loss(batch_data, scores, self.weight)
                 train_opt.zero_grad()
                 loss.backward()
@@ -80,7 +80,7 @@ class WRMFSGD(BasicAttacker):
                 for users in self.user_loader:
                     users = users[0]
                     batch_data = poisoned_data_mat[users, :]
-                    scores = fmodel.forward(users)
+                    scores = fmodel.mse_forward(users, self.pp_config)
                     loss = mse_loss(batch_data, scores, self.weight)
                     diffopt.step(loss)
 
@@ -88,7 +88,7 @@ class WRMFSGD(BasicAttacker):
             self.retrain_time += consumed_time
 
             fmodel.eval()
-            scores = fmodel.forward(self.target_users)
+            scores = fmodel.predict(self.target_users)
             adv_loss = ce_loss(scores, self.target_item)
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
             _, topk_items = scores.topk(self.topk, dim=1)
