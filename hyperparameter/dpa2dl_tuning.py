@@ -18,10 +18,10 @@ def objective(trial):
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
-    surrogate_model_config = {'name': 'MF', 'embedding_size': 64}
+    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': lr, 'l2_reg': s_l2,
                                 'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 16,
-                                'test_batch_size': 64, 'topks': [50], 'neg_ratio': 4}
+                                'test_batch_size': 64, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'reg_u': reg_u, 'prob': 0.9, 'kappa': 1.,
                        'step': 4, 'alpha': alpha, 'n_rounds': 5,
@@ -40,7 +40,7 @@ def main():
     init_run(log_path, 2023)
 
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = 'mf-tuning'
+    study_name = 'dpa2dl-tuning'
     storage_name = 'sqlite:///../{}.db'.format(study_name)
     study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
 

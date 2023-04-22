@@ -31,7 +31,8 @@ class PPConfig:
 
 class BasicTrainer:
     def __init__(self, trainer_config):
-        print(trainer_config)
+        if trainer_config.get('verbose', True):
+            print(trainer_config)
         self.config = trainer_config
         self.name = trainer_config['name']
         self.dataset = trainer_config['dataset']

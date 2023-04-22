@@ -2,7 +2,7 @@ from attacker.basic_attacker import BasicAttacker
 import scipy.sparse as sp
 import numpy as np
 from torch.optim.lr_scheduler import StepLR
-from attacker.wrmf_sgd_attacker import WRMFSGD, SurrogateWRMF
+from attacker.wrmf_sgd_attacker import WRMFSGD
 from torch.utils.data import TensorDataset, DataLoader
 import torch
 from torch.optim import Adam, SGD
@@ -59,7 +59,7 @@ class PGA(BasicAttacker):
             for users in self.user_loader:
                 users = users[0]
                 batch_data = poisoned_data_mat[users, :]
-                scores = surrogate_model.mse_forward(users)
+                scores = surrogate_model.mse_forward(users, self.pp_config)
                 loss = mse_loss(batch_data, scores, self.weight)
                 train_opt.zero_grad()
                 loss.backward()
@@ -76,7 +76,7 @@ class PGA(BasicAttacker):
 
         adv_grads = []
         adv_grads_wrt_item_embeddings = torch.autograd.grad(adv_loss,
-                                                            surrogate_model.embedding.weight[-self.n_items:, :])[0]
+                                                            surrogate_model.embedding.weight)[0][-self.n_items:, :]
         with torch.no_grad():
             for item in range(self.n_items):
                 interacted_users = torch.nonzero(poisoned_data_mat[:, item])[:, 0]

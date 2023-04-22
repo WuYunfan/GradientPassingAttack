@@ -60,8 +60,9 @@ class BasicModel(nn.Module):
         self.config = model_config
         self.name = model_config['name']
         self.device = model_config['device']
-        self.n_users = model_config['dataset'].n_users + model_config.get('n_fakes', 0)
-        self.n_items = model_config['dataset'].n_items
+        self.dataset = model_config['dataset']
+        self.n_users = self.dataset.n_users + model_config.get('n_fakes', 0)
+        self.n_items = self.dataset.n_items
         self.trainable = True
 
     def save(self, path):

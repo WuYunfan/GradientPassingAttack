@@ -18,7 +18,8 @@ def objective(trial):
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
-    surrogate_config = {'name': 'MF', 'embedding_size': 64, 'lr': s_lr, 'l2_reg': s_l2, 'batch_size': 2048}
+    surrogate_config = {'name': 'MF', 'embedding_size': 64, 'lr': s_lr, 'l2_reg': s_l2,
+                        'batch_size': 2048, 'verbose': False}
     attacker_config = {'name': 'PGA', 'lr': lr, 'momentum': momentum,
                        'n_fakes': 131, 'train_epochs': 50,
                        'n_inters': 41, 'topk': 50, 'weight': 20., 'adv_epochs': 30,
@@ -36,7 +37,7 @@ def main():
     init_run(log_path, 2023)
 
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = 'mf-tuning'
+    study_name = 'pga-tuning'
     storage_name = 'sqlite:///../{}.db'.format(study_name)
     study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
 
