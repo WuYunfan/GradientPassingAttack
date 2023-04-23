@@ -128,8 +128,9 @@ class BasicTrainer:
                 if trial.should_prune():
                     raise optuna.exceptions.TrialPruned()
 
-        self.model.load(self.save_path)
-        print('Best NDCG {:.3f}'.format(self.best_ndcg))
+        if self.best_ndcg != -np.inf:
+            self.model.load(self.save_path)
+            print('Best NDCG {:.3f}'.format(self.best_ndcg))
         return self.best_ndcg
 
     def calculate_metrics(self, eval_data, rec_items):
@@ -381,14 +382,14 @@ class MSETrainer(BasicTrainer):
         self.merged_data_mat = None
 
     def merge_fake_tensor(self, fake_tensor):
-        row = torch.nonzero(fake_tensor)[:, 0].cpu.numpy()
-        col = torch.nonzero(fake_tensor)[:, 1].cpu.numpy()
+        row = torch.nonzero(fake_tensor)[:, 0].cpu().numpy()
+        col = torch.nonzero(fake_tensor)[:, 1].cpu().numpy()
         fake_mat = sp.coo_matrix((np.ones((row.shape[0],)), np.vstack((row, col))),
                                  shape=list(fake_tensor.shape), dtype=np.float32).tocsr()
         self.merged_data_mat = sp.vstack([self.data_mat, fake_mat])
 
     def train_one_epoch(self):
-        if self.merged_data_mat:
+        if self.merged_data_mat is not None:
             data_mat = self.merged_data_mat
         else:
             data_mat = self.data_mat

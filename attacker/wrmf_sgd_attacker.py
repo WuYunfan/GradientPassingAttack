@@ -41,6 +41,8 @@ class WRMFSGD(BasicAttacker):
         train_user = TensorDataset(torch.arange(self.surrogate_model.n_users, dtype=torch.int64, device=self.device))
         self.surrogate_trainer.train_user_loader = \
             DataLoader(train_user, batch_size=self.surrogate_trainer_config['batch_size'], shuffle=True)
+        self.data_tensor = torch.tensor(self.surrogate_trainer.data_mat.toarray(),
+                                        dtype=torch.float32, device=self.device)
 
     def init_fake_tensor(self):
         degree = np.array(np.sum(self.data_mat, axis=1)).squeeze()
@@ -60,9 +62,7 @@ class WRMFSGD(BasicAttacker):
         initial_embeddings(self.surrogate_model)
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
-        poisoned_data_tensor = torch.tensor(self.surrogate_trainer.data_mat.to_array(),
-                                            dtype=torch.float32, device=self.device)
-        poisoned_data_tensor = torch.cat([poisoned_data_tensor, self.fake_tensor], dim=0)
+        poisoned_data_tensor = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
 
         start_time = time.time()
         self.surrogate_trainer.train(verbose=False)
