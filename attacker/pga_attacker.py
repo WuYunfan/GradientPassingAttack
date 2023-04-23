@@ -68,7 +68,7 @@ class PGA(BasicAttacker):
         with torch.no_grad():
             for item in range(self.n_items):
                 interacted_users = self.surrogate_trainer.merged_data_mat[:, item].nonzero()[0]
-                interacted_user_embeddings = self.surrogate_model.embedding(interacted_users)
+                interacted_user_embeddings = self.surrogate_model.embedding.weight[interacted_users, :]
                 sum_v_mat = torch.mm(interacted_user_embeddings.t(), interacted_user_embeddings)
                 inv_mat = torch.linalg.inv(sum_v_mat +
                                            self.lmd * torch.eye(self.surrogate_model.embedding_size, device=self.device))

@@ -72,11 +72,11 @@ class WRMFSGD(BasicAttacker):
             for _ in range(self.unroll_steps):
                 for users in self.surrogate_trainer.train_user_loader:
                     users = users[0]
-                    batch_data = poisoned_data_tensor[users, :]
+                    profiles = poisoned_data_tensor[users, :]
                     scores = fmodel.mse_forward(users, self.surrogate_trainer.pp_config)
-                    m_loss = mse_loss(batch_data, scores, self.weight)
+                    m_loss = mse_loss(profiles, scores, self.weight)
                     reg_loss = torch.norm(self.surrogate_model.embedding(users), p=2) ** 2
-                    reg_loss += torch.norm(self.surrogate_model.embedding.weight[-self.model.n_items, :], p=2) ** 2
+                    reg_loss += torch.norm(self.surrogate_model.embedding.weight[-self.n_items:, :], p=2) ** 2
                     loss = m_loss + reg_loss * self.surrogate_trainer.l2_reg
                     diffopt.step(loss)
 

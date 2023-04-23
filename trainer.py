@@ -398,14 +398,14 @@ class MSETrainer(BasicTrainer):
             users = users[0]
 
             scores = self.model.mse_forward(users, self.pp_config)
-            reg_loss = self.l2_reg * torch.norm(self.model.embedding(users), p=2) ** 2
-            reg_loss += self.l2_reg * torch.norm(self.model.embedding.weight[-self.model.n_items, :], p=2) ** 2
+            reg_loss = torch.norm(self.model.embedding(users), p=2) ** 2
+            reg_loss += torch.norm(self.model.embedding.weight[-self.model.n_items:, :], p=2) ** 2
             users = users.cpu().numpy()
             profiles = data_mat[users, :]
             profiles = torch.tensor(profiles.toarray(), dtype=torch.float32, device=self.device)
             m_loss = mse_loss(profiles, scores, self.weight)
 
-            loss = m_loss + reg_loss
+            loss = m_loss + self.l2_reg * reg_loss
             self.opt.zero_grad()
             loss.backward()
             self.opt.step()

@@ -131,12 +131,13 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
     writer = SummaryWriter(os.path.join(log_path, 'pp_retrain'))
     set_seed(seed)
     new_model = get_model(model_config, new_dataset)
+    init_embedding = torch.clone(new_model.embedding.weight.detach())
     new_trainer = get_trainer(trainer_config, new_model)
     initial_parameter(new_model, model)
     with torch.no_grad():
         prob = torch.full(new_model.embedding.weight.shape, bernoulli_p, device=new_model.device)
         mask = torch.bernoulli(prob)
-        new_model.embedding.weight.data = new_model.embedding.weight * mask
+        new_model.embedding.weight.data = new_model.embedding.weight * mask + init_embedding * (1 - mask)
     extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
     new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
     writer.close()
