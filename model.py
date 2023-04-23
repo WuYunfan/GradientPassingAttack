@@ -52,6 +52,10 @@ def init_one_layer(in_features, out_features):
     return layer
 
 
+def initial_embeddings(model):
+    normal_(model.embedding.weight, std=0.1)
+
+
 class BasicModel(nn.Module):
     def __init__(self, model_config):
         super(BasicModel, self).__init__()
@@ -119,7 +123,7 @@ class MF(BasicModel):
         super(MF, self).__init__(model_config)
         self.embedding_size = model_config['embedding_size']
         self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
-        normal_(self.embedding.weight, std=0.1)
+        initial_embeddings(self)
         self.to(device=self.device)
 
     def get_rep(self):
@@ -133,7 +137,7 @@ class LightGCN(BasicModel):
         self.n_layers = model_config['n_layers']
         self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
         self.adj_mat = self.generate_graph(model_config['dataset'])
-        normal_(self.embedding.weight, std=0.1)
+        initial_embeddings(self)
         self.to(device=self.device)
 
     def generate_graph(self, dataset):

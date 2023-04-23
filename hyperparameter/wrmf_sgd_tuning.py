@@ -14,16 +14,18 @@ def objective(trial):
     lr = trial.suggest_float('lr', 1e-1, 1e1, log=True)
     s_lr = trial.suggest_float('s_lr', 1e-4, 1e-1, log=True)
     s_l2 = trial.suggest_float('s_l2', 1e-6, 1e-3, log=True)
-    momentum = trial.suggest_float('momentum', 1.e-3, 1., log=True)
+    m_momentum = trial.suggest_float('m_momentum', 1.e-3, 1., log=True)
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
-    surrogate_config = {'name': 'MF', 'embedding_size': 64, 'lr': s_lr, 'l2_reg': s_l2,
-                        'batch_size': 2048, 'verbose': False}
-    attacker_config = {'name': 'WRMFSGD', 'lr': lr, 'momentum': 1. - momentum,
-                       'n_fakes': 131, 'unroll_steps': 3, 'train_epochs': 50,
-                       'n_inters': 41, 'topk': 50, 'weight': 20., 'adv_epochs': 30,
-                       'surrogate_config': surrogate_config}
+    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
+    surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
+                                'n_epochs': 47, 'batch_size': 2048, 'dataloader_num_workers': 16, 'weight': 20.,
+                                'test_batch_size': 2048, 'topks': [50], 'verbose': False}
+    attacker_config = {'name': 'WRMFSGD', 'lr': lr, 'momentum': 1. - m_momentum,
+                       'n_fakes': 131, 'unroll_steps': 3, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
+                       'dataset_config': surrogate_model_config,
+                       'surrogate_trainer_config': surrogate_trainer_config}
     dataset = get_dataset(dataset_config)
     target_item = get_target_items(dataset, 0.1)[0]
     attacker_config['target_item'] = target_item

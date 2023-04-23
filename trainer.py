@@ -1,3 +1,4 @@
+import scipy
 import torch
 import sys
 from torch.utils.data import TensorDataset, DataLoader
@@ -9,6 +10,7 @@ from utils import AverageMeter, generate_adj_mat
 import torch.nn.functional as F
 import scipy.sparse as sp
 import optuna
+from utils import mse_loss
 
 
 def get_trainer(config, model):
@@ -358,6 +360,52 @@ class MLTrainer(BasicTrainer):
 
             reg_loss = kl_reg * kl.mean() + self.l2_reg * l2_norm_sq.mean()
             loss = ml_loss + reg_loss
+            self.opt.zero_grad()
+            loss.backward()
+            self.opt.step()
+            losses.update(loss.item(), users.shape[0])
+        return losses.avg
+
+
+class MSETrainer(BasicTrainer):
+    def __init__(self, trainer_config):
+        super(MSETrainer, self).__init__(trainer_config)
+
+        train_user = TensorDataset(torch.arange(self.dataset.n_users, dtype=torch.int64, device=self.device))
+        self.train_user_loader = DataLoader(train_user, batch_size=trainer_config['batch_size'], shuffle=True)
+        self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
+                                      shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsr()
+        self.initialize_optimizer()
+        self.l2_reg = trainer_config['l2_reg']
+        self.weight = trainer_config['weight']
+        self.merged_data_mat = None
+
+    def merge_fake_tensor(self, fake_tensor):
+        row = torch.nonzero(fake_tensor)[:, 0].cpu.numpy()
+        col = torch.nonzero(fake_tensor)[:, 1].cpu.numpy()
+        fake_mat = sp.coo_matrix((np.ones((row.shape[0],)), np.vstack((row, col))),
+                                 shape=list(fake_tensor.shape), dtype=np.float32).tocsr()
+        self.merged_data_mat = sp.vstack([self.data_mat, fake_mat])
+
+    def train_one_epoch(self):
+        if self.merged_data_mat:
+            data_mat = self.merged_data_mat
+        else:
+            data_mat = self.data_mat
+
+        losses = AverageMeter()
+        for users in self.train_user_loader:
+            users = users[0]
+
+            scores = self.model.mse_forward(users, self.pp_config)
+            reg_loss = self.l2_reg * torch.norm(self.model.embedding(users), p=2) ** 2
+            reg_loss += self.l2_reg * torch.norm(self.model.embedding.weight[-self.model.n_items, :], p=2) ** 2
+            users = users.cpu().numpy()
+            profiles = data_mat[users, :]
+            profiles = torch.tensor(profiles.toarray(), dtype=torch.float32, device=self.device)
+            m_loss = mse_loss(profiles, scores, self.weight)
+
+            loss = m_loss + reg_loss
             self.opt.zero_grad()
             loss.backward()
             self.opt.step()

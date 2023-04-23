@@ -10,20 +10,20 @@ import higher
 import time
 from attacker.basic_attacker import BasicAttacker
 import gc
-from model import get_model
-from trainer import PPConfig
+from model import get_model, initial_embeddings
+from trainer import get_trainer
 
 
 class WRMFSGD(BasicAttacker):
     def __init__(self, attacker_config):
         super(WRMFSGD, self).__init__(attacker_config)
-        self.surrogate_config = attacker_config['surrogate_config']
-        self.surrogate_config['n_fakes'] = self.n_fakes
+        self.surrogate_model_config = attacker_config['surrogate_model_config']
+        self.surrogate_model_config['n_fakes'] = self.n_fakes
+        self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 
         self.adv_epochs = attacker_config['adv_epochs']
-        self.train_epochs = attacker_config['train_epochs']
         self.unroll_steps = attacker_config['unroll_steps']
-        self.weight = attacker_config['weight']
+        self.weight = self.surrogate_trainer_config['weight']
         self.initial_lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
 
@@ -33,14 +33,14 @@ class WRMFSGD(BasicAttacker):
         self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=self.momentum)
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
-        self.data_tensor = torch.tensor(self.data_mat.toarray(), dtype=torch.float32, device=self.device)
-        test_users = TensorDataset(torch.arange(self.n_users + self.n_fakes, dtype=torch.int64, device=self.device))
-        self.user_loader = DataLoader(test_users, batch_size=self.surrogate_config['batch_size'],
-                                      shuffle=True)
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
 
-        self.pp_config = PPConfig(self.surrogate_config)
+        self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
+        self.surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.surrogate_model)
+        train_user = TensorDataset(torch.arange(self.surrogate_model.n_users, dtype=torch.int64, device=self.device))
+        self.surrogate_trainer.train_user_loader = \
+            DataLoader(train_user, batch_size=self.surrogate_trainer_config['batch_size'], shuffle=True)
 
     def init_fake_tensor(self):
         degree = np.array(np.sum(self.data_mat, axis=1)).squeeze()
@@ -57,31 +57,27 @@ class WRMFSGD(BasicAttacker):
             self.fake_tensor.data = torch.scatter(self.fake_tensor, 1, items, 1.)
 
     def retrain_surrogate(self):
-        surrogate_model = get_model(self.surrogate_config, self.dataset)
-        surrogate_model.train()
-        train_opt = Adam(surrogate_model.parameters(), lr=self.surrogate_config['lr'],
-                         weight_decay=self.surrogate_config['l2_reg'])
-        poisoned_data_mat = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
+        initial_embeddings(self.surrogate_model)
+        self.surrogate_trainer.initialize_optimizer()
+        self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
+        poisoned_data_tensor = torch.tensor(self.surrogate_trainer.data_mat.to_array(),
+                                            dtype=torch.float32, device=self.device)
+        poisoned_data_tensor = torch.cat([poisoned_data_tensor, self.fake_tensor], dim=0)
 
         start_time = time.time()
-        for _ in range(self.train_epochs - self.unroll_steps):
-            for users in self.user_loader:
-                users = users[0]
-                batch_data = poisoned_data_mat[users, :]
-                scores = surrogate_model.mse_forward(users, self.pp_config)
-                loss = mse_loss(batch_data, scores, self.weight)
-                train_opt.zero_grad()
-                loss.backward()
-                train_opt.step()
+        self.surrogate_trainer.train(verbose=False)
 
-        with higher.innerloop_ctx(surrogate_model, train_opt) as (fmodel, diffopt):
+        with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
             fmodel.train()
             for _ in range(self.unroll_steps):
-                for users in self.user_loader:
+                for users in self.surrogate_trainer.train_user_loader:
                     users = users[0]
-                    batch_data = poisoned_data_mat[users, :]
-                    scores = fmodel.mse_forward(users, self.pp_config)
-                    loss = mse_loss(batch_data, scores, self.weight)
+                    batch_data = poisoned_data_tensor[users, :]
+                    scores = fmodel.mse_forward(users, self.surrogate_trainer.pp_config)
+                    m_loss = mse_loss(batch_data, scores, self.weight)
+                    reg_loss = torch.norm(self.surrogate_model.embedding(users), p=2) ** 2
+                    reg_loss += torch.norm(self.surrogate_model.embedding.weight[-self.model.n_items, :], p=2) ** 2
+                    loss = m_loss + reg_loss * self.surrogate_trainer.l2_reg
                     diffopt.step(loss)
 
             consumed_time = time.time() - start_time
