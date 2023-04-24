@@ -28,7 +28,7 @@ class PPConfig:
         self.order = trainer_config.get('pp_step', 0)
         if self.order != 0:
             self.mat = generate_adj_mat(trainer_config['dataset'], trainer_config['device'],
-                                        trainer_config.get('n_fakes', None))
+                                        trainer_config.get('n_fakes', 0))
             self.threshold = trainer_config['pp_threshold']
 
 
