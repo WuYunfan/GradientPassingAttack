@@ -62,7 +62,7 @@ def eval_rec_and_surrogate(trainer, old_rec_items, full_retrain_new_rec_items, w
     return recall
 
 
-def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed,
+def run_new_items_recall(pp_step, pp_threshold, bernoulli_p, log_path, seed,
                          trial=None, run_base_line=False, n_epochs=100):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
@@ -128,7 +128,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed,
         print('Part Retrain!')
 
     trainer_config['pp_step'] = pp_step
-    trainer_config['pp_threshold'] = 1. - m_pp_threshold
+    trainer_config['pp_threshold'] = pp_threshold
     writer = SummaryWriter(os.path.join(log_path, 'pp_retrain'))
     set_seed(seed)
     new_model = get_model(model_config, new_dataset)
@@ -159,9 +159,9 @@ def main():
     init_run(log_path, seed)
 
     pp_step = 2
-    m_pp_threshold = 0.01
+    pp_threshold = 0.99
     bernoulli_p = 0.1
-    mixed_metric = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, run_base_line=True)
+    mixed_metric = run_new_items_recall(pp_step, pp_threshold, bernoulli_p, log_path, seed, run_base_line=True)
     print('Mixed metric', mixed_metric)
 
 
