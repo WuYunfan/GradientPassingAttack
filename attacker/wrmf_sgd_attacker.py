@@ -26,6 +26,7 @@ class WRMFSGD(BasicAttacker):
         self.weight = self.surrogate_trainer_config['weight']
         self.initial_lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
+        self.bernoulli_p = attacker_config.get('attacker_config', 0.)
 
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
@@ -38,6 +39,12 @@ class WRMFSGD(BasicAttacker):
 
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         self.surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.surrogate_model)
+
+        self.pre_train_weights = None
+        if self.bernoulli_p > 0.:
+            self.surrogate_trainer.train(verbose=False)
+            self.pre_train_weights = torch.clone(self.surrogate_model.embedding.weight.detach())
+
         train_user = TensorDataset(torch.arange(self.surrogate_model.n_users, dtype=torch.int64, device=self.device))
         self.surrogate_trainer.train_user_loader = \
             DataLoader(train_user, batch_size=self.surrogate_trainer_config['batch_size'], shuffle=True)
@@ -60,6 +67,12 @@ class WRMFSGD(BasicAttacker):
 
     def retrain_surrogate(self):
         initial_embeddings(self.surrogate_model)
+        if self.bernoulli_p > 0.:
+            with torch.no_grad():
+                prob = torch.full(self.pre_train_weights.shape, self.bernoulli_p, device=self.device)
+                mask = torch.bernoulli(prob)
+                self.surrogate_model.embedding.weight.data = \
+                    self.pre_train_weights * mask + self.surrogate_model.embedding.weight * (1 - mask)
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
         poisoned_data_tensor = torch.cat([self.data_tensor, self.fake_tensor], dim=0)

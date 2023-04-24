@@ -24,6 +24,9 @@ class DPA2DL(BasicAttacker):
         self.step = attacker_config['step']
         self.alpha = attacker_config['alpha']
         self.n_rounds = attacker_config['n_rounds']
+        self.bernoulli_p = attacker_config.get('attacker_config', 0.)
+        self.pre_train_weights = None
+
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         target_users = TensorDataset(torch.tensor(target_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
@@ -105,12 +108,23 @@ class DPA2DL(BasicAttacker):
             self.dataset.n_users += n_temp_fakes
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
+            if self.pre_train_weights is not None:
+                with torch.no_grad():
+                    pre_train_weights = torch.clone(surrogate_model.embedding.weight)
+                    pre_train_weights.data[:-self.n_items - n_temp_fakes, :] = pre_train_weights[:-self.n_items, :]
+                    pre_train_weights.data[-self.n_items:, :] = pre_train_weights[-self.n_items:, :]
+                    prob = torch.full(pre_train_weights.shape, self.bernoulli_p, device=self.device)
+                    mask = torch.bernoulli(prob)
+                    surrogate_model.embedding.weight.data = \
+                        pre_train_weights * mask + surrogate_model.embedding.weight * (1 - mask)
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
 
             start_time = time.time()
             surrogate_trainer.train(verbose=False)
             consumed_time = time.time() - start_time
             self.retrain_time += consumed_time
+            if self.bernoulli_p > 0.:
+                self.pre_train_weights = torch.clone(surrogate_model.embedding.weight.detach())
 
             best_hr = self.get_target_hr(surrogate_model)
             print('Initial target HR: {:.4f}'.format(best_hr))

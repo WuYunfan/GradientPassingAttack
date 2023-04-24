@@ -44,7 +44,7 @@ def get_new_rec_items(rec_items_a, rec_items_b):
 
 
 def initial_parameter(new_model, model):
-    dataset = model.config['dataset']
+    dataset = model.dataset
     with torch.no_grad():
         new_model.embedding.weight.data[:dataset.n_users, :] = model.embedding.weight[:dataset.n_users, :]
         new_model.embedding.weight.data[-dataset.n_items:, :] = model.embedding.weight[-dataset.n_items:, :]
@@ -62,7 +62,8 @@ def eval_rec_and_surrogate(trainer, old_rec_items, full_retrain_new_rec_items, w
     return recall
 
 
-def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, trial=None, run_base_line=False):
+def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed,
+                         trial=None, run_base_line=False, n_epochs=100):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[0]
@@ -105,7 +106,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
                     full_retrain_new_rec_items[user] &= new_rec_items[user]
         np.save('retrain/new_rec_items.npy', full_retrain_new_rec_items)
 
-    trainer_config['n_epochs'] = 200
+    trainer_config['n_epochs'] = n_epochs
     if run_base_line:
         writer = SummaryWriter(os.path.join(log_path, 'limited_full_retrain'))
         set_seed(seed)
@@ -151,7 +152,7 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, t
 
 
 def main():
-    seed_list = [0, 42, 2022, 131, 1024]
+    seed_list = [2023, 42, 0, 131, 1024]
     seed = seed_list[0]
     log_path = __file__[:-3]
     init_run(log_path, seed)
