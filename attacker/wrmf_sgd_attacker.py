@@ -20,6 +20,7 @@ class WRMFSGD(BasicAttacker):
         self.surrogate_model_config = attacker_config['surrogate_model_config']
         self.surrogate_model_config['n_fakes'] = self.n_fakes
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
+        self.surrogate_trainer_config['n_fakes'] = self.n_fakes
 
         self.adv_epochs = attacker_config['adv_epochs']
         self.unroll_steps = attacker_config['unroll_steps']

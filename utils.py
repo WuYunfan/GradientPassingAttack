@@ -28,14 +28,15 @@ def init_run(log_path, seed):
     sys.stdout = f
 
 
-def generate_adj_mat(dataset, device):
+def generate_adj_mat(dataset, device, n_fakes=0):
     train_array = np.array(dataset.train_array)
     users, items = train_array[:, 0], train_array[:, 1]
-    row = np.concatenate([users, items + dataset.n_users], axis=0)
-    col = np.concatenate([items + dataset.n_users, users], axis=0)
+    row = np.concatenate([users, items + dataset.n_users + n_fakes], axis=0)
+    col = np.concatenate([items + dataset.n_users + n_fakes, users], axis=0)
     row = torch.tensor(row, dtype=torch.int64, device=device)
     col = torch.tensor(col, dtype=torch.int64, device=device)
-    adj_mat = TorchSparseMat(row, col, (dataset.n_users + dataset.n_items, dataset.n_users + dataset.n_items), device)
+    adj_mat = TorchSparseMat(row, col, (dataset.n_users + n_fakes + dataset.n_items,
+                                        dataset.n_users + n_fakes + dataset.n_items), device)
     return adj_mat
 
 

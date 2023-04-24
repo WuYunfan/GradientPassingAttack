@@ -45,7 +45,7 @@ def main():
     init_run(log_path, 2023)
 
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = 'dpa2dl-tuning'
+    study_name = 'erap4_dpa2dl-tuning'
     storage_name = 'sqlite:///../{}.db'.format(study_name)
     study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
 
