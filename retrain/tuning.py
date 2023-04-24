@@ -15,9 +15,9 @@ def objective(trial):
         shutil.rmtree(os.path.join(log_path, 'pp_retrain'))
     pp_step = trial.suggest_int('pp_step', 1, 3)
     m_pp_threshold = trial.suggest_float('m_pp_threshold', 0., 1.)
-    bernoulli_p = trial.suggest_float('bernoulli_p', 0., 1.0)
-    maximum_recall = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, 2023, trial=trial)
-    return maximum_recall
+    bernoulli_p = trial.suggest_float('bernoulli_p', 0., 1.)
+    mixed_metric = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, 2023, trial=trial)
+    return mixed_metric
 
 
 def main():

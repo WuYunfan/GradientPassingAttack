@@ -146,9 +146,10 @@ def run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed,
 
     ea = event_accumulator.EventAccumulator(os.path.join(log_path, 'pp_retrain'))
     ea.Reload()
-    new_items_recall = ea.Scalars('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name))
-    maximum_recall = np.max([x.value for x in new_items_recall])
-    return maximum_recall
+    new_items_recalls = ea.Scalars('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name))
+    new_user_NDCGs = ea.Scalars('{:s}_{:s}/new_user_NDCG_{:d}'.format(trainer.model.name, trainer.name, trainer.topks[0]))
+    mixed_metric = np.mean([x.value for x in new_items_recalls]) + np.mean([x.value for x in new_user_NDCGs])
+    return mixed_metric
 
 
 def main():
@@ -160,8 +161,8 @@ def main():
     pp_step = 2
     m_pp_threshold = 0.01
     bernoulli_p = 0.1
-    maximum_recall = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, run_base_line=True)
-    print('Maximum recall', maximum_recall)
+    mixed_metric = run_new_items_recall(pp_step, m_pp_threshold, bernoulli_p, log_path, seed, run_base_line=True)
+    print('Mixed metric', mixed_metric)
 
 
 if __name__ == '__main__':
