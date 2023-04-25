@@ -64,6 +64,7 @@ class PGA(BasicAttacker):
                     self.pre_train_weights * mask + self.surrogate_model.embedding.weight * (1 - mask)
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
+        torch.cuda.empty_cache()
 
         start_time = time.time()
         self.surrogate_trainer.train(verbose=False)

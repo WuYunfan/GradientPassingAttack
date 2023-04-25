@@ -77,6 +77,7 @@ class WRMFSGD(BasicAttacker):
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
         poisoned_data_tensor = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
+        torch.cuda.empty_cache()
 
         start_time = time.time()
         self.surrogate_trainer.train(verbose=False)

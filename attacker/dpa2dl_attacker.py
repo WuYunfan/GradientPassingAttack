@@ -113,6 +113,7 @@ class DPA2DL(BasicAttacker):
             self.dataset.train_array += [[fake_u, self.target_item] for fake_u in temp_fake_users]
             self.dataset.n_users += n_temp_fakes
 
+            torch.cuda.empty_cache()
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
             if self.pre_train_weights is not None:
                 with torch.no_grad():
