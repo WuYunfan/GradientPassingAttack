@@ -89,6 +89,12 @@ class DPA2DL(BasicAttacker):
             self.dataset.val_data[f_u] += val_items
             self.dataset.train_array += [[f_u, item] for item in train_items]
 
+    def save_surrogate(self, surrogate_trainer, best_hr):
+        surrogate_trainer.save_path = os.path.join('checkpoints', 'DPA2DL_{:s}_{:s}_{:.3f}.pth'.
+                                                   format(self.dataset.name, self.model.name, best_hr))
+        surrogate_trainer.model.save(surrogate_trainer.save_path)
+        print('Maximal hit ratio, save poisoned model to {:s}.'.format(surrogate_trainer.save_path))
+
     def generate_fake_users(self, verbose=True, writer=None):
         self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)
         self.fake_users[:, self.target_item] = 1.
@@ -128,6 +134,7 @@ class DPA2DL(BasicAttacker):
 
             best_hr = self.get_target_hr(surrogate_model)
             print('Initial target HR: {:.4f}'.format(best_hr))
+            self.save_surrogate(surrogate_trainer, best_hr)
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
                 p_loss = self.poison_train(surrogate_model, surrogate_trainer, temp_fake_users)
@@ -143,11 +150,9 @@ class DPA2DL(BasicAttacker):
                                       target_hr, i_round)
                 if target_hr > best_hr:
                     os.remove(surrogate_trainer.save_path)
-                    surrogate_trainer.save_path = os.path.join('checkpoints', 'DPA2DL_{:s}_{:.3f}.pth'.
-                                                               format(self.dataset.name, target_hr))
                     best_hr = target_hr
-                    surrogate_model.save(surrogate_trainer.save_path)
-                    print('Maximal hit ratio, save poisoned model to {:s}.'.format(surrogate_trainer.save_path))
+                    self.save_surrogate(surrogate_trainer, best_hr)
+
             surrogate_model.load(surrogate_trainer.save_path)
             os.remove(surrogate_trainer.save_path)
 
