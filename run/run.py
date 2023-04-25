@@ -4,11 +4,12 @@ from attacker import get_attacker
 from tensorboardX import SummaryWriter
 from utils import init_run, get_target_items
 from config import get_gowalla_config, get_gowalla_attacker_config
+import shutil
 
 
 def main():
     log_path = __file__[:-3]
-    init_run(log_path, 2021)
+    init_run(log_path, 2023)
 
     device = torch.device('cuda')
     dataset_config = get_gowalla_config(device)[0][0]
@@ -29,8 +30,7 @@ def main():
             if idx == 0:
                 configs[idx + 1][2]['ckpt_path'] = attacker.trainer.save_path
         writer.close()
-        if attacker_config['name'] == 'ERAP4':
-            attacker_config['surrogate_trainer_config']['ckpt_path'] = attacker.surrogate_trainer.save_path
+        shutil.rmtree('checkpoints')
 
 
 if __name__ == '__main__':

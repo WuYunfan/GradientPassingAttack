@@ -91,7 +91,7 @@ class DPA2DL(BasicAttacker):
 
     def save_surrogate(self, surrogate_trainer, best_hr):
         surrogate_trainer.save_path = os.path.join('checkpoints', 'DPA2DL_{:s}_{:s}_{:.3f}.pth'.
-                                                   format(self.dataset.name, self.model.name, best_hr))
+                                                   format(self.dataset.name, surrogate_trainer.model.name, best_hr))
         surrogate_trainer.model.save(surrogate_trainer.save_path)
         print('Maximal hit ratio, save poisoned model to {:s}.'.format(surrogate_trainer.save_path))
 
