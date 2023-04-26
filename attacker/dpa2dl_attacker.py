@@ -118,8 +118,8 @@ class DPA2DL(BasicAttacker):
             if self.pre_train_weights is not None:
                 with torch.no_grad():
                     pre_train_weights = torch.clone(surrogate_model.embedding.weight)
-                    pre_train_weights.data[:-self.n_items - n_temp_fakes, :] = pre_train_weights[:-self.n_items, :]
-                    pre_train_weights.data[-self.n_items:, :] = pre_train_weights[-self.n_items:, :]
+                    pre_train_weights.data[:-self.n_items - n_temp_fakes, :] = self.pre_train_weights[:-self.n_items, :]
+                    pre_train_weights.data[-self.n_items:, :] = self.pre_train_weights[-self.n_items:, :]
                     prob = torch.full(pre_train_weights.shape, self.bernoulli_p, device=self.device)
                     mask = torch.bernoulli(prob)
                     surrogate_model.embedding.weight.data = \
