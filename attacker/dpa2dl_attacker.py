@@ -24,7 +24,7 @@ class DPA2DL(BasicAttacker):
         self.step = attacker_config['step']
         self.alpha = attacker_config['alpha']
         self.n_rounds = attacker_config['n_rounds']
-        self.bernoulli_p = attacker_config.get('attacker_config', 0.)
+        self.bernoulli_p = attacker_config.get('bernoulli_p', 0.)
         self.pre_train_weights = None
 
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]

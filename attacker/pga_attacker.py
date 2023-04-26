@@ -25,7 +25,7 @@ class PGA(BasicAttacker):
         self.lmd = self.surrogate_trainer_config['l2_reg']
         self.initial_lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
-        self.bernoulli_p = attacker_config.get('attacker_config', 0.)
+        self.bernoulli_p = attacker_config.get('bernoulli_p', 0.)
 
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
