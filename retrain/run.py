@@ -147,8 +147,7 @@ def run_new_items_recall(pp_step, pp_threshold, bernoulli_p, log_path, seed,
     ea = event_accumulator.EventAccumulator(os.path.join(log_path, 'pp_retrain'))
     ea.Reload()
     new_items_recalls = ea.Scalars('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name))
-    new_user_NDCGs = ea.Scalars('{:s}_{:s}/new_user_NDCG_{:d}'.format(trainer.model.name, trainer.name, trainer.topks[0]))
-    mixed_metric = np.mean([x.value for x in new_items_recalls]) + np.mean([x.value for x in new_user_NDCGs])
+    mixed_metric = np.mean([x.value for x in new_items_recalls])
     return mixed_metric
 
 

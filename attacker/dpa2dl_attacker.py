@@ -82,12 +82,8 @@ class DPA2DL(BasicAttacker):
             self.fake_users[f_u - self.n_users, filler_items] = 1.
 
             filler_items = filler_items.tolist()
-            random.shuffle(filler_items)
-            train_items = filler_items[:self.n_train_inters - 1]
-            val_items = filler_items[self.n_train_inters - 1:]
-            self.dataset.train_data[f_u] += train_items
-            self.dataset.val_data[f_u] += val_items
-            self.dataset.train_array += [[f_u, item] for item in train_items]
+            self.dataset.train_data[f_u] += filler_items
+            self.dataset.train_array += [[f_u, item] for item in filler_items]
 
     def save_surrogate(self, surrogate_trainer, best_hr):
         surrogate_trainer.save_path = os.path.join('checkpoints', 'DPA2DL_{:s}_{:s}_{:.3f}.pth'.

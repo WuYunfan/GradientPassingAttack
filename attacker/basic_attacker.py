@@ -17,7 +17,6 @@ class BasicAttacker:
         self.n_items = self.dataset.n_items
         self.n_fakes = attacker_config['n_fakes']
         self.n_inters = attacker_config['n_inters']
-        self.n_train_inters = int(self.n_inters * attacker_config.get('train_ratio', 0.8))
         self.target_item = attacker_config['target_item']
         self.device = attacker_config['device']
         self.topk = attacker_config['topk']
@@ -39,13 +38,10 @@ class BasicAttacker:
 
             for fake_u in range(self.n_fakes):
                 items = np.nonzero(self.fake_users[fake_u, :])[0].tolist()
-                random.shuffle(items)
-                train_items = items[:self.n_train_inters]
-                val_items = items[self.n_train_inters:]
-                self.dataset.train_data.append(train_items)
-                self.dataset.val_data.append(val_items)
+                self.dataset.train_data.append(items)
+                self.dataset.val_data.append([])
                 self.dataset.attack_data.append([])
-                self.dataset.train_array.extend([[fake_u + self.n_users, item] for item in train_items])
+                self.dataset.train_array.extend([[fake_u + self.n_users, item] for item in items])
             self.dataset.n_users += self.n_fakes
 
         if self.model is None or retrain:
