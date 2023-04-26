@@ -93,6 +93,7 @@ class PGA(BasicAttacker):
                 adv_grads.append(adv_grad)
         adv_grads = torch.cat(adv_grads, dim=0).t()
         gc.collect()
+        torch.cuda.empty_cache()
         return adv_loss.item(), hr.item(), adv_grads
 
     def generate_fake_users(self, verbose=True, writer=None):

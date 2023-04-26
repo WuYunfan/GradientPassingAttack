@@ -77,7 +77,6 @@ class WRMFSGD(BasicAttacker):
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
         poisoned_data_tensor = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
-        torch.cuda.empty_cache()
 
         start_time = time.time()
         self.surrogate_trainer.train(verbose=False)
@@ -105,6 +104,7 @@ class WRMFSGD(BasicAttacker):
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
         gc.collect()
+        torch.cuda.empty_cache()
         return adv_loss.item(), hr.item(), adv_grads
 
     def generate_fake_users(self, verbose=True, writer=None):

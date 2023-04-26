@@ -113,7 +113,6 @@ class DPA2DL(BasicAttacker):
             self.dataset.train_array += [[fake_u, self.target_item] for fake_u in temp_fake_users]
             self.dataset.n_users += n_temp_fakes
 
-            torch.cuda.empty_cache()
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
             if self.pre_train_weights is not None:
                 with torch.no_grad():
@@ -161,6 +160,7 @@ class DPA2DL(BasicAttacker):
             print('Poison #{:s} has been generated!'.format(fake_nums_str))
             consumed_time = time.time() - step_start_time
             self.consumed_time += consumed_time
+            torch.cuda.empty_cache()
             gc.collect()
 
         self.dataset.train_data = self.dataset.train_data[:-self.n_fakes]
