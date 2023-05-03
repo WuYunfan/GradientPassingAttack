@@ -120,16 +120,16 @@ class BasicTrainer:
                     break
 
             if extra_eval is not None:
-                recall = extra_eval[0](self, *extra_eval[1], verbose)
+                kl_divergence = extra_eval[0](self, *extra_eval[1], writer, verbose)
             if trial is not None:
                 if extra_eval is not None:
-                    trial.report(recall, self.epoch)
+                    trial.report(kl_divergence, self.epoch)
                 else:
                     trial.report(ndcg, self.epoch)
                 if trial.should_prune():
                     raise optuna.exceptions.TrialPruned()
 
-        if self.best_ndcg != -np.inf:
+        if self.save_path is not None:
             self.model.load(self.save_path)
             print('Best NDCG {:.3f}'.format(self.best_ndcg))
         return self.best_ndcg

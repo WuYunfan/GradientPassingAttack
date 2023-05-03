@@ -2,10 +2,11 @@ from dataset import get_dataset
 from model import get_model
 from trainer import get_trainer
 import torch
-from utils import init_run, set_seed
+from utils import init_run, set_seed, AverageMeter
 from tensorboardX import SummaryWriter
 from config import get_gowalla_config
 import numpy as np
+import torch.nn.functional as F
 import os
 from tensorboard.backend.event_processing import event_accumulator
 
@@ -21,45 +22,27 @@ def eval_rec_on_new_users(trainer, n_old_users, writer, verbose):
     trainer.record(writer, 'new_user', metrics)
 
 
-def cal_recall_set(rec_items_a, rec_items_b):
-    rates = []
-    for user in range(len(rec_items_a)):
-        set_a = rec_items_a[user]
-        set_b = rec_items_b[user]
-        if len(set_b) > 0:
-            rate = 1. * len(set_a & set_b) / len(set_b)
-        else:
-            rate = 1.
-        rates.append(rate)
-    return np.mean(rates)
-
-
-def get_new_rec_items(rec_items_a, rec_items_b):
-    new_rec_items = []
-    for user in range(rec_items_a.shape[0]):
-        set_a = set(rec_items_a[user, :].tolist())
-        set_b = set(rec_items_b[user, :].tolist())
-        new_rec_items.append(set_a - set_b)
-    return new_rec_items
-
-
-def initial_parameter(new_model, model):
-    dataset = model.dataset
+def initial_parameter(new_model, pre_train_model):
+    dataset = pre_train_model.dataset
     with torch.no_grad():
-        new_model.embedding.weight.data[:dataset.n_users, :] = model.embedding.weight[:dataset.n_users, :]
-        new_model.embedding.weight.data[-dataset.n_items:, :] = model.embedding.weight[-dataset.n_items:, :]
+        new_model.embedding.weight.data[:dataset.n_users, :] = pre_train_model.embedding.weight[:dataset.n_users, :]
+        new_model.embedding.weight.data[-dataset.n_items:, :] = pre_train_model.embedding.weight[-dataset.n_items:, :]
 
 
-def eval_rec_and_surrogate(trainer, old_rec_items, full_retrain_new_rec_items, writer, verbose):
-    n_old_users = old_rec_items.shape[0]
+def eval_rec_and_surrogate(trainer, n_old_users, full_train_model, writer, verbose):
     eval_rec_on_new_users(trainer, n_old_users, writer, verbose)
-    rec_items = trainer.get_rec_items('train', None)[:n_old_users, :]
-    new_rec_items = get_new_rec_items(rec_items, old_rec_items)
-    recall = cal_recall_set(new_rec_items, full_retrain_new_rec_items)
+    kls = AverageMeter()
+    with torch.no_grad():
+        for users in trainer.test_user_loader:
+            users = users[0]
+            scores_input = trainer.model.predict(users)
+            scores_target = full_train_model.predict(users)
+            kl = F.kl_div(F.log_softmax(scores_input, dim=1), F.softmax(scores_target, dim=1), reduction='batchmean')
+            kls.update(kl.item(), users.shape[0])
     if verbose:
-        print('Recall of new recommended items: {:.3f}'.format(recall * 100))
-    writer.add_scalar('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name), recall, trainer.epoch)
-    return recall
+        print('KL divergence of surrogate model: {:.3f}'.format(kls.avg))
+    writer.add_scalar('{:s}_{:s}/kl_divergence'.format(trainer.model.name, trainer.name), kls.avg, trainer.epoch)
+    return kls.avg
 
 
 def run_new_items_recall(pp_step, pp_threshold, bernoulli_p, log_path, seed,
@@ -70,59 +53,42 @@ def run_new_items_recall(pp_step, pp_threshold, bernoulli_p, log_path, seed,
     dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
     trainer_config['max_patience'] = 1000
 
-    dataset = get_dataset(dataset_config)
-    model = get_model(model_config, dataset)
-    trainer = get_trainer(trainer_config, model)
+    sub_dataset = get_dataset(dataset_config)
+    pre_train_model = get_model(model_config, sub_dataset)
     if os.path.exists('retrain/pre_train_model.pth'):
-        model.load('retrain/pre_train_model.pth')
+        pre_train_model.load('retrain/pre_train_model.pth')
     else:
-        writer = SummaryWriter(os.path.join(log_path, 'pre_train'))
-        trainer.train(verbose=False, writer=writer)
-        model.save('retrain/pre_train_model.pth')
-        writer.close()
-    old_rec_items = trainer.get_rec_items('train', None)
+        trainer = get_trainer(trainer_config, pre_train_model)
+        trainer.train(verbose=False)
+        pre_train_model.save('retrain/pre_train_model.pth')
 
     dataset_config['path'] = dataset_config['path'][:-7] + 'time'
-    new_dataset = get_dataset(dataset_config)
-
-    if os.path.exists('retrain/new_rec_items.npy'):
-        full_retrain_new_rec_items = np.load('retrain/new_rec_items.npy', allow_pickle=True).tolist()
+    full_dataset = get_dataset(dataset_config)
+    full_train_model = get_model(model_config, full_dataset)
+    if os.path.exists('retrain/full_train_model.npy'):
+        full_train_model.load('retrain/full_train_model.pth')
     else:
-        n_full_retrain = 5
-        full_retrain_new_rec_items = None
-        for i in range(n_full_retrain):
-            writer = SummaryWriter(os.path.join(log_path, 'full_retrain_' + str(i)))
-            new_model = get_model(model_config, new_dataset)
-            new_trainer = get_trainer(trainer_config, new_model)
-            new_trainer.train(verbose=False, writer=writer)
-            writer.close()
-            print('Full Retrain ' + str(i) + ' !')
-            rec_items = new_trainer.get_rec_items('train', None)[:dataset.n_users, :]
-            new_rec_items = get_new_rec_items(rec_items, old_rec_items)
-            if full_retrain_new_rec_items is None:
-                full_retrain_new_rec_items = new_rec_items
-            else:
-                for user in range(len(full_retrain_new_rec_items)):
-                    full_retrain_new_rec_items[user] &= new_rec_items[user]
-        np.save('retrain/new_rec_items.npy', full_retrain_new_rec_items)
+        trainer = get_trainer(trainer_config, full_train_model)
+        trainer.train(verbose=False)
+        full_train_model.save('retrain/full_train_model.pth')
 
     trainer_config['n_epochs'] = n_epochs
     if run_base_line:
-        writer = SummaryWriter(os.path.join(log_path, 'limited_full_retrain'))
+        writer = SummaryWriter(os.path.join(log_path, 'full_retrain'))
         set_seed(seed)
-        new_model = get_model(model_config, new_dataset)
+        new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
-        extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
+        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_train_model))
         new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Limited full Retrain!')
 
         writer = SummaryWriter(os.path.join(log_path, 'part_retrain'))
         set_seed(seed)
-        new_model = get_model(model_config, new_dataset)
+        new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
-        initial_parameter(new_model, model)
-        extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
+        initial_parameter(new_model, pre_train_model)
+        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_train_model))
         new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Part Retrain!')
@@ -131,24 +97,24 @@ def run_new_items_recall(pp_step, pp_threshold, bernoulli_p, log_path, seed,
     trainer_config['pp_threshold'] = pp_threshold
     writer = SummaryWriter(os.path.join(log_path, 'pp_retrain'))
     set_seed(seed)
-    new_model = get_model(model_config, new_dataset)
+    new_model = get_model(model_config, full_dataset)
     init_embedding = torch.clone(new_model.embedding.weight.detach())
     new_trainer = get_trainer(trainer_config, new_model)
-    initial_parameter(new_model, model)
+    initial_parameter(new_model, pre_train_model)
     with torch.no_grad():
         prob = torch.full(new_model.embedding.weight.shape, bernoulli_p, device=new_model.device)
         mask = torch.bernoulli(prob)
         new_model.embedding.weight.data = new_model.embedding.weight * mask + init_embedding * (1 - mask)
-    extra_eval = (eval_rec_and_surrogate, (old_rec_items, full_retrain_new_rec_items, writer))
+    extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_train_model))
     new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
     writer.close()
     print('Retrain with parameter propagation!')
 
     ea = event_accumulator.EventAccumulator(os.path.join(log_path, 'pp_retrain'))
     ea.Reload()
-    new_items_recalls = ea.Scalars('{:s}_{:s}/new_items_recall'.format(trainer.model.name, trainer.name))
-    mixed_metric = np.mean([x.value for x in new_items_recalls])
-    return mixed_metric
+    kl_divergences = ea.Scalars('{:s}_{:s}/kl_divergence'.format(new_trainer.model.name, new_trainer.name))
+    kl_divergences = [x.value for x in kl_divergences]
+    return kl_divergences[-1]
 
 
 def main():

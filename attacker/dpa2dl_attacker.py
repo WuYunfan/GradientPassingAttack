@@ -161,5 +161,5 @@ class DPA2DL(BasicAttacker):
 
         self.dataset.train_data = self.dataset.train_data[:-self.n_fakes]
         self.dataset.val_data = self.dataset.val_data[:-self.n_fakes]
-        self.dataset.train_array = self.dataset.train_array[:-self.n_fakes * self.n_train_inters]
+        self.dataset.train_array = self.dataset.train_array[:-self.n_fakes * self.n_inters]
         self.dataset.n_users -= self.n_fakes
