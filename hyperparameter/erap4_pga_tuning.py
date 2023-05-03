@@ -11,11 +11,11 @@ from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
-    lr = trial.suggest_float('lr', 1e-1, 1e1, log=True)
+    lr = trial.suggest_float('lr', 1e-1, 1e2, log=True)
+    s_lr = trial.suggest_float('s_lr', 1e-3, 1e-2, log=True)
+    s_l2 = trial.suggest_float('s_l2', 1e-5, 1.e-2, log=True)
     m_momentum = trial.suggest_float('m_momentum', 1.e-3, 1., log=True)
 
-    s_lr = trial.suggest_float('s_lr', 1e-4, 1e-1, log=True)
-    s_l2 = trial.suggest_float('s_l2', 1e-4, 1., log=True)
     pp_step = trial.suggest_int('pp_step', 1, 3)
     pp_threshold = trial.suggest_float('pp_threshold', 0., 1.)
     bernoulli_p = trial.suggest_float('bernoulli_p', 0., 1.)
