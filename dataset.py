@@ -222,3 +222,35 @@ class YelpDataset(BasicDataset):
 
         self.generate_data()
 
+
+class TenrecDataset(BasicDataset):
+    def __init__(self, dataset_config):
+        super(TenrecDataset, self).__init__(dataset_config)
+
+        input_file_path = os.path.join(dataset_config['path'], 'QK-video.csv')
+        user_inter_sets, item_inter_sets = dict(), dict()
+        with open(input_file_path, 'r') as f:
+            _ = f.readline().strip()
+            line = f.readline().strip()
+            while line:
+                line = line.split(',')
+                u, i, c = int(line[0]), int(line[1]), int(line[2])
+                if c == 1:
+                    update_ui_sets(u, i, user_inter_sets, item_inter_sets)
+                line = f.readline().strip()
+        user_map, item_map = self.remove_sparse_ui(user_inter_sets, item_inter_sets)
+
+        t = 0
+        self.user_inter_lists = [[] for _ in range(self.n_users)]
+        with open(input_file_path, 'r') as f:
+            _ = f.readline().strip()
+            line = f.readline().strip()
+            while line:
+                line = line.split(',')
+                u, i, c = int(line[0]), int(line[1]), int(line[2])
+                if c == 1:
+                    update_user_inter_lists(u, i, t, user_map, item_map, self.user_inter_lists)
+                    t += 1
+                line = f.readline().strip()
+
+        self.generate_data()
