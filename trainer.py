@@ -29,7 +29,7 @@ class PPConfig:
         if self.order != 0:
             self.mat = generate_adj_mat(trainer_config['dataset'], trainer_config['device'],
                                         trainer_config.get('n_fakes', 0))
-            self.threshold = trainer_config['pp_threshold']
+            self.pp_alpha = trainer_config['pp_alpha']
 
 
 class BasicTrainer:

@@ -12,9 +12,9 @@ from torch.autograd import Function
 
 class PPFunction(Function):
     @staticmethod
-    def forward(ctx, rep, pp_order, threshold, mat):
+    def forward(ctx, rep, pp_order, alpha, mat):
         ctx.order = pp_order
-        ctx.threshold = threshold
+        ctx.alpha = alpha
         ctx.mat = mat
         ctx.save_for_backward(rep)
         return rep
@@ -22,15 +22,16 @@ class PPFunction(Function):
     @staticmethod
     def backward(ctx, grad_out):
         order = ctx.order
+        alpha = ctx.alpha
         mat = ctx.mat
-        threshold = ctx.threshold
         rep = ctx.saved_tensors[0]
-        values = torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1)
-        values = torch.gt(torch.sigmoid(values) - threshold, 0.).to(torch.float32)
+        values = torch.sum(rep[mat.row, :] * grad_out[mat.col, :], dim=1) + \
+                 torch.sum(rep[mat.col, :] * grad_out[mat.row, :], dim=1)
+        values = torch.sigmoid(-values)
         grad = grad_out
         grads = [grad]
         for i in range(order):
-            grad = mat.spmm(grad, values, norm='both')
+            grad = alpha * mat.spmm(grad, values, norm='both')
             grads.append(grad)
         grad = torch.stack(grads, dim=0).sum(dim=0)
         return grad, None, None, None
@@ -82,7 +83,7 @@ class BasicModel(nn.Module):
         rep = self.get_rep()
         if pp_config.order == 0:
             return rep
-        return PPFunction.apply(rep, pp_config.order, pp_config.threshold, pp_config.mat)
+        return PPFunction.apply(rep, pp_config.order, pp_config.alpha, pp_config.mat)
 
     def bpr_forward(self, users, pos_items, neg_items, pp_config):
         rep = self.pp_rep(pp_config)

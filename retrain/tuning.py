@@ -14,10 +14,10 @@ def objective(trial):
     if os.path.exists(os.path.join(log_path, 'pp_retrain')):
         shutil.rmtree(os.path.join(log_path, 'pp_retrain'))
     pp_step = trial.suggest_int('pp_step', 1, 3)
-    pp_threshold = trial.suggest_float('pp_threshold', 0., 1.)
+    pp_alpha = trial.suggest_float('pp_alpha', 1.e-3, 1., log=True)
     bernoulli_p = trial.suggest_float('bernoulli_p', 0., 1.)
-    mixed_metric = run_new_items_recall(pp_step, pp_threshold, bernoulli_p, log_path, 2023, trial=trial)
-    return mixed_metric
+    kl_divergence = run_new_items_recall(pp_step, pp_alpha, bernoulli_p, log_path, 2023, trial=trial)
+    return kl_divergence
 
 
 def main():

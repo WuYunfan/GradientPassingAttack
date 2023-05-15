@@ -17,7 +17,7 @@ def objective(trial):
     s_lr = trial.suggest_float('s_lr', 1.e-4, 1.e-1, log=True)
 
     pp_step = trial.suggest_int('pp_step', 1, 3)
-    pp_threshold = trial.suggest_float('pp_threshold', 0., 1.)
+    pp_alpha = trial.suggest_float('pp_alpha', 1.e-3, 1., log=True)
     bernoulli_p = trial.suggest_float('bernoulli_p', 0., 1.)
     set_seed(2023)
     device = torch.device('cuda')
@@ -26,7 +26,7 @@ def objective(trial):
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
                                 'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 16,
                                 'test_batch_size': 64, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
-                                'val_interval': 100, 'pp_threshold': pp_threshold, 'pp_step': pp_step}
+                                'val_interval': 100, 'pp_alpha': pp_alpha, 'pp_step': pp_step}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50, 'bernoulli_p': bernoulli_p,
                        'n_inters': 41, 'reg_u': reg_u, 'prob': 0.9, 'kappa': 1.,
                        'step': 4, 'alpha': alpha, 'n_rounds': 5,

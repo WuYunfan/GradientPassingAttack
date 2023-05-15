@@ -45,7 +45,7 @@ def eval_rec_and_surrogate(trainer, n_old_users, full_train_model, writer, verbo
     return kls.avg
 
 
-def run_new_items_recall(pp_step, pp_threshold, bernoulli_p, log_path, seed,
+def run_new_items_recall(pp_step, pp_alpha, bernoulli_p, log_path, seed,
                          trial=None, run_base_line=False, n_epochs=100):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
@@ -94,7 +94,7 @@ def run_new_items_recall(pp_step, pp_threshold, bernoulli_p, log_path, seed,
         print('Part Retrain!')
 
     trainer_config['pp_step'] = pp_step
-    trainer_config['pp_threshold'] = pp_threshold
+    trainer_config['pp_alpha'] = pp_alpha
     writer = SummaryWriter(os.path.join(log_path, 'pp_retrain'))
     set_seed(seed)
     new_model = get_model(model_config, full_dataset)
@@ -124,10 +124,10 @@ def main():
     init_run(log_path, seed)
 
     pp_step = 2
-    pp_threshold = 0.99
+    pp_alpha = 0.1
     bernoulli_p = 0.1
-    mixed_metric = run_new_items_recall(pp_step, pp_threshold, bernoulli_p, log_path, seed, run_base_line=True)
-    print('Mixed metric', mixed_metric)
+    kl_divergence = run_new_items_recall(pp_step, pp_alpha, bernoulli_p, log_path, seed, run_base_line=True)
+    print('KL divergence', kl_divergence)
 
 
 if __name__ == '__main__':
