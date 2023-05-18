@@ -227,14 +227,14 @@ class TenrecDataset(BasicDataset):
     def __init__(self, dataset_config):
         super(TenrecDataset, self).__init__(dataset_config)
 
-        input_file_path = os.path.join(dataset_config['path'], 'QK-video.csv')
+        input_file_path = os.path.join(dataset_config['path'], 'QK-article.csv')
         user_inter_sets, item_inter_sets = dict(), dict()
         with open(input_file_path, 'r') as f:
             _ = f.readline().strip()
             line = f.readline().strip()
             while line:
                 line = line.split(',')
-                u, i, c = int(line[0]), int(line[1]), int(line[2])
+                u, i, c = int(line[0]), int(line[1]), float(line[2])
                 if c == 1:
                     update_ui_sets(u, i, user_inter_sets, item_inter_sets)
                 line = f.readline().strip()
@@ -247,7 +247,7 @@ class TenrecDataset(BasicDataset):
             line = f.readline().strip()
             while line:
                 line = line.split(',')
-                u, i, c = int(line[0]), int(line[1]), int(line[2])
+                u, i, c = int(line[0]), int(line[1]), float(line[2])
                 if c == 1:
                     update_user_inter_lists(u, i, t, user_map, item_map, self.user_inter_lists)
                     t += 1
