@@ -65,7 +65,7 @@ def run_new_items_recall(pp_step, pp_alpha, bernoulli_p, log_path, seed,
     dataset_config['path'] = dataset_config['path'][:-7] + 'time'
     full_dataset = get_dataset(dataset_config)
     full_train_model = get_model(model_config, full_dataset)
-    if os.path.exists('retrain/full_train_model.npy'):
+    if os.path.exists('retrain/full_train_model.pth'):
         full_train_model.load('retrain/full_train_model.pth')
     else:
         trainer = get_trainer(trainer_config, full_train_model)
