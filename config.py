@@ -50,14 +50,14 @@ def get_gowalla_config(device):
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
                       'lr': 0.0034028958774352377, 'l2_reg': 0.0044493794757059215,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 16,
-                      'test_batch_size': 64, 'topks': [50], 'neg_ratio': 4}
+                      'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
                       'lr': 0.003866939759804029, 'l2_reg': 0.0002709568074610985,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 16,
-                      'test_batch_size': 64, 'topks': [50], 'neg_ratio': 4}
+                      'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64}
@@ -128,14 +128,14 @@ def get_yelp_config(device):
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
                       'lr': 0.004373142178129419, 'l2_reg': 0.005797745872659756,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 16,
-                      'test_batch_size': 64, 'topks': [50], 'neg_ratio': 4}
+                      'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
                       'lr': 0.0012257268783622802, 'l2_reg': 0.00028410025524581024,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 16,
-                      'test_batch_size': 64, 'topks': [50], 'neg_ratio': 4}
+                      'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64}
