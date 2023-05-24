@@ -119,6 +119,7 @@ class DPA2DL(BasicAttacker):
                     mask = torch.bernoulli(prob_b)
                     surrogate_model.embedding.weight.data = \
                         pre_train_weights * mask + surrogate_model.embedding.weight * (1 - mask)
+                    del prob_b, mask
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
 
             start_time = time.time()

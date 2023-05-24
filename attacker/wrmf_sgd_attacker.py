@@ -74,6 +74,7 @@ class WRMFSGD(BasicAttacker):
                 mask = torch.bernoulli(prob)
                 self.surrogate_model.embedding.weight.data = \
                     self.pre_train_weights * mask + self.surrogate_model.embedding.weight * (1 - mask)
+                del prob, mask
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
         poisoned_data_tensor = torch.cat([self.data_tensor, self.fake_tensor], dim=0)

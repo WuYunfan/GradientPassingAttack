@@ -20,7 +20,7 @@ def objective(trial):
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
-                                'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 16,
+                                'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 64, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
                                 'val_interval': 100}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
