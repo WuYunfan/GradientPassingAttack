@@ -216,7 +216,7 @@ class BPRTrainer(BasicTrainer):
 
         self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
                                      num_workers=trainer_config['dataloader_num_workers'],
-                                     persistent_workers=True, pin_memory=False)
+                                     persistent_workers=True, pin_memory=True)
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
 
@@ -247,7 +247,7 @@ class APRTrainer(BasicTrainer):
 
         self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
                                      num_workers=trainer_config['dataloader_num_workers'],
-                                     persistent_workers=True, pin_memory=False)
+                                     persistent_workers=True, pin_memory=True)
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
         self.adv_reg = trainer_config['adv_reg']
@@ -290,7 +290,7 @@ class BCETrainer(BasicTrainer):
 
         self.dataloader = DataLoader(self.dataset, batch_size=trainer_config['batch_size'],
                                      num_workers=trainer_config['dataloader_num_workers'],
-                                     persistent_workers=True, pin_memory=False)
+                                     persistent_workers=True, pin_memory=True)
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
         if self.model.name == 'NeuMF':
