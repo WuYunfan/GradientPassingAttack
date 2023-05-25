@@ -46,7 +46,7 @@ def eval_rec_and_surrogate(trainer, n_old_users, full_train_model, writer, verbo
 
 
 def run_new_items_recall(pp_step, pp_alpha, bernoulli_p, log_path, seed,
-                         trial=None, run_base_line=False, n_epochs=100):
+                         trial=None, run_base_line=False, n_epochs=100, run_upper=False):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[0]
@@ -73,8 +73,8 @@ def run_new_items_recall(pp_step, pp_alpha, bernoulli_p, log_path, seed,
         full_train_model.save('retrain/full_train_model.pth')
 
     trainer_config['n_epochs'] = n_epochs
-    if run_base_line:
-        writer = SummaryWriter(os.path.join(log_path, 'full_retrain'))
+    if run_base_line or run_upper:
+        writer = SummaryWriter(os.path.join(log_path, 'full_retrain' if not run_upper else 'upper'))
         set_seed(seed)
         new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
@@ -82,6 +82,8 @@ def run_new_items_recall(pp_step, pp_alpha, bernoulli_p, log_path, seed,
         new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Limited full Retrain!')
+        if run_upper:
+            return None
 
         writer = SummaryWriter(os.path.join(log_path, 'part_retrain'))
         set_seed(seed)
