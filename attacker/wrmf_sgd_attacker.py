@@ -36,7 +36,9 @@ class WRMFSGD(BasicAttacker):
         self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
 
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
-        self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
+        target_users = TensorDataset(torch.tensor(target_users, dtype=torch.int64, device=self.device))
+        self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
+                                             shuffle=True)
 
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         self.surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.surrogate_model)
@@ -74,7 +76,7 @@ class WRMFSGD(BasicAttacker):
                 mask = torch.bernoulli(prob)
                 self.surrogate_model.embedding.weight.data = \
                     self.pre_train_weights * mask + self.surrogate_model.embedding.weight * (1 - mask)
-                del prob, mask
+            del prob, mask
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
         poisoned_data_tensor = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
@@ -94,16 +96,21 @@ class WRMFSGD(BasicAttacker):
                     reg_loss += torch.norm(self.surrogate_model.embedding.weight[-self.n_items:, :], p=2) ** 2
                     loss = m_loss + reg_loss * self.surrogate_trainer.l2_reg
                     diffopt.step(loss)
-
             consumed_time = time.time() - start_time
             self.retrain_time += consumed_time
 
             fmodel.eval()
-            scores = fmodel.predict(self.target_users)
-            adv_loss = ce_loss(scores, self.target_item)
-            adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
+            scores = []
+            for users in self.target_user_loader:
+                users = users[0]
+                scores.append(fmodel.predict(users))
+            scores = torch.cat(scores, dim=0)
+
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
+            adv_loss = ce_loss(scores, self.target_item)
+            del poisoned_data_tensor, scores, topk_items
+            adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
         gc.collect()
         torch.cuda.empty_cache()
         return adv_loss.item(), hr.item(), adv_grads
