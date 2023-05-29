@@ -47,7 +47,8 @@ def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, writer, verbose
     return jaccard_sim
 
 
-def run_new_items_recall(pp_threshold, pp_alpha, bernoulli_p, log_path, seed,
+def run_new_items_recall(log_path, seed, lr, l2_reg,
+                         pp_threshold=None, pp_alpha=None, bernoulli_p=None,
                          trial=None, n_epochs=100, run_method=2):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
@@ -76,6 +77,8 @@ def run_new_items_recall(pp_threshold, pp_alpha, bernoulli_p, log_path, seed,
     full_rec_items = trainer.get_rec_items('test', None)
 
     trainer_config['n_epochs'] = n_epochs
+    trainer_config['lr'] = lr
+    trainer_config['l2_reg'] = l2_reg
     names = {0: 'full_retrain', 1: 'part_retrain', 2: 'pp_retrain'}
     if run_method == 0:
         writer = SummaryWriter(os.path.join(log_path, names[run_method]))
@@ -129,10 +132,12 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, seed)
 
+    lr = None
+    l2_reg = None
     pp_threshold = None
     pp_alpha = None
     bernoulli_p = None
-    kl_divergence = run_new_items_recall(pp_threshold, pp_alpha, bernoulli_p, log_path, seed)
+    kl_divergence = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, bernoulli_p)
     print('KL divergence', kl_divergence)
 
 
