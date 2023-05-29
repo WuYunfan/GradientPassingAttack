@@ -43,13 +43,12 @@ def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, writer, verbose
     for i in range(n):
         jaccard_sim += jaccard_similarity(rec_items[i], full_rec_items[i])
     jaccard_sim /= n
-    writer.add_scalar('{:s}_{:s}/Jaccard similarity'.format(trainer.model.name, trainer.name), jaccard_sim, trainer.epoch)
+    writer.add_scalar('{:s}_{:s}/Jaccard_similarity'.format(trainer.model.name, trainer.name), jaccard_sim, trainer.epoch)
     return jaccard_sim
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg,
-                         pp_threshold=None, pp_alpha=None, bernoulli_p=None,
-                         trial=None, n_epochs=100, run_method=2):
+def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, bernoulli_p,
+                         n_epochs, run_method, trial=None):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[0]
@@ -76,9 +75,9 @@ def run_new_items_recall(log_path, seed, lr, l2_reg,
         full_train_model.save('retrain/full_train_model.pth')
     full_rec_items = trainer.get_rec_items('test', None)
 
-    trainer_config['n_epochs'] = n_epochs
-    trainer_config['lr'] = lr
-    trainer_config['l2_reg'] = l2_reg
+    trainer_config['n_epochs'] = n_epochs if n_epochs is not None else trainer_config['n_epochs']
+    trainer_config['lr'] = lr if lr is not None else trainer_config['lr']
+    trainer_config['l2_reg'] = l2_reg if l2_reg is not None else trainer_config['l2_reg']
     names = {0: 'full_retrain', 1: 'part_retrain', 2: 'pp_retrain'}
     if run_method == 0:
         writer = SummaryWriter(os.path.join(log_path, names[run_method]))
@@ -121,7 +120,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg,
 
     ea = event_accumulator.EventAccumulator(os.path.join(log_path, names[run_method]))
     ea.Reload()
-    kl_divergences = ea.Scalars('{:s}_{:s}/kl_divergence'.format(new_trainer.model.name, new_trainer.name))
+    kl_divergences = ea.Scalars('{:s}_{:s}/Jaccard_similarity'.format(new_trainer.model.name, new_trainer.name))
     kl_divergences = [x.value for x in kl_divergences]
     return kl_divergences[-1]
 
@@ -137,8 +136,11 @@ def main():
     pp_threshold = None
     pp_alpha = None
     bernoulli_p = None
-    kl_divergence = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, bernoulli_p)
-    print('KL divergence', kl_divergence)
+    n_epochs = 1000
+    run_method = 0
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, bernoulli_p,
+                                       n_epochs, run_method)
+    print('Jaccard similarity', jaccard_sim)
 
 
 if __name__ == '__main__':
