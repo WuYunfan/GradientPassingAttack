@@ -12,8 +12,9 @@ from torch.autograd import Function
 
 class PPFunction(Function):
     @staticmethod
-    def forward(ctx, rep, pp_order, alpha, mat):
-        ctx.order = pp_order
+    def forward(ctx, rep, order, threshold, alpha, mat):
+        ctx.order = order
+        ctx.threshold = threshold
         ctx.alpha = alpha
         ctx.mat = mat
         ctx.save_for_backward(rep)
@@ -23,10 +24,11 @@ class PPFunction(Function):
     def backward(ctx, grad_out):
         order = ctx.order
         alpha = ctx.alpha
+        threshold = ctx.threshold
         mat = ctx.mat
         rep = ctx.saved_tensors[0]
         values = torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1)
-        values = torch.gt(torch.sigmoid(values) - 0.9, 0.).to(torch.float32)
+        values = torch.gt(torch.sigmoid(values) - threshold, 0.).to(torch.float32)
         grad = grad_out
         grads = [grad]
         for i in range(order):
@@ -82,7 +84,7 @@ class BasicModel(nn.Module):
         rep = self.get_rep()
         if pp_config.order == 0:
             return rep
-        return PPFunction.apply(rep, pp_config.order, pp_config.alpha, pp_config.mat)
+        return PPFunction.apply(rep, pp_config.order, pp_config.threshold, pp_config.alpha, pp_config.mat)
 
     def bpr_forward(self, users, pos_items, neg_items, pp_config):
         rep = self.pp_rep(pp_config)

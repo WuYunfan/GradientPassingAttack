@@ -29,24 +29,26 @@ def initial_parameter(new_model, pre_train_model):
         new_model.embedding.weight.data[-dataset.n_items:, :] = pre_train_model.embedding.weight[-dataset.n_items:, :]
 
 
-def eval_rec_and_surrogate(trainer, n_old_users, full_train_model, writer, verbose):
+def jaccard_similarity(list1, list2):
+    intersection = len(np.intersect1d(list1, list2))
+    union = len(np.union1d(list1, list2))
+    return 1. * intersection / union
+
+
+def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, writer, verbose):
     eval_rec_on_new_users(trainer, n_old_users, writer, verbose)
-    kls = AverageMeter()
-    with torch.no_grad():
-        for users in trainer.test_user_loader:
-            users = users[0]
-            scores_input = trainer.model.predict(users)
-            scores_target = full_train_model.predict(users)
-            kl = F.kl_div(F.log_softmax(scores_input, dim=1), F.softmax(scores_target, dim=1), reduction='batchmean')
-            kls.update(kl.item(), users.shape[0])
-    if verbose:
-        print('KL divergence of surrogate model: {:.3f}'.format(kls.avg))
-    writer.add_scalar('{:s}_{:s}/kl_divergence'.format(trainer.model.name, trainer.name), kls.avg, trainer.epoch)
-    return kls.avg
+    jaccard_sim = 0
+    rec_items = trainer.get_rec_items('test', None)
+    n = rec_items.shape[0]
+    for i in range(n):
+        jaccard_sim += jaccard_similarity(rec_items[i], full_rec_items[i])
+    jaccard_sim /= n
+    writer.add_scalar('{:s}_{:s}/Jaccard similarity'.format(trainer.model.name, trainer.name), jaccard_sim, trainer.epoch)
+    return jaccard_sim
 
 
-def run_new_items_recall(pp_step, pp_alpha, bernoulli_p, log_path, seed,
-                         trial=None, run_base_line=False, n_epochs=100, run_upper=False):
+def run_new_items_recall(pp_threshold, pp_alpha, bernoulli_p, log_path, seed,
+                         trial=None, n_epochs=100, run_method=2):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[0]
@@ -65,54 +67,56 @@ def run_new_items_recall(pp_step, pp_alpha, bernoulli_p, log_path, seed,
     dataset_config['path'] = dataset_config['path'][:-7] + 'time'
     full_dataset = get_dataset(dataset_config)
     full_train_model = get_model(model_config, full_dataset)
+    trainer = get_trainer(trainer_config, full_train_model)
     if os.path.exists('retrain/full_train_model.pth'):
         full_train_model.load('retrain/full_train_model.pth')
     else:
-        trainer = get_trainer(trainer_config, full_train_model)
         trainer.train(verbose=False)
         full_train_model.save('retrain/full_train_model.pth')
+    full_rec_items = trainer.get_rec_items('test', None)
 
     trainer_config['n_epochs'] = n_epochs
-    if run_base_line or run_upper:
-        writer = SummaryWriter(os.path.join(log_path, 'full_retrain' if not run_upper else 'upper'))
+    names = {0: 'full_retrain', 1: 'part_retrain', 2: 'pp_retrain'}
+    if run_method == 0:
+        writer = SummaryWriter(os.path.join(log_path, names[run_method]))
         set_seed(seed)
         new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
-        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_train_model))
+        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items))
         new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Limited full Retrain!')
-        if run_upper:
-            return None
 
-        writer = SummaryWriter(os.path.join(log_path, 'part_retrain'))
+    if run_method == 1:
+        writer = SummaryWriter(os.path.join(log_path, names[run_method]))
         set_seed(seed)
         new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
-        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_train_model))
+        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items))
         new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Part Retrain!')
 
-    trainer_config['pp_step'] = pp_step
-    trainer_config['pp_alpha'] = pp_alpha
-    writer = SummaryWriter(os.path.join(log_path, 'pp_retrain'))
-    set_seed(seed)
-    new_model = get_model(model_config, full_dataset)
-    init_embedding = torch.clone(new_model.embedding.weight.detach())
-    new_trainer = get_trainer(trainer_config, new_model)
-    initial_parameter(new_model, pre_train_model)
-    with torch.no_grad():
-        prob = torch.full(new_model.embedding.weight.shape, bernoulli_p, device=new_model.device)
-        mask = torch.bernoulli(prob)
-        new_model.embedding.weight.data = new_model.embedding.weight * mask + init_embedding * (1 - mask)
-    extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_train_model))
-    new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
-    writer.close()
-    print('Retrain with parameter propagation!')
+    if run_method == 2:
+        trainer_config['pp_threshold'] = pp_threshold
+        trainer_config['pp_alpha'] = pp_alpha
+        writer = SummaryWriter(os.path.join(log_path, names[run_method]))
+        set_seed(seed)
+        new_model = get_model(model_config, full_dataset)
+        init_embedding = torch.clone(new_model.embedding.weight.detach())
+        new_trainer = get_trainer(trainer_config, new_model)
+        initial_parameter(new_model, pre_train_model)
+        with torch.no_grad():
+            prob = torch.full(new_model.embedding.weight.shape, bernoulli_p, device=new_model.device)
+            mask = torch.bernoulli(prob)
+            new_model.embedding.weight.data = new_model.embedding.weight * mask + init_embedding * (1 - mask)
+        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items))
+        new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
+        writer.close()
+        print('Retrain with parameter propagation!')
 
-    ea = event_accumulator.EventAccumulator(os.path.join(log_path, 'pp_retrain'))
+    ea = event_accumulator.EventAccumulator(os.path.join(log_path, names[run_method]))
     ea.Reload()
     kl_divergences = ea.Scalars('{:s}_{:s}/kl_divergence'.format(new_trainer.model.name, new_trainer.name))
     kl_divergences = [x.value for x in kl_divergences]
@@ -125,10 +129,10 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, seed)
 
-    pp_step = 2
-    pp_alpha = 0.1
-    bernoulli_p = 0.1
-    kl_divergence = run_new_items_recall(pp_step, pp_alpha, bernoulli_p, log_path, seed, run_base_line=True)
+    pp_threshold = None
+    pp_alpha = None
+    bernoulli_p = None
+    kl_divergence = run_new_items_recall(pp_threshold, pp_alpha, bernoulli_p, log_path, seed)
     print('KL divergence', kl_divergence)
 
 
