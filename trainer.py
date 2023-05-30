@@ -25,10 +25,8 @@ def get_trainer(config, model):
 
 class PPConfig:
     def __init__(self, trainer_config):
-        self.order = trainer_config.get('pp_step', 0)
-        if self.order != 0:
+        if 'pp_alpha' in trainer_config:
             self.order = trainer_config.get('pp_order', 2)
-            self.threshold = trainer_config['pp_threshold']
             self.alpha = trainer_config['pp_alpha']
             self.mat = generate_adj_mat(trainer_config['dataset'], trainer_config['device'],
                                         trainer_config.get('n_fakes', 0))
@@ -122,10 +120,10 @@ class BasicTrainer:
                     break
 
             if extra_eval is not None:
-                kl_divergence = extra_eval[0](self, *extra_eval[1], writer, verbose)
+                jaccard_sim = extra_eval[0](self, *extra_eval[1], writer, verbose)
             if trial is not None:
                 if extra_eval is not None:
-                    trial.report(kl_divergence, self.epoch)
+                    trial.report(jaccard_sim, self.epoch)
                 else:
                     trial.report(ndcg, self.epoch)
                 if trial.should_prune():
@@ -226,7 +224,7 @@ class BPRTrainer(BasicTrainer):
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
-            users, pos_items, neg_items = inputs[:, 0],  inputs[:, 1],  inputs[:, 2]
+            users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
 
             users_r, pos_items_r, neg_items_r, l2_norm_sq = \
                 self.model.bpr_forward(users, pos_items, neg_items, self.pp_config)
@@ -260,7 +258,7 @@ class APRTrainer(BasicTrainer):
         losses = AverageMeter()
         for batch_data in self.dataloader:
             inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
-            users, pos_items, neg_items = inputs[:, 0],  inputs[:, 1],  inputs[:, 2]
+            users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
 
             users_r, pos_items_r, neg_items_r, l2_norm_sq = \
                 self.model.bpr_forward(users, pos_items, neg_items, self.pp_config)
@@ -415,5 +413,3 @@ class MSETrainer(BasicTrainer):
             self.opt.step()
             losses.update(loss.item(), users.shape[0])
         return losses.avg
-
-

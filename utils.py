@@ -48,28 +48,29 @@ class TorchSparseMat:
         self.col = col
         self.g = dgl.graph((self.col, self.row), num_nodes=max(shape), device=device)
         self.n_non_zeros = self.row.shape[0]
-        self.eps = torch.tensor(1.e-8, dtype=torch.float32, device=self.device)
+        values = torch.ones([self.n_non_zeros], dtype=torch.float32, device=self.device)
+        degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
+        degree = torch.where(degree > 0, degree, 1.e-8)
+        self.inv_deg = torch.pow(degree, -1)
+        self.inv_deg_sqrt = torch.pow(self.inv_deg, 0.5)
 
     def spmm(self, r_mat, value_tensor=None, norm=None):
         if value_tensor is None:
-            value_tensor = torch.empty([0], dtype=torch.float32, device=self.device)
-        values = torch.ones([self.n_non_zeros - value_tensor.shape[0]], dtype=torch.float32, device=self.device)
-        values = torch.cat([values, value_tensor], dim=0)
+            values = torch.ones([self.n_non_zeros], dtype=torch.float32, device=self.device)
+        else:
+            values = value_tensor
 
         assert r_mat.shape[0] == self.shape[1]
         padding_tensor = torch.empty([max(self.shape) - r_mat.shape[0], r_mat.shape[1]],
                                      dtype=torch.float32, device=self.device)
         padded_r_mat = torch.cat([r_mat, padding_tensor], dim=0)
 
-        if norm is not None:
-            degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
-            degree = torch.where(degree > 0, degree, self.eps)
-            if norm == 'left':
-                values = values / degree[self.row]
-            if norm == 'right':
-                values = values / degree[self.col]
-            if norm == 'both':
-                values = values / (torch.pow(degree[self.row], 0.5) * torch.pow(degree[self.col], 0.5))
+        if norm == 'left':
+            values = values * self.inv_deg[self.row]
+        if norm == 'right':
+            values = values * self.inv_deg[self.col]
+        if norm == 'both':
+            values = values * self.inv_deg_sqrt[self.row] * self.inv_deg_sqrt[self.col]
         x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)
         return x[:self.shape[0], :]
 

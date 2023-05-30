@@ -12,9 +12,8 @@ from torch.autograd import Function
 
 class PPFunction(Function):
     @staticmethod
-    def forward(ctx, rep, order, threshold, alpha, mat):
+    def forward(ctx, rep, order, alpha, mat):
         ctx.order = order
-        ctx.threshold = threshold
         ctx.alpha = alpha
         ctx.mat = mat
         ctx.save_for_backward(rep)
@@ -24,18 +23,17 @@ class PPFunction(Function):
     def backward(ctx, grad_out):
         order = ctx.order
         alpha = ctx.alpha
-        threshold = ctx.threshold
         mat = ctx.mat
         rep = ctx.saved_tensors[0]
-        values = torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1)
-        values = torch.gt(torch.sigmoid(values) - threshold, 0.).to(torch.float32)
+        values = torch.sigmoid(torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1))
+        values = torch.gt(values - torch.median(values), 0.).to(torch.float32)
         grad = grad_out
         grads = [grad]
         for i in range(order):
-            grad = alpha * mat.spmm(grad, values, norm='both')
-            grads.append(grad)
+            grad = mat.spmm(grad, values, norm='both')
+            grads.append(alpha * grad)
         grad = torch.stack(grads, dim=0).sum(dim=0)
-        return grad, None, None, None
+        return grad, None, None, None, None
 
 
 def get_model(config, dataset):
@@ -84,7 +82,7 @@ class BasicModel(nn.Module):
         rep = self.get_rep()
         if pp_config.order == 0:
             return rep
-        return PPFunction.apply(rep, pp_config.order, pp_config.threshold, pp_config.alpha, pp_config.mat)
+        return PPFunction.apply(rep, pp_config.order, pp_config.alpha, pp_config.mat)
 
     def bpr_forward(self, users, pos_items, neg_items, pp_config):
         rep = self.pp_rep(pp_config)
@@ -301,7 +299,7 @@ class NeuMF(BasicModel):
             zeros_(layer.bias)
         ones_(self.output_layer.weight)
 
-    def bce_forward(self, pos_users, pos_items, neg_users, neg_items, pp_order):
+    def bce_forward(self, pos_users, pos_items, neg_users, neg_items, pp_config):
         pos_scores, pos_l2_norm_sq = self.forward(pos_users, pos_items)
         neg_scores, neg_l2_norm_sq = self.forward(neg_users, neg_items)
         l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)

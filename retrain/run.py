@@ -47,8 +47,7 @@ def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, writer, verbose
     return jaccard_sim
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, bernoulli_p,
-                         n_epochs, run_method, trial=None):
+def run_new_items_recall(log_path, seed, lr, l2_reg, pp_alpha, n_epochs, run_method, trial=None):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[0]
@@ -101,18 +100,12 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, ber
         print('Part Retrain!')
 
     if run_method == 2:
-        trainer_config['pp_threshold'] = pp_threshold
         trainer_config['pp_alpha'] = pp_alpha
         writer = SummaryWriter(os.path.join(log_path, names[run_method]))
         set_seed(seed)
         new_model = get_model(model_config, full_dataset)
-        init_embedding = torch.clone(new_model.embedding.weight.detach())
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
-        with torch.no_grad():
-            prob = torch.full(new_model.embedding.weight.shape, bernoulli_p, device=new_model.device)
-            mask = torch.bernoulli(prob)
-            new_model.embedding.weight.data = new_model.embedding.weight * mask + init_embedding * (1 - mask)
         extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items))
         new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
@@ -133,13 +126,10 @@ def main():
 
     lr = None
     l2_reg = None
-    pp_threshold = None
     pp_alpha = None
-    bernoulli_p = None
     n_epochs = 1000
     run_method = 0
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, bernoulli_p,
-                                       n_epochs, run_method)
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_alpha, n_epochs, run_method)
     print('Jaccard similarity', jaccard_sim)
 
 
