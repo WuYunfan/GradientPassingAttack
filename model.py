@@ -12,8 +12,9 @@ from torch.autograd import Function
 
 class PPFunction(Function):
     @staticmethod
-    def forward(ctx, rep, order, alpha, mat):
+    def forward(ctx, rep, order, threshold, alpha, mat):
         ctx.order = order
+        ctx.threshold = threshold
         ctx.alpha = alpha
         ctx.mat = mat
         ctx.save_for_backward(rep)
@@ -22,24 +23,24 @@ class PPFunction(Function):
     @staticmethod
     def backward(ctx, grad_out):
         order = ctx.order
+        threshold = ctx.threshold
         alpha = ctx.alpha
         mat = ctx.mat
         rep = ctx.saved_tensors[0]
 
         values = torch.sigmoid(torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1))
-        idx = torch.where(mat.row == 13377)[0]
-        users = mat.col[idx]
-        print(values[idx].mean(), '00')
-        print(torch.norm(grad_out[13377, :]), 'norm')
-        values = torch.gt(values - 0.99, 0.).to(torch.float32)
-        print(values.sum(), 'sum')
-        print(torch.sigmoid(torch.sum(rep[22, :] * rep[13377, :], dim=0)), 'xx')
-        print(torch.sigmoid(torch.sum(rep[22:23, :] * rep[users, :], dim=0)).mean(), 'yy')
+        # idx = torch.where(mat.row == 13377)[0]
+        # users = mat.col[idx]
+        # print(values[idx].mean(), '00')
+        values = torch.gt(values - threshold, 0.).to(torch.float32)
+        # print(values.sum(), 'sum')
+        # print(torch.sigmoid(torch.sum(rep[22, :] * rep[13377, :], dim=0)), 'xx')
+        # print(torch.sigmoid(torch.sum(rep[22:23, :] * rep[users, :], dim=0)).mean(), 'yy')
         grad = grad_out
         grads = [grad]
         for i in range(order):
-            grad = mat.spmm(grad, values, norm='both')
-            grads.append(alpha * grad)
+            grad = alpha * mat.spmm(grad, values, norm='both')
+            grads.append(grad)
         grad = torch.stack(grads, dim=0).sum(dim=0)
         return grad, None, None, None, None
 
@@ -91,7 +92,7 @@ class BasicModel(nn.Module):
         l2_rep = rep
         if pp_config.order == 0:
             return l2_rep, rep
-        return l2_rep, PPFunction.apply(rep, pp_config.order, pp_config.alpha, pp_config.mat)
+        return l2_rep, PPFunction.apply(rep, pp_config.order, pp_config.threshold, pp_config.alpha, pp_config.mat)
 
     def bpr_forward(self, users, pos_items, neg_items, pp_config):
         l2_rep, rep = self.pp_rep(pp_config)
