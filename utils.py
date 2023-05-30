@@ -48,11 +48,7 @@ class TorchSparseMat:
         self.col = col
         self.g = dgl.graph((self.col, self.row), num_nodes=max(shape), device=device)
         self.n_non_zeros = self.row.shape[0]
-        values = torch.ones([self.n_non_zeros], dtype=torch.float32, device=self.device)
-        degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
-        degree = torch.where(degree > 0, degree, 1.e-8)
-        self.inv_deg = torch.pow(degree, -1)
-        self.inv_deg_sqrt = torch.pow(self.inv_deg, 0.5)
+        self.eps = torch.tensor(1.e-8, dtype=torch.float32, device=self.device)
 
     def spmm(self, r_mat, value_tensor=None, norm=None):
         if value_tensor is None:
@@ -65,12 +61,11 @@ class TorchSparseMat:
                                      dtype=torch.float32, device=self.device)
         padded_r_mat = torch.cat([r_mat, padding_tensor], dim=0)
 
-        if norm == 'left':
-            values = values * self.inv_deg[self.row]
-        if norm == 'right':
-            values = values * self.inv_deg[self.col]
         if norm == 'both':
-            values = values * self.inv_deg_sqrt[self.row] * self.inv_deg_sqrt[self.col]
+            degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
+            degree = torch.where(degree > 0, degree, self.eps)
+            inv_deg = torch.pow(degree, -0.5)
+            values = values * inv_deg[self.row] * inv_deg[self.col]
         x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)
         return x[:self.shape[0], :]
 

@@ -25,6 +25,7 @@ def get_trainer(config, model):
 
 class PPConfig:
     def __init__(self, trainer_config):
+        self.order = 0
         if 'pp_alpha' in trainer_config:
             self.order = trainer_config.get('pp_order', 2)
             self.alpha = trainer_config['pp_alpha']
@@ -399,15 +400,13 @@ class MSETrainer(BasicTrainer):
         for users in self.train_user_loader:
             users = users[0]
 
-            scores = self.model.mse_forward(users, self.pp_config)
-            reg_loss = torch.norm(self.model.embedding(users), p=2) ** 2
-            reg_loss += torch.norm(self.model.embedding.weight[-self.model.n_items:, :], p=2) ** 2
+            scores, l2_norm_sq = self.model.mse_forward(users, self.pp_config)
             users = users.cpu().numpy()
             profiles = data_mat[users, :]
             profiles = torch.tensor(profiles.toarray(), dtype=torch.float32, device=self.device)
             m_loss = mse_loss(profiles, scores, self.weight)
 
-            loss = m_loss + self.l2_reg * reg_loss
+            loss = m_loss + self.l2_reg * l2_norm_sq
             self.opt.zero_grad()
             loss.backward()
             self.opt.step()

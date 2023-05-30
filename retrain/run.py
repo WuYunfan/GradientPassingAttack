@@ -6,20 +6,28 @@ from utils import init_run, set_seed, AverageMeter
 from tensorboardX import SummaryWriter
 from config import get_gowalla_config
 import numpy as np
-import torch.nn.functional as F
 import os
 from tensorboard.backend.event_processing import event_accumulator
 
 
 def eval_rec_on_new_users(trainer, n_old_users, writer, verbose):
     val_data = trainer.dataset.val_data.copy()
+
     for user in range(n_old_users):
         trainer.dataset.val_data[user] = []
     results, metrics = trainer.eval('val')
     if verbose:
         print('New users and all items result. {:s}'.format(results))
-    trainer.dataset.val_data = val_data
+    trainer.dataset.val_data = val_data.copy()
     trainer.record(writer, 'new_user', metrics)
+
+    for user in range(n_old_users, trainer.model.n_users):
+        trainer.dataset.val_data[user] = []
+    results, metrics = trainer.eval('val')
+    if verbose:
+        print('Old users and all items result. {:s}'.format(results))
+    trainer.dataset.val_data = val_data.copy()
+    trainer.record(writer, 'old_user', metrics)
 
 
 def initial_parameter(new_model, pre_train_model):
@@ -38,16 +46,18 @@ def jaccard_similarity(list1, list2):
 def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, writer, verbose):
     eval_rec_on_new_users(trainer, n_old_users, writer, verbose)
     jaccard_sim = 0
-    rec_items = trainer.get_rec_items('test', None)
-    n = rec_items.shape[0]
+    n = full_rec_items.shape[0]
+    rec_items = trainer.get_rec_items('test', None)[:n, :]
     for i in range(n):
         jaccard_sim += jaccard_similarity(rec_items[i], full_rec_items[i])
     jaccard_sim /= n
+    if verbose:
+        print('Jaccard similarity {:.4f}'.format(jaccard_sim))
     writer.add_scalar('{:s}_{:s}/Jaccard_similarity'.format(trainer.model.name, trainer.name), jaccard_sim, trainer.epoch)
     return jaccard_sim
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg, pp_alpha, n_epochs, run_method, trial=None):
+def run_new_items_recall(log_path, seed, lr, l2_reg, pp_alpha, n_epochs, run_method, trial=None, verbose=False):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[0]
@@ -72,7 +82,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_alpha, n_epochs, run_met
     else:
         trainer.train(verbose=False)
         full_train_model.save('retrain/full_train_model.pth')
-    full_rec_items = trainer.get_rec_items('test', None)
+    full_rec_items = trainer.get_rec_items('test', None)[:sub_dataset.n_users, :]
 
     trainer_config['n_epochs'] = n_epochs if n_epochs is not None else trainer_config['n_epochs']
     trainer_config['lr'] = lr if lr is not None else trainer_config['lr']
@@ -84,7 +94,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_alpha, n_epochs, run_met
         new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
         extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items))
-        new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
+        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Limited full Retrain!')
 
@@ -95,7 +105,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_alpha, n_epochs, run_met
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
         extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items))
-        new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
+        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Part Retrain!')
 
@@ -107,7 +117,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_alpha, n_epochs, run_met
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
         extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items))
-        new_trainer.train(verbose=False, writer=writer, extra_eval=extra_eval, trial=trial)
+        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Retrain with parameter propagation!')
 

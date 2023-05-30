@@ -25,8 +25,16 @@ class PPFunction(Function):
         alpha = ctx.alpha
         mat = ctx.mat
         rep = ctx.saved_tensors[0]
+
         values = torch.sigmoid(torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1))
-        values = torch.gt(values - torch.median(values), 0.).to(torch.float32)
+        idx = torch.where(mat.row == 13377)[0]
+        users = mat.col[idx]
+        print(values[idx].mean(), '00')
+        print(torch.norm(grad_out[13377, :]), 'norm')
+        values = torch.gt(values - 0.99, 0.).to(torch.float32)
+        print(values.sum(), 'sum')
+        print(torch.sigmoid(torch.sum(rep[22, :] * rep[13377, :], dim=0)), 'xx')
+        print(torch.sigmoid(torch.sum(rep[22:23, :] * rep[users, :], dim=0)).mean(), 'yy')
         grad = grad_out
         grads = [grad]
         for i in range(order):
@@ -80,35 +88,45 @@ class BasicModel(nn.Module):
 
     def pp_rep(self, pp_config):
         rep = self.get_rep()
+        l2_rep = rep
         if pp_config.order == 0:
-            return rep
-        return PPFunction.apply(rep, pp_config.order, pp_config.alpha, pp_config.mat)
+            return l2_rep, rep
+        return l2_rep, PPFunction.apply(rep, pp_config.order, pp_config.alpha, pp_config.mat)
 
     def bpr_forward(self, users, pos_items, neg_items, pp_config):
-        rep = self.pp_rep(pp_config)
-        users_r, pos_items_r = rep[users, :], rep[self.n_users + pos_items, :]
-        neg_items_r = rep[self.n_users + neg_items, :]
-        l2_norm_sq = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2 \
-                     + torch.norm(neg_items_r, p=2, dim=1) ** 2
+        l2_rep, rep = self.pp_rep(pp_config)
+        users_r = rep[users, :]
+        pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
+
+        l2_users_r = l2_rep[users, :]
+        l2_pos_items_r, l2_neg_items_r = l2_rep[self.n_users + pos_items, :], l2_rep[self.n_users + neg_items, :]
+        l2_norm_sq = torch.norm(l2_users_r, p=2, dim=1) ** 2 + torch.norm(l2_pos_items_r, p=2, dim=1) ** 2 \
+                     + torch.norm(l2_neg_items_r, p=2, dim=1) ** 2
         return users_r, pos_items_r, neg_items_r, l2_norm_sq
 
     def bce_forward(self, pos_users, pos_items, neg_users, neg_items, pp_config):
-        rep = self.pp_rep(pp_config)
+        l2_rep, rep = self.pp_rep(pp_config)
         pos_users_r, pos_items_r = rep[pos_users, :], rep[self.n_users + pos_items, :]
         neg_users_r, neg_items_r = rep[neg_users, :], rep[self.n_users + neg_items, :]
         pos_scores = torch.sum(pos_users_r * pos_items_r, dim=1)
         neg_scores = torch.sum(neg_users_r * neg_items_r, dim=1)
-        pos_l2_norm_sq = torch.norm(pos_users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2
-        neg_l2_norm_sq = torch.norm(neg_users_r, p=2, dim=1) ** 2 + torch.norm(neg_items_r, p=2, dim=1) ** 2
+
+        l2_pos_users_r, l2_pos_items_r = l2_rep[pos_users, :], l2_rep[self.n_users + pos_items, :]
+        l2_neg_users_r, l2_neg_items_r = l2_rep[neg_users, :], l2_rep[self.n_users + neg_items, :]
+        pos_l2_norm_sq = torch.norm(l2_pos_users_r, p=2, dim=1) ** 2 + torch.norm(l2_pos_items_r, p=2, dim=1) ** 2
+        neg_l2_norm_sq = torch.norm(l2_neg_users_r, p=2, dim=1) ** 2 + torch.norm(l2_neg_items_r, p=2, dim=1) ** 2
         l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)
         return pos_scores, neg_scores, l2_norm_sq
 
     def mse_forward(self, users, pp_config):
-        rep = self.pp_rep(pp_config)
+        l2_rep, rep = self.pp_rep(pp_config)
         users_r = rep[users, :]
         all_items_r = rep[self.n_users:, :]
         scores = torch.mm(users_r, all_items_r.t())
-        return scores
+
+        l2_norm_sq = torch.norm(l2_rep[users, :], p=2) ** 2
+        l2_norm_sq += torch.norm(l2_rep[-self.model.n_items:, :], p=2) ** 2
+        return scores, l2_norm_sq
 
     def predict(self, users):
         rep = self.get_rep()
