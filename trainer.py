@@ -29,9 +29,7 @@ class PPConfig:
         if 'pp_alpha' in trainer_config:
             self.order = trainer_config.get('pp_order', 2)
             self.threshold = trainer_config['pp_threshold']
-            self.alpha = trainer_config['pp_alpha']
-            self.mat = generate_adj_mat(trainer_config['dataset'], trainer_config['device'],
-                                        trainer_config.get('n_fakes', 0))
+            self.alpha = trainer_config.get('alpha', 1.)
 
 
 class BasicTrainer:

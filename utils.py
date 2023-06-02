@@ -28,15 +28,15 @@ def init_run(log_path, seed):
     sys.stdout = f
 
 
-def generate_adj_mat(dataset, device, n_fakes=0):
+def generate_adj_mat(dataset, device):
     train_array = np.array(dataset.train_array)
     users, items = train_array[:, 0], train_array[:, 1]
-    row = np.concatenate([users, items + dataset.n_users + n_fakes], axis=0)
-    col = np.concatenate([items + dataset.n_users + n_fakes, users], axis=0)
+    row = np.concatenate([users, items + dataset.n_users], axis=0)
+    col = np.concatenate([items + dataset.n_users, users], axis=0)
     row = torch.tensor(row, dtype=torch.int64, device=device)
     col = torch.tensor(col, dtype=torch.int64, device=device)
-    adj_mat = TorchSparseMat(row, col, (dataset.n_users + n_fakes + dataset.n_items,
-                                        dataset.n_users + n_fakes + dataset.n_items), device)
+    adj_mat = TorchSparseMat(row, col, (dataset.n_users + dataset.n_items,
+                                        dataset.n_users + dataset.n_items), device)
     return adj_mat
 
 
@@ -49,6 +49,10 @@ class TorchSparseMat:
         self.g = dgl.graph((self.col, self.row), num_nodes=max(shape), device=device)
         self.n_non_zeros = self.row.shape[0]
         self.eps = torch.tensor(1.e-8, dtype=torch.float32, device=self.device)
+        values = torch.ones([self.n_non_zeros], dtype=torch.float32, device=self.device)
+        degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
+        degree = torch.where(degree > 0, degree, self.eps)
+        self.inv_deg = torch.pow(degree, -0.5)
 
     def spmm(self, r_mat, value_tensor=None, norm=None):
         if value_tensor is None:
@@ -62,10 +66,7 @@ class TorchSparseMat:
         padded_r_mat = torch.cat([r_mat, padding_tensor], dim=0)
 
         if norm == 'both':
-            degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
-            degree = torch.where(degree > 0, degree, self.eps)
-            inv_deg = torch.pow(degree, -0.5)
-            values = values * inv_deg[self.row] * inv_deg[self.col]
+            values = values * self.inv_deg[self.row] * self.inv_deg[self.col]
         x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)
         return x[:self.shape[0], :]
 

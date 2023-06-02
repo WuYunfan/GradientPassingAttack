@@ -58,7 +58,7 @@ def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, writer, verbose
 
 
 def run_new_items_recall(log_path, seed, lr, l2_reg,
-                         pp_threshold, pp_alpha, n_epochs, run_method, trial=None, verbose=False):
+                         pp_threshold, n_epochs, run_method, trial=None, verbose=False):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[0]
@@ -112,7 +112,6 @@ def run_new_items_recall(log_path, seed, lr, l2_reg,
 
     if run_method == 2:
         trainer_config['pp_threshold'] = pp_threshold
-        trainer_config['pp_alpha'] = pp_alpha
         writer = SummaryWriter(os.path.join(log_path, names[run_method]))
         set_seed(seed)
         new_model = get_model(model_config, full_dataset)
@@ -139,10 +138,9 @@ def main():
     lr = None
     l2_reg = None
     pp_threshold = None
-    pp_alpha = None
     n_epochs = 1000
     run_method = 0
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_epochs, run_method)
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run_method)
     print('Jaccard similarity', jaccard_sim)
 
 
