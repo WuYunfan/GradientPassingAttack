@@ -10,7 +10,8 @@ from utils import AverageMeter, generate_adj_mat
 import torch.nn.functional as F
 import scipy.sparse as sp
 import optuna
-from utils import mse_loss
+from utils import mse_loss, TorchSparseMat
+from dataset import get_negative_items
 
 
 def get_trainer(config, model):
@@ -26,10 +27,37 @@ def get_trainer(config, model):
 class PPConfig:
     def __init__(self, trainer_config):
         self.order = 0
-        if 'pp_alpha' in trainer_config:
+        if 'pp_threshold' in trainer_config:
             self.order = trainer_config.get('pp_order', 2)
             self.threshold = trainer_config['pp_threshold']
-            self.alpha = trainer_config.get('alpha', 1.)
+            self.alpha = trainer_config.get('pp_alpha', 1.)
+            if trainer_config['name'] == 'MSETrainer':
+                dataset = trainer_config['dataset']
+                device = trainer_config['device']
+                model = trainer_config['model']
+
+                train_array = torch.tensor(dataset.train_array, dtype=torch.int64, device=device)
+                users, items = train_array[:, 0], train_array[:, 1]
+                row = torch.cat([users, items + model.n_users])
+                col = torch.cat([items + model.n_users, users])
+                self.p_mat = TorchSparseMat(row, col, (model.n_users + model.n_items,
+                                                       model.n_users + model.n_items), device)
+
+                neg_array = []
+                for user in range(dataset.n_users):
+                    neg_data = np.zeros((len(dataset.train_data[user]), 2), np.int64)
+                    neg_data[:, 0] = user
+                    neg_data[:, 1] = get_negative_items(dataset, user, neg_data.shape[0])
+                    neg_array.append(neg_data)
+                neg_array = np.concatenate(neg_array, axis=0)
+                neg_array = torch.tensor(neg_array, dtype=torch.int64, device=device)
+                users, items = neg_array[:, 0], neg_array[:, 1]
+                row = torch.cat([users, items + model.n_users])
+                col = torch.cat([items + model.n_users, users])
+                self.n_mat = TorchSparseMat(row, col, (model.n_users + model.n_items,
+                                                       model.n_users + model.n_items), device)
+
+
 
 
 class BasicTrainer:
@@ -121,13 +149,9 @@ class BasicTrainer:
                     print('Early stopping at epoch {:d}!'.format(self.epoch))
                     break
 
-            if extra_eval is not None:
-                jaccard_sim = extra_eval[0](self, *extra_eval[1], writer, verbose)
-            if trial is not None:
-                if extra_eval is not None:
-                    trial.report(jaccard_sim, self.epoch)
-                else:
-                    trial.report(ndcg, self.epoch)
+            extra_eval[0](self, *extra_eval[1], writer, verbose)
+            if trial is not None and extra_eval is None:
+                trial.report(ndcg, self.epoch)
                 if trial.should_prune():
                     raise optuna.exceptions.TrialPruned()
 
@@ -168,7 +192,7 @@ class BasicTrainer:
             metrics['NDCG'][k] = ndcgs[user_masks].mean()
         return metrics
 
-    def get_rec_items(self, val_or_test, banned_items, k=None):
+    def get_rec_items(self, val_or_test, banned_items=None, k=None):
         rec_items = []
         with torch.no_grad():
             for users in self.test_user_loader:

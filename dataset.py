@@ -5,6 +5,7 @@ import random
 import sys
 import time
 import json
+import torch
 
 
 def get_dataset(config):
@@ -42,6 +43,13 @@ def output_data(file_path, data):
         for user in range(len(data)):
             u_items = [str(user)] + [str(item) for item in data[user]]
             f.write(' '.join(u_items) + '\n')
+
+
+def get_negative_items(dataset, user, num):
+    pos_items = set(dataset.train_data[user])
+    neg_items = set(range(dataset.n_items)) - pos_items
+    neg_items = np.random.choice(list(neg_items), num)
+    return neg_items
 
 
 class BasicDataset(Dataset):
@@ -117,14 +125,12 @@ class BasicDataset(Dataset):
         user = random.randint(0, self.n_users - 1)
         while not self.train_data[user]:
             user = random.randint(0, self.n_users - 1)
+
         pos_item = np.random.choice(self.train_data[user])
-        data_with_negs = [[user, pos_item] for _ in range(self.negative_sample_ratio)]
-        for idx in range(self.negative_sample_ratio):
-            neg_item = random.randint(0, self.n_items - 1)
-            while neg_item in self.train_data[user]:
-                neg_item = random.randint(0, self.n_items - 1)
-            data_with_negs[idx].append(neg_item)
-        data_with_negs = np.array(data_with_negs, dtype=np.int64)
+        data_with_negs = torch.ones((self.negative_sample_ratio, 3), dtype=torch.int64, device=self.device)
+        data_with_negs[:, 0] = user
+        data_with_negs[:, 1] = pos_item
+        data_with_negs[:, 2] = get_negative_items(self, user, self.negative_sample_ratio)
         return data_with_negs
 
     def output_dataset(self, path):

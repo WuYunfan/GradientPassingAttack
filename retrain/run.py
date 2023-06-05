@@ -16,16 +16,14 @@ def eval_rec_on_new_users(trainer, n_old_users, writer, verbose):
     for user in range(n_old_users):
         trainer.dataset.val_data[user] = []
     results, metrics = trainer.eval('val')
-    if verbose:
-        print('New users and all items result. {:s}'.format(results))
+    print('New users and all items result. {:s}'.format(results))
     trainer.dataset.val_data = val_data.copy()
     trainer.record(writer, 'new_user', metrics)
 
     for user in range(n_old_users, trainer.model.n_users):
         trainer.dataset.val_data[user] = []
     results, metrics = trainer.eval('val')
-    if verbose:
-        print('Old users and all items result. {:s}'.format(results))
+    print('Old users and all items result. {:s}'.format(results))
     trainer.dataset.val_data = val_data.copy()
     trainer.record(writer, 'old_user', metrics)
 
@@ -62,9 +60,11 @@ def calculate_ndcg(rec_items, full_rec_items, denominator):
 
 
 def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, topks, writer, verbose):
+    if not verbose:
+        return
     eval_rec_on_new_users(trainer, n_old_users, writer, verbose)
     n = full_rec_items.shape[0]
-    rec_items = trainer.get_rec_items('test', max(topks))[:n, :]
+    rec_items = trainer.get_rec_items('test', k=max(topks))[:n, :]
     metrics = {'Jaccard': {}, 'NDCG': {}}
 
     denominator = np.log2(np.arange(2, max(topks) + 2, dtype=np.float32))[None, :]
@@ -72,15 +72,15 @@ def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, topks, writer, 
         metrics['Jaccard'][k] = np.mean(calculate_jaccard_similarity(rec_items[:, :k], full_rec_items[:, :k]))
         metrics['NDCG'][k] = np.mean(calculate_ndcg(rec_items[:, :k], full_rec_items[:, :k], denominator))
 
-    if verbose:
-        jaccard = ''
-        ndcg = ''
-        for k in topks:
-            jaccard += '{:.3f}%@{:d}, '.format(metrics['Jaccard'][k] * 100., k)
-            ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100., k)
-        results = 'Jaccard similarity: {:s}NDCG: {:s}'.format(jaccard, ndcg)
-        print(results)
-    trainer.record(writer, 'surrogate', metrics, topks)
+    jaccard = ''
+    ndcg = ''
+    for k in topks:
+        jaccard += '{:.3f}%@{:d}, '.format(metrics['Jaccard'][k] * 100., k)
+        ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100., k)
+    results = 'Jaccard similarity: {:s}NDCG: {:s}'.format(jaccard, ndcg)
+    print(results)
+    if writer is not None:
+        trainer.record(writer, 'surrogate', metrics, topks)
     return metrics['Jaccard'][topks[0]]
 
 
@@ -110,12 +110,15 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run
     else:
         trainer.train(verbose=False)
         full_train_model.save('retrain/full_train_model.pth')
-    full_rec_items = trainer.get_rec_items('test', max(topks))[:sub_dataset.n_users, :]
+    full_rec_items = trainer.get_rec_items('test', k=max(topks))[:sub_dataset.n_users, :]
 
+    if not verbose:
+        trainer_config['val_interval'] = 1000
     trainer_config['n_epochs'] = n_epochs if n_epochs is not None else trainer_config['n_epochs']
     trainer_config['lr'] = lr if lr is not None else trainer_config['lr']
     trainer_config['l2_reg'] = l2_reg if l2_reg is not None else trainer_config['l2_reg']
     names = {0: 'full_retrain', 1: 'part_retrain', 2: 'pp_retrain'}
+
     if run_method == 0:
         writer = SummaryWriter(os.path.join(log_path, names[run_method]))
         set_seed(seed)
@@ -149,11 +152,8 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run
         writer.close()
         print('Retrain with parameter propagation!')
 
-    ea = event_accumulator.EventAccumulator(os.path.join(log_path, names[run_method]))
-    ea.Reload()
-    kl_divergences = ea.Scalars('{:s}_{:s}/Jaccard_similarity'.format(new_trainer.model.name, new_trainer.name))
-    kl_divergences = [x.value for x in kl_divergences]
-    return kl_divergences[-1]
+    jaccard_sim = eval_rec_and_surrogate(new_trainer, sub_dataset.n_users, full_rec_items, topks, None, True)
+    return jaccard_sim
 
 
 def main():

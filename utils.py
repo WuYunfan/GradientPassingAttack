@@ -29,12 +29,10 @@ def init_run(log_path, seed):
 
 
 def generate_adj_mat(dataset, device):
-    train_array = np.array(dataset.train_array)
+    train_array = torch.tensor(dataset.train_array, dtype=torch.int64, device=device)
     users, items = train_array[:, 0], train_array[:, 1]
-    row = np.concatenate([users, items + dataset.n_users], axis=0)
-    col = np.concatenate([items + dataset.n_users, users], axis=0)
-    row = torch.tensor(row, dtype=torch.int64, device=device)
-    col = torch.tensor(col, dtype=torch.int64, device=device)
+    row = torch.cat([users, items + dataset.n_users])
+    col = torch.cat([items + dataset.n_users, users])
     adj_mat = TorchSparseMat(row, col, (dataset.n_users + dataset.n_items,
                                         dataset.n_users + dataset.n_items), device)
     return adj_mat
@@ -48,8 +46,9 @@ class TorchSparseMat:
         self.col = col
         self.g = dgl.graph((self.col, self.row), num_nodes=max(shape), device=device)
         self.n_non_zeros = self.row.shape[0]
-        self.eps = torch.tensor(1.e-8, dtype=torch.float32, device=self.device)
-        values = torch.ones([self.n_non_zeros], dtype=torch.float32, device=self.device)
+
+        self.eps = torch.tensor(1.e-8, dtype=torch.float32, device=device)
+        values = torch.ones([self.n_non_zeros], dtype=torch.float32, device=device)
         degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
         degree = torch.where(degree > 0, degree, self.eps)
         self.inv_deg = torch.pow(degree, -0.5)
