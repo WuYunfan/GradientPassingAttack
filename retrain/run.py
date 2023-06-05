@@ -37,28 +37,55 @@ def initial_parameter(new_model, pre_train_model):
         new_model.embedding.weight.data[-dataset.n_items:, :] = pre_train_model.embedding.weight[-dataset.n_items:, :]
 
 
-def jaccard_similarity(list1, list2):
-    intersection = len(np.intersect1d(list1, list2))
-    union = len(np.union1d(list1, list2))
-    return 1. * intersection / union
-
-
-def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, writer, verbose):
-    eval_rec_on_new_users(trainer, n_old_users, writer, verbose)
-    jaccard_sim = 0
-    n = full_rec_items.shape[0]
-    rec_items = trainer.get_rec_items('test', None)[:n, :]
+def calculate_jaccard_similarity(rec_items, full_rec_items):
+    n = rec_items.shape[0]
+    jaccard_sims = np.zeros((n, ), dtype=np.float32)
     for i in range(n):
-        jaccard_sim += jaccard_similarity(rec_items[i], full_rec_items[i])
-    jaccard_sim /= n
+        intersection = np.intersect1d(rec_items[i, :], full_rec_items[i, :]).shape[0]
+        union = np.union1d(rec_items[i, :], full_rec_items[i, :]).shape[0]
+        jaccard_sims[i] = 1. * intersection / union
+    return jaccard_sims
+
+
+def calculate_ndcg(rec_items, full_rec_items, denominator):
+    n, k = rec_items.shape[0], rec_items.shape[1]
+    hit_matrix = np.zeros_like(rec_items, dtype=np.float32)
+    for user in range(n):
+        for item_idx in range(k):
+            if rec_items[user, item_idx] in full_rec_items[user]:
+                hit_matrix[user, item_idx] = 1.
+
+    dcgs = np.sum(hit_matrix / denominator[:, :k], axis=1)
+    idcgs = np.sum(1. / denominator[:, :k], axis=1)
+    ndcgs = dcgs / idcgs
+    return ndcgs
+
+
+def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, topks, writer, verbose):
+    eval_rec_on_new_users(trainer, n_old_users, writer, verbose)
+    n = full_rec_items.shape[0]
+    rec_items = trainer.get_rec_items('test', max(topks))[:n, :]
+    metrics = {'Jaccard': {}, 'NDCG': {}}
+
+    denominator = np.log2(np.arange(2, max(topks) + 2, dtype=np.float32))[None, :]
+    for k in topks:
+        metrics['Jaccard'][k] = np.mean(calculate_jaccard_similarity(rec_items[:, :k], full_rec_items[:, :k]))
+        metrics['NDCG'][k] = np.mean(calculate_ndcg(rec_items[:, :k], full_rec_items[:, :k], denominator))
+
     if verbose:
-        print('Jaccard similarity {:.4f}'.format(jaccard_sim))
-    writer.add_scalar('{:s}_{:s}/Jaccard_similarity'.format(trainer.model.name, trainer.name), jaccard_sim, trainer.epoch)
-    return jaccard_sim
+        jaccard = ''
+        ndcg = ''
+        for k in topks:
+            jaccard += '{:.3f}%@{:d}, '.format(metrics['Jaccard'][k] * 100., k)
+            ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100., k)
+        results = 'Jaccard similarity: {:s}NDCG: {:s}'.format(jaccard, ndcg)
+        print(results)
+    trainer.record(writer, 'surrogate', metrics, topks)
+    return metrics['Jaccard'][topks[0]]
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg,
-                         pp_threshold, n_epochs, run_method, trial=None, verbose=False):
+def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run_method,
+                         trial=None, verbose=False, topks=(50, 200)):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[0]
@@ -83,7 +110,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg,
     else:
         trainer.train(verbose=False)
         full_train_model.save('retrain/full_train_model.pth')
-    full_rec_items = trainer.get_rec_items('test', None)[:sub_dataset.n_users, :]
+    full_rec_items = trainer.get_rec_items('test', max(topks))[:sub_dataset.n_users, :]
 
     trainer_config['n_epochs'] = n_epochs if n_epochs is not None else trainer_config['n_epochs']
     trainer_config['lr'] = lr if lr is not None else trainer_config['lr']
@@ -94,7 +121,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg,
         set_seed(seed)
         new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
-        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items))
+        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
         new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Limited full Retrain!')
@@ -105,7 +132,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg,
         new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
-        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items))
+        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
         new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Part Retrain!')
@@ -117,7 +144,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg,
         new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
-        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items))
+        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
         new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval, trial=trial)
         writer.close()
         print('Retrain with parameter propagation!')

@@ -62,9 +62,11 @@ class BasicTrainer:
     def train_one_epoch(self):
         raise NotImplementedError
 
-    def record(self, writer, stage, metrics):
+    def record(self, writer, stage, metrics, topks=None):
+        if topks is None:
+            topks = self.topks
         for metric in metrics:
-            for k in self.topks:
+            for k in topks:
                 writer.add_scalar('{:s}_{:s}/{:s}_{:s}@{:d}'
                                   .format(self.model.name, self.name, stage, metric, k)
                                   , metrics[metric][k], self.epoch)
@@ -135,13 +137,14 @@ class BasicTrainer:
         return self.best_ndcg
 
     def calculate_metrics(self, eval_data, rec_items):
-        results = {'Precision': {}, 'Recall': {}, 'NDCG': {}}
+        metrics = {'Precision': {}, 'Recall': {}, 'NDCG': {}}
         hit_matrix = np.zeros_like(rec_items, dtype=np.float32)
         for user in range(rec_items.shape[0]):
             for item_idx in range(rec_items.shape[1]):
                 if rec_items[user, item_idx] in eval_data[user]:
                     hit_matrix[user, item_idx] = 1.
         eval_data_len = np.array([len(items) for items in eval_data], dtype=np.int32)
+        denominator = np.log2(np.arange(2, rec_items.shape[1] + 2, dtype=np.float32))[None, :]
 
         for k in self.topks:
             hit_num = np.sum(hit_matrix[:, :k], axis=1)
@@ -153,17 +156,17 @@ class BasicTrainer:
             max_hit_matrix = np.zeros_like(hit_matrix[:, :k], dtype=np.float32)
             for user, num in enumerate(max_hit_num):
                 max_hit_matrix[user, :num] = 1.
-            denominator = np.log2(np.arange(2, k + 2, dtype=np.float32))[None, :]
-            dcgs = np.sum(hit_matrix[:, :k] / denominator, axis=1)
-            idcgs = np.sum(max_hit_matrix / denominator, axis=1)
+
+            dcgs = np.sum(hit_matrix[:, :k] / denominator[:, :k], axis=1)
+            idcgs = np.sum(max_hit_matrix / denominator[:, :k], axis=1)
             with np.errstate(invalid='ignore'):
                 ndcgs = dcgs / idcgs
 
             user_masks = (max_hit_num > 0)
-            results['Precision'][k] = precisions[user_masks].mean()
-            results['Recall'][k] = recalls[user_masks].mean()
-            results['NDCG'][k] = ndcgs[user_masks].mean()
-        return results
+            metrics['Precision'][k] = precisions[user_masks].mean()
+            metrics['Recall'][k] = recalls[user_masks].mean()
+            metrics['NDCG'][k] = ndcgs[user_masks].mean()
+        return metrics
 
     def get_rec_items(self, val_or_test, banned_items, k=None):
         rec_items = []
