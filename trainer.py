@@ -58,8 +58,6 @@ class PPConfig:
                                                        model.n_users + model.n_items), device)
 
 
-
-
 class BasicTrainer:
     def __init__(self, trainer_config):
         if trainer_config.get('verbose', True):

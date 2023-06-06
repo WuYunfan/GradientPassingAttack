@@ -47,8 +47,12 @@ def output_data(file_path, data):
 
 def get_negative_items(dataset, user, num):
     pos_items = set(dataset.train_data[user])
-    neg_items = set(range(dataset.n_items)) - pos_items
-    neg_items = np.random.choice(list(neg_items), num)
+    neg_items = np.ones((num, ), dtype=np.int64)
+    for i in range(num):
+        item = random.randint(0, dataset.n_items - 1)
+        while item in pos_items:
+            item = random.randint(0, dataset.n_items - 1)
+        neg_items[i] = item
     return neg_items
 
 
@@ -127,7 +131,7 @@ class BasicDataset(Dataset):
             user = random.randint(0, self.n_users - 1)
 
         pos_item = np.random.choice(self.train_data[user])
-        data_with_negs = torch.ones((self.negative_sample_ratio, 3), dtype=torch.int64, device=self.device)
+        data_with_negs = np.ones((self.negative_sample_ratio, 3), dtype=np.int64)
         data_with_negs[:, 0] = user
         data_with_negs[:, 1] = pos_item
         data_with_negs[:, 2] = get_negative_items(self, user, self.negative_sample_ratio)
