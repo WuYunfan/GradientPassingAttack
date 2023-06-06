@@ -127,7 +127,7 @@ class BasicModel(nn.Module):
         return pos_scores, neg_scores, l2_norm_sq
 
     def mse_forward(self, users, pp_config):
-        l2_rep, rep = self.pp_rep(pp_config, users)
+        l2_rep, rep = self.pp_rep(pp_config, users, None, None, None)
         users_r = rep[users, :]
         all_items_r = rep[self.n_users:, :]
         scores = torch.mm(users_r, all_items_r.t())
