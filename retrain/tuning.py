@@ -26,7 +26,7 @@ def objective(trial):
     pp_threshold_n = None if run_method != 2 else trial.suggest_float('pp_threshold_n', 0., 1.,)
 
     jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg,
-                                       (pp_threshold_p, pp_threshold_n), n_epochs, run_method, trial=trial)
+                                       (pp_threshold_p, pp_threshold_n), n_epochs, run_method)
     return jaccard_sim
 
 

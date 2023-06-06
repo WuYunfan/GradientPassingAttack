@@ -85,7 +85,7 @@ def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, topks, writer, 
 
 
 def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run_method,
-                         trial=None, verbose=False, topks=(50, 200)):
+                         verbose=False, topks=(50, 200)):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[0]
@@ -125,7 +125,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run
         new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
         extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
-        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval, trial=trial)
+        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
         writer.close()
         print('Limited full Retrain!')
 
@@ -136,7 +136,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
         extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
-        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval, trial=trial)
+        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
         writer.close()
         print('Part Retrain!')
 
@@ -148,7 +148,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
         extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
-        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval, trial=trial)
+        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
         writer.close()
         print('Retrain with parameter propagation!')
 
