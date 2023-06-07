@@ -101,8 +101,8 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_e
         pre_train_config['n_epochs'] = n_epochs
         trainer = get_trainer(pre_train_config, pre_train_model)
         trainer.train(verbose=False)
+        dataset_config['path'] = dataset_config['path'][:-7] + 'time'
 
-    dataset_config['path'] = dataset_config['path'][:-7] + 'time'
     full_dataset = get_dataset(dataset_config)
     full_train_model = get_model(model_config, full_dataset)
     trainer = get_trainer(trainer_config, full_train_model)
