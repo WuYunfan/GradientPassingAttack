@@ -46,7 +46,7 @@ def output_data(file_path, data):
 
 
 def get_negative_items(dataset, user, num):
-    pos_items = set(dataset.train_data[user])
+    pos_items = dataset.train_data_set[user]
     neg_items = np.ones((num, ), dtype=np.int64)
     for i in range(num):
         item = random.randint(0, dataset.n_items - 1)
@@ -70,6 +70,7 @@ class BasicDataset(Dataset):
         self.n_items = 0
         self.user_inter_lists = None
         self.train_data = None
+        self.train_data_set = None
         self.val_data = None
         self.attack_data = None
         self.train_array = None
@@ -147,6 +148,7 @@ class ProcessedDataset(BasicDataset):
     def __init__(self, dataset_config):
         super(ProcessedDataset, self).__init__(dataset_config)
         self.train_data = self.read_data(os.path.join(dataset_config['path'], 'train.txt'))
+        self.train_data_set = [set(items) for items in self.train_data]
         self.val_data = self.read_data(os.path.join(dataset_config['path'], 'val.txt'))
         assert len(self.train_data) == len(self.val_data)
         self.n_users = len(self.train_data)
