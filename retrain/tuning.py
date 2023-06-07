@@ -9,18 +9,13 @@ import shutil
 import os
 
 
-def objective(trial):
-    n_epochs = 100
-    run_method = 2
-    names = {0: 'full_retrain', 1: 'part_retrain', 2: 'pp_retrain'}
-    name = names[run_method]
-
+def objective(trial, name, run_method, n_epochs):
     log_path = __file__[:-3]
     if os.path.exists(os.path.join(log_path, name)):
         shutil.rmtree(os.path.join(log_path, name))
 
     lr = trial.suggest_float('lr', 1e-5, 1e-1, log=True)
-    l2_reg = trial.suggest_float('l2_reg', 1e-5, 1e-1, log=True)
+    l2_reg = trial.suggest_float('l2_reg', 0., 1e-1)
 
     pp_alpha = None if run_method != 2 else trial.suggest_float('pp_alpha', 1.e-2, 1., log=True)
     pp_threshold_p = None if run_method != 2 else trial.suggest_float('pp_threshold_p', 0., 1.,)
@@ -35,13 +30,24 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = 'retrain-tuning'
-    storage_name = 'sqlite:///../{}.db'.format(study_name)
-    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
+    n_epochs = 100
+    run_method = 2
+    names = {0: 'full_retrain', 1: 'part_retrain', 2: 'pp_retrain'}
+    name = names[run_method]
 
-    call_back = MaxTrialsCallback(100, states=(TrialState.RUNNING, TrialState.COMPLETE, TrialState.PRUNED))
-    study.optimize(objective, callbacks=[call_back])
+    search_space = {'lr': [1.e-3, 1.e-2, 1.e-1], 'l2_reg': [0., 1.e-4, 1.e-3, 1.e-2]}
+    if run_method == 2:
+        search_space['pp_alpha'] = [0.01, 0.1, 1.]
+        search_space['pp_threshold_p'] = [0.5, 0.6, 0.7]
+        search_space['pp_threshold_n'] = [0.8, 0.9]
+
+    optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
+    study_name = name + '-' + str(n_epochs)
+    storage_name = 'sqlite:///../{}.db'.format(study_name)
+    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
+                                sampler=optuna.samplers.GridSampler(search_space))
+
+    study.optimize(lambda trial: objective(trial, name, run_method, n_epochs))
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 

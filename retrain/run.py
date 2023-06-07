@@ -8,7 +8,7 @@ from config import get_gowalla_config
 import numpy as np
 import os
 from tensorboard.backend.event_processing import event_accumulator
-
+import time
 
 def eval_rec_on_new_users(trainer, n_old_users, writer):
     val_data = trainer.dataset.val_data.copy()
@@ -64,6 +64,7 @@ def calculate_ndcg(rec_items, full_rec_items, denominator):
 def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, topks, writer, verbose):
     if not verbose:
         return
+    start_time = time.time()
     eval_rec_on_new_users(trainer, n_old_users, writer)
     n = full_rec_items.shape[0]
     rec_items = trainer.get_rec_items('test', k=max(topks))[:n, :]
@@ -80,7 +81,8 @@ def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, topks, writer, 
         jaccard += '{:.3f}%@{:d}, '.format(metrics['Jaccard'][k] * 100., k)
         ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100., k)
     results = 'Jaccard similarity: {:s}NDCG: {:s}'.format(jaccard, ndcg)
-    print(results)
+    consumed_time = time.time() - start_time
+    print(results, 'Time: {:.3f}s'.format(consumed_time))
     if writer is not None:
         trainer.record(writer, 'surrogate', metrics, topks)
     return metrics['Jaccard'][topks[0]]
@@ -93,16 +95,6 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_e
     dataset_config, model_config, trainer_config = config[0]
     trainer_config['max_patience'] = trainer_config['n_epochs']
 
-    dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
-    sub_dataset = get_dataset(dataset_config)
-    if run_method != 0:
-        pre_train_model = get_model(model_config, sub_dataset)
-        pre_train_config = trainer_config.copy()
-        pre_train_config['n_epochs'] = n_epochs
-        trainer = get_trainer(pre_train_config, pre_train_model)
-        trainer.train(verbose=False)
-
-    dataset_config['path'] = dataset_config['path'][:-7] + 'time'
     full_dataset = get_dataset(dataset_config)
     full_train_model = get_model(model_config, full_dataset)
     trainer = get_trainer(trainer_config, full_train_model)
@@ -111,6 +103,9 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_e
     else:
         trainer.train(verbose=False)
         full_train_model.save('retrain/full_train_model.pth')
+
+    dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
+    sub_dataset = get_dataset(dataset_config)
     full_rec_items = trainer.get_rec_items('test', k=max(topks))[:sub_dataset.n_users, :]
 
     if not verbose:
@@ -118,8 +113,12 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_e
     trainer_config['n_epochs'] = n_epochs if n_epochs is not None else trainer_config['n_epochs']
     trainer_config['lr'] = lr if lr is not None else trainer_config['lr']
     trainer_config['l2_reg'] = l2_reg if l2_reg is not None else trainer_config['l2_reg']
-    extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
+    if run_method != 0:
+        pre_train_model = get_model(model_config, sub_dataset)
+        trainer = get_trainer(trainer_config, pre_train_model)
+        trainer.train(verbose=False)
 
+    extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
     names = {0: 'full_retrain', 1: 'part_retrain', 2: 'pp_retrain'}
     writer = SummaryWriter(os.path.join(log_path, names[run_method]))
     new_model = get_model(model_config, full_dataset)
