@@ -96,14 +96,10 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_e
     dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
     sub_dataset = get_dataset(dataset_config)
     pre_train_model = get_model(model_config, sub_dataset)
-    if os.path.exists('retrain/pre_train_model.pth'):
-        pre_train_model.load('retrain/pre_train_model.pth')
-    else:
-        pre_train_config = trainer_config.copy()
-        pre_train_config['n_epochs'] = n_epochs
-        trainer = get_trainer(pre_train_config, pre_train_model)
-        trainer.train(verbose=False)
-        pre_train_model.save('retrain/pre_train_model.pth')
+    pre_train_config = trainer_config.copy()
+    pre_train_config['n_epochs'] = n_epochs
+    trainer = get_trainer(pre_train_config, pre_train_model)
+    trainer.train(verbose=False)
 
     dataset_config['path'] = dataset_config['path'][:-7] + 'time'
     full_dataset = get_dataset(dataset_config)
@@ -160,9 +156,10 @@ def main():
     lr = None
     l2_reg = None
     pp_threshold = None
-    n_epochs = 1000
-    run_method = 0
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run_method)
+    pp_alpha = None
+    n_epochs = None
+    run_method = None
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_epochs, run_method)
     print('Jaccard similarity', jaccard_sim)
 
 
