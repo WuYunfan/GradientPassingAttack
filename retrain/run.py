@@ -93,13 +93,14 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_e
     dataset_config, model_config, trainer_config = config[0]
     trainer_config['max_patience'] = trainer_config['n_epochs']
 
-    dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
-    sub_dataset = get_dataset(dataset_config)
-    pre_train_model = get_model(model_config, sub_dataset)
-    pre_train_config = trainer_config.copy()
-    pre_train_config['n_epochs'] = n_epochs
-    trainer = get_trainer(pre_train_config, pre_train_model)
-    trainer.train(verbose=False)
+    if run_method != 0:
+        dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
+        sub_dataset = get_dataset(dataset_config)
+        pre_train_model = get_model(model_config, sub_dataset)
+        pre_train_config = trainer_config.copy()
+        pre_train_config['n_epochs'] = n_epochs
+        trainer = get_trainer(pre_train_config, pre_train_model)
+        trainer.train(verbose=False)
 
     dataset_config['path'] = dataset_config['path'][:-7] + 'time'
     full_dataset = get_dataset(dataset_config)
