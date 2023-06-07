@@ -147,7 +147,8 @@ class BasicTrainer:
                     print('Early stopping at epoch {:d}!'.format(self.epoch))
                     break
 
-            extra_eval[0](self, *extra_eval[1], writer, verbose)
+            if extra_eval:
+                extra_eval[0](self, *extra_eval[1], writer, verbose)
             if trial is not None and extra_eval is None:
                 trial.report(ndcg, self.epoch)
                 if trial.should_prune():

@@ -121,42 +121,32 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_e
     trainer_config['n_epochs'] = n_epochs if n_epochs is not None else trainer_config['n_epochs']
     trainer_config['lr'] = lr if lr is not None else trainer_config['lr']
     trainer_config['l2_reg'] = l2_reg if l2_reg is not None else trainer_config['l2_reg']
+    extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
 
     names = {0: 'full_retrain', 1: 'part_retrain', 2: 'pp_retrain'}
+    writer = SummaryWriter(os.path.join(log_path, names[run_method]))
+    new_model = get_model(model_config, full_dataset)
+    set_seed(seed)
     if run_method == 0:
-        writer = SummaryWriter(os.path.join(log_path, names[run_method]))
-        set_seed(seed)
-        new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
-        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
         new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
-        writer.close()
         print('Limited full Retrain!')
 
     if run_method == 1:
-        writer = SummaryWriter(os.path.join(log_path, names[run_method]))
-        set_seed(seed)
-        new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
-        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
         new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
-        writer.close()
         print('Part Retrain!')
 
     if run_method == 2:
         trainer_config['pp_threshold'] = pp_threshold
         trainer_config['pp_alpha'] = pp_alpha
-        writer = SummaryWriter(os.path.join(log_path, names[run_method]))
-        set_seed(seed)
-        new_model = get_model(model_config, full_dataset)
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
-        extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
         new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
-        writer.close()
         print('Retrain with parameter propagation!')
 
+    writer.close()
     jaccard_sim = eval_rec_and_surrogate(new_trainer, sub_dataset.n_users, full_rec_items, topks, None, True)
     return jaccard_sim
 
