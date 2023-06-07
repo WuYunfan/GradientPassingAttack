@@ -21,12 +21,13 @@ def objective(trial):
 
     lr = trial.suggest_float('lr', 1e-5, 1e-1, log=True)
     l2_reg = trial.suggest_float('l2_reg', 1e-5, 1e-1, log=True)
-    # pp_alpha = None if run_method != 2 else trial.suggest_float('pp_alpha', 1.e-1, 1.e1, log=True)
+
+    pp_alpha = None if run_method != 2 else trial.suggest_float('pp_alpha', 1.e-2, 1., log=True)
     pp_threshold_p = None if run_method != 2 else trial.suggest_float('pp_threshold_p', 0., 1.,)
     pp_threshold_n = None if run_method != 2 else trial.suggest_float('pp_threshold_n', 0., 1.,)
 
     jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg,
-                                       (pp_threshold_p, pp_threshold_n), n_epochs, run_method)
+                                       (pp_threshold_p, pp_threshold_n), pp_alpha, n_epochs, run_method)
     return jaccard_sim
 
 

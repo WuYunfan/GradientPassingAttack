@@ -24,15 +24,15 @@ class PPFunction(Function):
     @staticmethod
     def backward(ctx, grad_out):
         order = ctx.order
-        p_threshold, n_threshold = ctx.threshold
+        threshold_p, threshold_n = ctx.threshold
         alpha = ctx.alpha
         p_mat, n_mat = ctx.mat
         rep = ctx.saved_tensors[0]
 
         p_values = torch.sigmoid(torch.sum(rep[p_mat.row, :] * rep[p_mat.col, :], dim=1))
-        p_values = torch.le(p_values, p_threshold).to(torch.float32)
+        p_values = torch.le(p_values, threshold_p).to(torch.float32)
         n_values = torch.sigmoid(torch.sum(rep[n_mat.row, :] * rep[n_mat.col, :], dim=1))
-        n_values = torch.gt(n_values, n_threshold).to(torch.float32)
+        n_values = torch.gt(n_values, threshold_n).to(torch.float32)
 
         grad = grad_out
         grads = [grad]
