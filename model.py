@@ -24,20 +24,18 @@ class PPFunction(Function):
     @staticmethod
     def backward(ctx, grad_out):
         order = ctx.order
-        threshold_p, threshold_n = ctx.threshold
+        threshold = ctx.threshold
         alpha = ctx.alpha
-        p_mat, n_mat = ctx.mat
+        mat = ctx.mat
         rep = ctx.saved_tensors[0]
 
-        p_values = torch.sigmoid(torch.sum(rep[p_mat.row, :] * rep[p_mat.col, :], dim=1))
-        p_values = torch.le(p_values, threshold_p).to(torch.float32)
-        n_values = torch.sigmoid(torch.sum(rep[n_mat.row, :] * rep[n_mat.col, :], dim=1))
-        n_values = torch.gt(n_values, threshold_n).to(torch.float32)
+        values = torch.sigmoid(torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1))
+        values = torch.gt(values, threshold).to(torch.float32)
 
         grad = grad_out
         grads = [grad]
         for i in range(order):
-            grad = alpha * (p_mat.spmm(grad, p_values, norm='both') - n_mat.spmm(grad, n_values, norm='both'))
+            grad = alpha * mat.spmm(grad, values, norm='both')
             grads.append(grad)
         grad = torch.stack(grads, dim=0).sum(dim=0)
         return grad, None, None, None, None
@@ -85,55 +83,40 @@ class BasicModel(nn.Module):
     def get_rep(self):
         raise NotImplementedError
 
-    def pp_rep(self, pp_config, pos_users, pos_items, neg_users, neg_items):
+    def pp_rep(self, pp_config):
         rep = self.get_rep()
         if pp_config.order == 0:
-            return rep, rep
-
-        if pos_items is None and neg_users is None and neg_items is None:
-            p_mat, n_mat = pp_config.p_mat, pp_config.n_mat
-        else:
-            p_mat = TorchSparseMat(torch.cat([pos_users, self.n_users + pos_items]),
-                                   torch.cat([self.n_users + pos_items, pos_users]),
-                                   (self.n_users + self.n_items, self.n_users + self.n_items), self.device)
-            n_mat = TorchSparseMat(torch.cat([neg_users, self.n_users + neg_items]),
-                                   torch.cat([self.n_users + neg_items, neg_users]),
-                                   (self.n_users + self.n_items, self.n_users + self.n_items), self.device)
-        return rep, PPFunction.apply(rep, pp_config.order, pp_config.threshold, pp_config.alpha, (p_mat, n_mat))
+            return rep
+        return PPFunction.apply(rep, pp_config.order, pp_config.threshold, pp_config.alpha, pp_config.mat)
 
     def bpr_forward(self, users, pos_items, neg_items, pp_config):
-        l2_rep, rep = self.pp_rep(pp_config, users, pos_items, users, neg_items)
+        rep = self.pp_rep(pp_config)
         users_r = rep[users, :]
         pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
-
-        l2_users_r = l2_rep[users, :]
-        l2_pos_items_r, l2_neg_items_r = l2_rep[self.n_users + pos_items, :], l2_rep[self.n_users + neg_items, :]
-        l2_norm_sq = torch.norm(l2_users_r, p=2, dim=1) ** 2 + torch.norm(l2_pos_items_r, p=2, dim=1) ** 2 \
-                     + torch.norm(l2_neg_items_r, p=2, dim=1) ** 2
+        l2_norm_sq = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2 \
+                     + torch.norm(neg_items_r, p=2, dim=1) ** 2
         return users_r, pos_items_r, neg_items_r, l2_norm_sq
 
     def bce_forward(self, pos_users, pos_items, neg_users, neg_items, pp_config):
-        l2_rep, rep = self.pp_rep(pp_config, pos_users, pos_items, neg_users, neg_items)
+        rep = self.pp_rep(pp_config)
         pos_users_r, pos_items_r = rep[pos_users, :], rep[self.n_users + pos_items, :]
         neg_users_r, neg_items_r = rep[neg_users, :], rep[self.n_users + neg_items, :]
         pos_scores = torch.sum(pos_users_r * pos_items_r, dim=1)
         neg_scores = torch.sum(neg_users_r * neg_items_r, dim=1)
 
-        l2_pos_users_r, l2_pos_items_r = l2_rep[pos_users, :], l2_rep[self.n_users + pos_items, :]
-        l2_neg_users_r, l2_neg_items_r = l2_rep[neg_users, :], l2_rep[self.n_users + neg_items, :]
-        pos_l2_norm_sq = torch.norm(l2_pos_users_r, p=2, dim=1) ** 2 + torch.norm(l2_pos_items_r, p=2, dim=1) ** 2
-        neg_l2_norm_sq = torch.norm(l2_neg_users_r, p=2, dim=1) ** 2 + torch.norm(l2_neg_items_r, p=2, dim=1) ** 2
+        pos_l2_norm_sq = torch.norm(pos_users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2
+        neg_l2_norm_sq = torch.norm(neg_users_r, p=2, dim=1) ** 2 + torch.norm(neg_items_r, p=2, dim=1) ** 2
         l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)
         return pos_scores, neg_scores, l2_norm_sq
 
     def mse_forward(self, users, pp_config):
-        l2_rep, rep = self.pp_rep(pp_config, users, None, None, None)
+        rep = self.pp_rep(pp_config)
         users_r = rep[users, :]
         all_items_r = rep[self.n_users:, :]
         scores = torch.mm(users_r, all_items_r.t())
 
-        l2_norm_sq = torch.norm(l2_rep[users, :], p=2) ** 2
-        l2_norm_sq += torch.norm(l2_rep[-self.model.n_items:, :], p=2) ** 2
+        l2_norm_sq = torch.norm(rep[users, :], p=2) ** 2
+        l2_norm_sq += torch.norm(rep[-self.model.n_items:, :], p=2) ** 2
         return scores, l2_norm_sq
 
     def predict(self, users):
@@ -167,7 +150,7 @@ class LightGCN(BasicModel):
         self.to(device=self.device)
 
     def generate_graph(self, dataset):
-        adj_mat = generate_adj_mat(dataset, self.device)
+        adj_mat = generate_adj_mat(dataset, self, self.device)
         return adj_mat
 
     def get_rep(self):

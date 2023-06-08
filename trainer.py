@@ -11,7 +11,6 @@ import torch.nn.functional as F
 import scipy.sparse as sp
 import optuna
 from utils import mse_loss, TorchSparseMat
-from dataset import get_negative_items
 
 
 def get_trainer(config, model):
@@ -28,34 +27,10 @@ class PPConfig:
     def __init__(self, trainer_config):
         self.order = 0
         if 'pp_threshold' in trainer_config:
-            self.order = trainer_config.get('pp_order', 2)
+            self.order = trainer_config.get('pp_order', 1)
             self.threshold = trainer_config['pp_threshold']
             self.alpha = trainer_config.get('pp_alpha', 1.)
-            if trainer_config['name'] == 'MSETrainer':
-                dataset = trainer_config['dataset']
-                device = trainer_config['device']
-                model = trainer_config['model']
-
-                train_array = torch.tensor(dataset.train_array, dtype=torch.int64, device=device)
-                users, items = train_array[:, 0], train_array[:, 1]
-                row = torch.cat([users, items + model.n_users])
-                col = torch.cat([items + model.n_users, users])
-                self.p_mat = TorchSparseMat(row, col, (model.n_users + model.n_items,
-                                                       model.n_users + model.n_items), device)
-
-                neg_array = []
-                for user in range(dataset.n_users):
-                    neg_data = np.zeros((len(dataset.train_data[user]), 2), np.int64)
-                    neg_data[:, 0] = user
-                    neg_data[:, 1] = get_negative_items(dataset, user, neg_data.shape[0])
-                    neg_array.append(neg_data)
-                neg_array = np.concatenate(neg_array, axis=0)
-                neg_array = torch.tensor(neg_array, dtype=torch.int64, device=device)
-                users, items = neg_array[:, 0], neg_array[:, 1]
-                row = torch.cat([users, items + model.n_users])
-                col = torch.cat([items + model.n_users, users])
-                self.n_mat = TorchSparseMat(row, col, (model.n_users + model.n_items,
-                                                       model.n_users + model.n_items), device)
+            self.mat = generate_adj_mat(trainer_config['dataset'], trainer_config['model'], trainer_config['device'])
 
 
 class BasicTrainer:

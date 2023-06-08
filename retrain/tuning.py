@@ -35,7 +35,7 @@ def main():
     names = {0: 'full_retrain', 1: 'part_retrain', 2: 'pp_retrain'}
     name = names[run_method]
 
-    search_space = {'lr': [1.e-3, 1.e-2, 1.e-1], 'l2_reg': [0., 1.e-4, 1.e-3, 1.e-2]}
+    search_space = {'lr': [1.e-3, 1.e-2, 1.e-1], 'l2_reg': [0., 1.e-4, 1.e-3, 1.e-2, 1.e-1]}
     if run_method == 2:
         search_space['pp_alpha'] = [0.01, 0.1, 1.]
         search_space['pp_threshold_p'] = [0.5, 0.6, 0.7]
