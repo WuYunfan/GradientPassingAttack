@@ -10,6 +10,7 @@ import os
 from tensorboard.backend.event_processing import event_accumulator
 import time
 
+
 def eval_rec_on_new_users(trainer, n_old_users, writer):
     val_data = trainer.dataset.val_data.copy()
 

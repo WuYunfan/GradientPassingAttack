@@ -30,7 +30,11 @@ class PPConfig:
             self.order = trainer_config.get('pp_order', 1)
             self.threshold = trainer_config['pp_threshold']
             self.alpha = trainer_config.get('pp_alpha', 1.)
-            self.mat = generate_adj_mat(trainer_config['dataset'], trainer_config['model'], trainer_config['device'])
+
+            model = trainer_config['model']
+            dataset = trainer_config['dataset']
+            device = trainer_config['device']
+            self.mat = generate_adj_mat(dataset.train_array, model, device)
 
 
 class BasicTrainer:
