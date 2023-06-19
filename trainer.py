@@ -26,9 +26,9 @@ def get_trainer(config, model):
 class PPConfig:
     def __init__(self, trainer_config):
         self.order = 0
-        if 'pp_threshold' in trainer_config:
+        if 'pp_proportion' in trainer_config:
             self.order = trainer_config.get('pp_order', 1)
-            self.threshold = trainer_config['pp_threshold']
+            self.proportion = trainer_config['pp_proportion']
             self.alpha = trainer_config.get('pp_alpha', 1.)
 
             model = trainer_config['model']

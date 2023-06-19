@@ -9,13 +9,14 @@ import sys
 import torch.nn.functional as F
 from sklearn.preprocessing import normalize
 from torch.autograd import Function
+import matplotlib.pyplot as plt
 
 
 class PPFunction(Function):
     @staticmethod
-    def forward(ctx, rep, order, threshold, alpha, mat):
+    def forward(ctx, rep, order, proportion, alpha, mat):
         ctx.order = order
-        ctx.threshold = threshold
+        ctx.proportion = proportion
         ctx.alpha = alpha
         ctx.mat = mat
         ctx.save_for_backward(rep)
@@ -24,19 +25,20 @@ class PPFunction(Function):
     @staticmethod
     def backward(ctx, grad_out):
         order = ctx.order
-        threshold = ctx.threshold
+        proportion = ctx.proportion
         alpha = ctx.alpha
         mat = ctx.mat
         rep = ctx.saved_tensors[0]
 
-        values = torch.sigmoid(torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1))
-        values = torch.gt(values, threshold).to(torch.float32)
+        dif = torch.sum(rep[mat.row, :] * grad_out[mat.col, :], dim=1) + \
+              torch.sum(rep[mat.col, :] * grad_out[mat.row, :], dim=1)
+        values = torch.gt(dif, torch.quantile(dif, 1. - proportion)).to(torch.float32)
 
         grad = grad_out
         grads = [grad]
         for i in range(order):
-            grad = alpha * mat.spmm(grad, values, norm='both')
-            grads.append(grad)
+            grad = mat.spmm(grad, values, norm='both')
+            grads.append(alpha * grad)
         grad = torch.stack(grads, dim=0).sum(dim=0)
         return grad, None, None, None, None
 
@@ -87,7 +89,7 @@ class BasicModel(nn.Module):
         rep = self.get_rep()
         if pp_config.order == 0:
             return rep
-        return PPFunction.apply(rep, pp_config.order, pp_config.threshold, pp_config.alpha, pp_config.mat)
+        return PPFunction.apply(rep, pp_config.order, pp_config.proportion, pp_config.alpha, pp_config.mat)
 
     def bpr_forward(self, users, pos_items, neg_items, pp_config):
         rep = self.pp_rep(pp_config)

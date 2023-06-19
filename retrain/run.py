@@ -89,7 +89,7 @@ def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, topks, writer, 
     return metrics['Jaccard'][topks[0]]
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_epochs, run_method,
+def run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, run_method,
                          verbose=False, topks=(50, 200)):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
@@ -136,8 +136,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_e
         print('Part Retrain!')
 
     if run_method == 2:
-        trainer_config['pp_threshold'] = pp_threshold
-        trainer_config['pp_alpha'] = pp_alpha
+        trainer_config['pp_proportion'] = pp_proportion
         new_trainer = get_trainer(trainer_config, new_model)
         initial_parameter(new_model, pre_train_model)
         new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
@@ -156,11 +155,10 @@ def main():
 
     lr = None
     l2_reg = None
-    pp_threshold = None
-    pp_alpha = None
+    pp_proportion = None
     n_epochs = None
     run_method = None
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pp_alpha, n_epochs, run_method)
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, run_method)
     print('Jaccard similarity', jaccard_sim)
 
 

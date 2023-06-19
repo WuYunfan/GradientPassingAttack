@@ -14,7 +14,7 @@ def objective(trial):
     lr = trial.suggest_float('lr', 1e-1, 1e2, log=True)
     s_lr = trial.suggest_float('s_lr', 1e-3, 1e-2, log=True)
     s_l2 = trial.suggest_float('s_l2', 1e-5, 1.e-2, log=True)
-    m_momentum = trial.suggest_float('m_momentum', 1.e-3, 1., log=True)
+    m_momentum = 0.05
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
