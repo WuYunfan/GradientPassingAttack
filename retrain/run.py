@@ -2,12 +2,11 @@ from dataset import get_dataset
 from model import get_model
 from trainer import get_trainer
 import torch
-from utils import init_run, set_seed, AverageMeter
+from utils import init_run, set_seed
 from tensorboardX import SummaryWriter
 from config import get_gowalla_config
 import numpy as np
 import os
-from tensorboard.backend.event_processing import event_accumulator
 import time
 
 
@@ -19,7 +18,7 @@ def eval_rec_on_new_users(trainer, n_old_users, writer):
     results, metrics = trainer.eval('val')
     print('New users and all items result. {:s}'.format(results))
     trainer.dataset.val_data = val_data.copy()
-    if writer:
+    if writer is not None:
         trainer.record(writer, 'new_user', metrics)
 
     for user in range(n_old_users, trainer.model.n_users):
@@ -27,7 +26,7 @@ def eval_rec_on_new_users(trainer, n_old_users, writer):
     results, metrics = trainer.eval('val')
     print('Old users and all items result. {:s}'.format(results))
     trainer.dataset.val_data = val_data.copy()
-    if writer:
+    if writer is not None:
         trainer.record(writer, 'old_user', metrics)
 
 
@@ -62,13 +61,13 @@ def calculate_ndcg(rec_items, full_rec_items, denominator):
     return ndcgs
 
 
-def eval_rec_and_surrogate(trainer, n_old_users, full_rec_items, topks, writer, verbose):
+def eval_rec_and_surrogate(trainer, full_rec_items, topks, writer, verbose):
     if not verbose:
         return
     start_time = time.time()
+    n_old_users = full_rec_items.shape[0]
     eval_rec_on_new_users(trainer, n_old_users, writer)
-    n = full_rec_items.shape[0]
-    rec_items = trainer.get_rec_items('test', k=max(topks))[:n, :]
+    rec_items = trainer.get_rec_items('test', k=max(topks))[:n_old_users, :]
     metrics = {'Jaccard': {}, 'NDCG': {}}
 
     denominator = np.log2(np.arange(2, max(topks) + 2, dtype=np.float32))[None, :]
@@ -114,13 +113,13 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, ru
     trainer_config['n_epochs'] = n_epochs if n_epochs is not None else trainer_config['n_epochs']
     trainer_config['lr'] = lr if lr is not None else trainer_config['lr']
     trainer_config['l2_reg'] = l2_reg if l2_reg is not None else trainer_config['l2_reg']
+
     if run_method != 0:
         pre_train_model = get_model(model_config, sub_dataset)
-        trainer = get_trainer(trainer_config, pre_train_model)
-        trainer.train(verbose=False)
+        pre_train_model.load('retrain/pre_train_model.pth')
 
-    extra_eval = (eval_rec_and_surrogate, (sub_dataset.n_users, full_rec_items, topks))
-    names = {0: 'full_retrain', 1: 'part_retrain', 2: 'pp_retrain'}
+    extra_eval = (eval_rec_and_surrogate, (full_rec_items, topks))
+    names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'pp_retrain'}
     writer = SummaryWriter(os.path.join(log_path, names[run_method]))
     new_model = get_model(model_config, full_dataset)
     set_seed(seed)
@@ -143,7 +142,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, ru
         print('Retrain with parameter propagation!')
 
     writer.close()
-    jaccard_sim = eval_rec_and_surrogate(new_trainer, sub_dataset.n_users, full_rec_items, topks, None, True)
+    jaccard_sim = eval_rec_and_surrogate(new_trainer, full_rec_items, topks, None, True)
     return jaccard_sim
 
 

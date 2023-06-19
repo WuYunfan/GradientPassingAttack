@@ -1,26 +1,33 @@
-from utils import init_run
+import torch
+from dataset import get_dataset
+from utils import set_seed, init_run
+from model import get_model
+from trainer import get_trainer
 import optuna
 import logging
 import sys
 from optuna.trial import TrialState
 from optuna.study import MaxTrialsCallback
-from retrain.run import run_new_items_recall
-import shutil
-import os
+from config import get_gowalla_config
 
 
-def objective(trial, name, run_method, n_epochs):
-    log_path = __file__[:-3]
-    if os.path.exists(os.path.join(log_path, name)):
-        shutil.rmtree(os.path.join(log_path, name))
-
+def objective(trial, n_epochs, victim_model):
     lr = trial.suggest_float('lr', 1e-5, 1e-1, log=True)
-    l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1e-1, log=True)
+    l2_reg = trial.suggest_float('l2_reg', 1e-5, 1e-1, log=True)
 
-    pp_proportion = None if run_method != 2 else trial.suggest_float('pp_proportion', 0., 1.,)
+    set_seed(2023)
+    device = torch.device('cuda')
+    config = get_gowalla_config(device)
+    dataset_config, model_config, trainer_config = config[victim_model]
 
-    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, pp_proportion, n_epochs, run_method)
-    return jaccard_sim
+    trainer_config['n_epochs'] = n_epochs
+    trainer_config['val_interval'] = n_epochs
+    trainer_config['lr'] = lr
+    trainer_config['l2_reg'] = l2_reg
+    dataset = get_dataset(dataset_config)
+    model = get_model(model_config, dataset)
+    trainer = get_trainer(trainer_config, model)
+    return trainer.train(verbose=True, trial=trial)
 
 
 def main():
@@ -28,18 +35,15 @@ def main():
     init_run(log_path, 2023)
 
     n_epochs = 100
-    run_method = 2
-    names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'pp_retrain'}
-    name = names[run_method]
+    victim_model = 0
 
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = name + '-' + str(n_epochs)
+    study_name = 'pretrain-model-' + str(n_epochs) + '-' + str(victim_model)
     storage_name = 'sqlite:///../{}.db'.format(study_name)
     study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
 
-    n_trials = 100 if run_method == 2 else 50
-    call_back = MaxTrialsCallback(n_trials, states=(TrialState.RUNNING, TrialState.COMPLETE, TrialState.PRUNED))
-    study.optimize(lambda trial: objective(trial, name, run_method, n_epochs), callbacks=[call_back])
+    call_back = MaxTrialsCallback(50, states=(TrialState.RUNNING, TrialState.COMPLETE, TrialState.PRUNED))
+    study.optimize(lambda trial: objective(trial, n_epochs, victim_model), callbacks=[call_back])
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 
