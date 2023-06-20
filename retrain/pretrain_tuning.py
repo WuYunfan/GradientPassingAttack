@@ -37,13 +37,14 @@ def main():
     n_epochs = 100
     victim_model = 0
 
+    search_space = {'lr': [1.e-4, 1.e-3, 1.e-2, 1.e-1], 'l2_reg': [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'pretrain-model-' + str(n_epochs) + '-' + str(victim_model)
     storage_name = 'sqlite:///../{}.db'.format(study_name)
-    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
+    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
+                                sampler=optuna.samplers.GridSampler(search_space))
 
-    call_back = MaxTrialsCallback(50, states=(TrialState.RUNNING, TrialState.COMPLETE, TrialState.PRUNED))
-    study.optimize(lambda trial: objective(trial, n_epochs, victim_model), callbacks=[call_back])
+    study.optimize(lambda trial: objective(trial, n_epochs, victim_model))
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 

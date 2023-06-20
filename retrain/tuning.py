@@ -32,14 +32,16 @@ def main():
     names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'pp_retrain'}
     name = names[run_method]
 
+    search_space = {'lr': [1.e-4, 1.e-3, 1.e-2, 1.e-1], 'l2_reg': [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1]}
+    if run_method == 2:
+        search_space['pp_proportion'] = [0., 0.2, 0.4, 0.6, 0.8, 1.]
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = name + '-' + str(n_epochs)
     storage_name = 'sqlite:///../{}.db'.format(study_name)
-    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
+    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
+                                sampler=optuna.samplers.GridSampler(search_space))
 
-    n_trials = 100 if run_method == 2 else 50
-    call_back = MaxTrialsCallback(n_trials, states=(TrialState.RUNNING, TrialState.COMPLETE, TrialState.PRUNED))
-    study.optimize(lambda trial: objective(trial, name, run_method, n_epochs), callbacks=[call_back])
+    study.optimize(lambda trial: objective(trial, name, run_method, n_epochs))
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 
