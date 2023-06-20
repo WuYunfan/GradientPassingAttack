@@ -76,7 +76,7 @@ class BasicTrainer:
                                   .format(self.model.name, self.name, stage, metric, k)
                                   , metrics[metric][k], self.epoch)
 
-    def train(self, verbose=True, writer=None, extra_eval=None, trial=None):
+    def train(self, verbose=True, writer=None, extra_eval=None):
         if not self.model.trainable:
             results, metrics = self.eval('val')
             if verbose:
@@ -128,10 +128,6 @@ class BasicTrainer:
 
             if extra_eval:
                 extra_eval[0](self, *extra_eval[1], writer, verbose)
-            if trial is not None and extra_eval is None:
-                trial.report(ndcg, self.epoch)
-                if trial.should_prune():
-                    raise optuna.exceptions.TrialPruned()
 
         if self.save_path is not None:
             self.model.load(self.save_path)

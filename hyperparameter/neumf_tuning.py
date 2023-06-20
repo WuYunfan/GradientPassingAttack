@@ -25,7 +25,7 @@ def objective(trial):
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, model)
-    return trainer.train(verbose=True, trial=trial)
+    return trainer.train(verbose=True)
 
 
 def main():
