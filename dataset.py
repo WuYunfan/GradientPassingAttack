@@ -47,7 +47,7 @@ def output_data(file_path, data):
 
 def get_negative_items(dataset, user, num):
     pos_items = dataset.train_data_set[user]
-    neg_items = np.ones((num, ), dtype=np.int64)
+    neg_items = np.zeros((num, ), dtype=np.int64)
     for i in range(num):
         item = random.randint(0, dataset.n_items - 1)
         while item in pos_items:

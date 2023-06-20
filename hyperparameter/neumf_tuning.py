@@ -19,7 +19,7 @@ def objective(trial):
                       'device': device}
     model_config = {'name': 'NeuMF', 'embedding_size': 64, 'layer_sizes': [64, 64, 64]}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': lr, 'l2_reg': l2_reg,
-                      'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 16,
+                      'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                       'test_batch_size': 64, 'topks': [50], 'mf_pretrain_epochs': 100,
                       'mlp_pretrain_epochs': 100, 'max_patience': 100, 'neg_ratio': 4}
     dataset = get_dataset(dataset_config)

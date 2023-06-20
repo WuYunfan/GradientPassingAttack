@@ -21,7 +21,7 @@ def objective(trial):
     model_config = {'name': 'MultiVAE', 'layer_sizes': [64, 32],
                     'dropout': dropout}
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam', 'lr': lr, 'l2_reg': l2_reg, 'kl_reg': 0.2,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 16,
+                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2,
                       'test_batch_size': 2048, 'topks': [50]}
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
