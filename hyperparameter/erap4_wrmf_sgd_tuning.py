@@ -11,9 +11,9 @@ from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
-    lr = trial.suggest_float('lr', 1e-1, 1e1, log=True)
-    s_lr = trial.suggest_float('s_lr', 1e-3, 1e-1, log=True)
-    s_l2 = trial.suggest_float('s_l2', 1e-7, 1e-4, log=True)
+    lr = trial.suggest_float('lr', 1.e-1, 1.e1, log=True)
+    s_lr = trial.suggest_float('s_lr', 1.e-3, 1.e-1, log=True)
+    s_l2 = trial.suggest_float('s_l2', 1.e-7, 1.e-4, log=True)
     m_momentum = 0.05
 
     pp_step = trial.suggest_int('pp_step', 1, 3)

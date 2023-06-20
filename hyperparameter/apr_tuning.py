@@ -11,8 +11,8 @@ from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
-    eps = trial.suggest_float('eps', 1e-2, 1e1, log=True)
-    adv_reg = trial.suggest_float('adv_reg', 1e-3, 1e1, log=True)
+    eps = trial.suggest_float('eps', 1.e-2, 1.e1, log=True)
+    adv_reg = trial.suggest_float('adv_reg', 1.e-3, 1.e1, log=True)
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',

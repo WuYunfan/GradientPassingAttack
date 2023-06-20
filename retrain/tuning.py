@@ -14,8 +14,8 @@ def objective(trial, name, run_method, n_epochs):
     if os.path.exists(os.path.join(log_path, name)):
         shutil.rmtree(os.path.join(log_path, name))
 
-    lr = trial.suggest_float('lr', 1e-5, 1e-1, log=True)
-    l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1e-1, log=True)
+    lr = trial.suggest_float('lr', 1.e-5, 1.e-1, log=True)
+    l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1.e-1, log=True)
 
     pp_proportion = None if run_method != 2 else trial.suggest_float('pp_proportion', 0., 1.,)
 

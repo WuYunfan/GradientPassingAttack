@@ -12,8 +12,8 @@ from config import get_gowalla_config
 
 
 def objective(trial, n_epochs, victim_model):
-    lr = trial.suggest_float('lr', 1e-5, 1e-1, log=True)
-    l2_reg = trial.suggest_float('l2_reg', 1e-5, 1e-1, log=True)
+    lr = trial.suggest_float('lr', 1.e-5, 1.e-1, log=True)
+    l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1.e-1, log=True)
 
     set_seed(2023)
     device = torch.device('cuda')

@@ -11,10 +11,10 @@ from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
-    reg_u = trial.suggest_float('reg_u', 1, 1e3, log=True)
-    alpha = trial.suggest_float('alpha', 1e-6, 1e-4, log=True)
-    s_l2 = trial.suggest_float('s_l2', 1e-4, 1e-1, log=True)
-    s_lr = trial.suggest_float('s_lr', 1.e-4, 1.e-1, log=True)
+    reg_u = trial.suggest_float('reg_u', 1., 1.e3, log=True)
+    alpha = trial.suggest_float('alpha', 1.e-6, 1.e-4, log=True)
+    s_l2 = trial.suggest_float('s_l2', 1.e-5, 1.e-2, log=True)
+    s_lr = trial.suggest_float('s_lr', 1.e-3, 1.e-2, log=True)
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
@@ -40,10 +40,13 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
+    search_space = {'reg_u': [1., 1.e1, 1.e2, 1.e3], 'alpha': [1.e-6, 1.e-5, 1.e-4],
+                    's_l2': [1.e-5, 1.e-4, 1.e-3, 1.e-2], 's_lr': [1.e-3, 1.e-2]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'dpa2dl-tuning'
     storage_name = 'sqlite:///../{}.db'.format(study_name)
-    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
+    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
+                                sampler=optuna.samplers.GridSampler(search_space))
 
     call_back = MaxTrialsCallback(100, states=(TrialState.RUNNING, TrialState.COMPLETE, TrialState.PRUNED))
     study.optimize(objective, callbacks=[call_back])

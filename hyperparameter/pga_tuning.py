@@ -11,9 +11,9 @@ from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
-    lr = trial.suggest_float('lr', 1e-1, 1e2, log=True)
-    s_lr = trial.suggest_float('s_lr', 1e-3, 1e-2, log=True)
-    s_l2 = trial.suggest_float('s_l2', 1e-5, 1.e-2, log=True)
+    lr = trial.suggest_float('lr', 1.e-1, 1.e1, log=True)
+    s_lr = trial.suggest_float('s_lr', 1.e-3, 1.e-2, log=True)
+    s_l2 = trial.suggest_float('s_l2', 1.e-5, 1.e-2, log=True)
     m_momentum = 0.05
     set_seed(2023)
     device = torch.device('cuda')
@@ -38,10 +38,13 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
+    search_space = {'lr': [1.e-1, 1., 1.e1], 's_lr': [1.e-3, 1.e-2],
+                    's_l2': [1.e-5, 1.e-4, 1.e-3, 1.e-2]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'pga-tuning'
     storage_name = 'sqlite:///../{}.db'.format(study_name)
-    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
+    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
+                                sampler=optuna.samplers.GridSampler(search_space))
 
     call_back = MaxTrialsCallback(100, states=(TrialState.RUNNING, TrialState.COMPLETE, TrialState.PRUNED))
     study.optimize(objective, callbacks=[call_back])
