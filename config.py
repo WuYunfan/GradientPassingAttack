@@ -5,7 +5,7 @@ def get_gowalla_config(device):
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
-                      'lr': 0.002387878274820975, 'l2_reg': 0.011155230293498226,
+                      'lr': 0.001, 'l2_reg': 0.001,
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
@@ -20,7 +20,7 @@ def get_gowalla_config(device):
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
-                      'lr': 0.0024245542821549034, 'l2_reg': 1.2605220577001407e-05,
+                      'lr': 0.001, 'l2_reg': 1.e-05,
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))

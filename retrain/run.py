@@ -88,11 +88,11 @@ def eval_rec_and_surrogate(trainer, full_rec_items, topks, writer, verbose):
     return metrics['Jaccard'][topks[0]]
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, run_method,
+def run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, run_method, victim_model,
                          verbose=False, topks=(50, 200)):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
-    dataset_config, model_config, trainer_config = config[0]
+    dataset_config, model_config, trainer_config = config[victim_model]
     trainer_config['max_patience'] = trainer_config['n_epochs']
 
     full_dataset = get_dataset(dataset_config)
@@ -116,7 +116,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, ru
 
     if run_method != 0:
         pre_train_model = get_model(model_config, sub_dataset)
-        pre_train_model.load('retrain/pre_train_model.pth')
+        pre_train_model.load('retrain/pretrain_model.pth')
 
     extra_eval = (eval_rec_and_surrogate, (full_rec_items, topks))
     names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'pp_retrain'}
@@ -157,7 +157,8 @@ def main():
     pp_proportion = None
     n_epochs = None
     run_method = None
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, run_method)
+    victim_model = None
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, run_method, victim_model)
     print('Jaccard similarity', jaccard_sim)
 
 

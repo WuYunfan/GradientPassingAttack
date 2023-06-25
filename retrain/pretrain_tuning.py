@@ -20,6 +20,7 @@ def objective(trial, n_epochs, victim_model):
     config = get_gowalla_config(device)
     dataset_config, model_config, trainer_config = config[victim_model]
 
+    dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
     trainer_config['n_epochs'] = n_epochs
     trainer_config['val_interval'] = n_epochs
     trainer_config['lr'] = lr
@@ -27,7 +28,7 @@ def objective(trial, n_epochs, victim_model):
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, model)
-    return trainer.train(verbose=True, trial=trial)
+    return trainer.train(verbose=True)
 
 
 def main():
@@ -39,7 +40,7 @@ def main():
 
     search_space = {'lr': [1.e-4, 1.e-3, 1.e-2, 1.e-1], 'l2_reg': [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = 'pretrain-model-' + str(n_epochs) + '-' + str(victim_model)
+    study_name = 'pretrain_model_' + str(n_epochs) + '_' + str(victim_model)
     storage_name = 'sqlite:///../{}.db'.format(study_name)
     study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
                                 sampler=optuna.samplers.GridSampler(search_space))

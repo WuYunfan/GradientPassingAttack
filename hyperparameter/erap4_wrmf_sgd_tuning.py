@@ -11,14 +11,12 @@ from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
-    lr = trial.suggest_float('lr', 1.e-1, 1.e1, log=True)
-    s_lr = trial.suggest_float('s_lr', 1.e-3, 1.e-1, log=True)
-    s_l2 = trial.suggest_float('s_l2', 1.e-7, 1.e-4, log=True)
+    lr = None
+    s_lr = None
+    s_l2 = None
     m_momentum = 0.05
 
-    pp_step = trial.suggest_int('pp_step', 1, 3)
-    pp_alpha = trial.suggest_float('pp_alpha', 1.e-3, 1., log=True)
-    bernoulli_p = trial.suggest_float('bernoulli_p', 0., 1.)
+    pp_proportion = trial.suggest_float('pp_proportion', 0., 1.,)
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
@@ -26,8 +24,8 @@ def objective(trial):
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
                                 'n_epochs': 47, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100,
-                                'pp_alpha': pp_alpha, 'pp_step': pp_step}
-    attacker_config = {'name': 'WRMFSGD', 'lr': lr, 'momentum': 1. - m_momentum, 'bernoulli_p': bernoulli_p,
+                                'pp_proportion': pp_proportion}
+    attacker_config = {'name': 'WRMFSGD', 'lr': lr, 'momentum': 1. - m_momentum, 'pre_train': True,
                        'n_fakes': 131, 'unroll_steps': 3, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
@@ -43,10 +41,12 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
+    search_space = {'pp_proportion': [0., 0.2, 0.4, 0.6, 0.8, 1.]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'erap4_wrmf-tuning'
     storage_name = 'sqlite:///../{}.db'.format(study_name)
-    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize')
+    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
+                                sampler=optuna.samplers.GridSampler(search_space))
 
     call_back = MaxTrialsCallback(100, states=(TrialState.RUNNING, TrialState.COMPLETE, TrialState.PRUNED))
     study.optimize(objective, callbacks=[call_back])

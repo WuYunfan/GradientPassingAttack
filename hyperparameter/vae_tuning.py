@@ -11,7 +11,7 @@ from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
-    lr = trial.suggest_float('lr', 1.e-5, 1.e-1, log=True)
+    lr = trial.suggest_float('lr', 1.e-4, 1.e-1, log=True)
     l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1.e-1, log=True)
     dropout = trial.suggest_float('dropout', 0., 1.)
     set_seed(2023)

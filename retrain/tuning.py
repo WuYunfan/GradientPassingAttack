@@ -9,7 +9,7 @@ import shutil
 import os
 
 
-def objective(trial, name, run_method, n_epochs):
+def objective(trial, name, run_method, n_epochs, victim_model):
     log_path = __file__[:-3]
     if os.path.exists(os.path.join(log_path, name)):
         shutil.rmtree(os.path.join(log_path, name))
@@ -19,7 +19,7 @@ def objective(trial, name, run_method, n_epochs):
 
     pp_proportion = None if run_method != 2 else trial.suggest_float('pp_proportion', 0., 1.,)
 
-    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, pp_proportion, n_epochs, run_method)
+    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, pp_proportion, n_epochs, run_method, victim_model)
     return jaccard_sim
 
 
@@ -29,6 +29,7 @@ def main():
 
     n_epochs = 100
     run_method = 2
+    victim_model = 0
     names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'pp_retrain'}
     name = names[run_method]
 
@@ -36,12 +37,12 @@ def main():
     if run_method == 2:
         search_space['pp_proportion'] = [0., 0.2, 0.4, 0.6, 0.8, 1.]
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = name + '-' + str(n_epochs)
+    study_name = name + '_' + str(n_epochs) + '_' + str(victim_model)
     storage_name = 'sqlite:///../{}.db'.format(study_name)
     study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
                                 sampler=optuna.samplers.GridSampler(search_space))
 
-    study.optimize(lambda trial: objective(trial, name, run_method, n_epochs))
+    study.optimize(lambda trial: objective(trial, name, run_method, n_epochs, victim_model))
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 
