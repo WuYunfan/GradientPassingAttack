@@ -12,8 +12,8 @@ def get_gowalla_config(device):
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam',
-                      'lr': 0.002387878274820975, 'l2_reg': 0.011155230293498226,
-                      'eps': 0.09174597008562989, 'adv_reg': 2.830520632169947,
+                      'lr': 0.001, 'l2_reg': 0.001,
+                      'eps': 1.0, 'adv_reg': 0.01,
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
@@ -25,7 +25,7 @@ def get_gowalla_config(device):
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
-    model_config = {'name': 'ItemKNN', 'k': 992}
+    model_config = {'name': 'ItemKNN', 'k': 1000}
     trainer_config = {'name': 'BasicTrainer', 'n_epochs': 0,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
@@ -48,29 +48,29 @@ def get_gowalla_config(device):
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
-                      'lr': 0.0034028958774352377, 'l2_reg': 0.0044493794757059215,
+                      'lr': 0.001, 'l2_reg': 0.01,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
-                      'lr': 0.003866939759804029, 'l2_reg': 0.0002709568074610985,
+                      'lr': 0.001, 'l2_reg': 0.001,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': 0.020052064501354657, 'l2_reg': 1.0452068949751401e-05,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6, 'weight': 20.,
+                      'lr': 0.001, 'l2_reg': 1e-05,
+                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': 0.05097082287366014, 'l2_reg': 1.1536540558141095e-05,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6, 'weight': 20.,
+                      'lr': 0.1, 'l2_reg': 0.0001,
+                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
     return gowalla_config
@@ -177,14 +177,14 @@ def get_yelp_config(device):
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
                       'lr': 0.02518732573468356, 'l2_reg': 0.0031657868721002135,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6, 'weight': 20.,
+                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
                       'lr': 0.023431729702286325, 'l2_reg': 1.495941158635992e-05,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6, 'weight': 20.,
+                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
     return yelp_config
