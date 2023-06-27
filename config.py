@@ -78,37 +78,6 @@ def get_gowalla_config(device):
 
 def get_gowalla_attacker_config():
     gowalla_attacker_config = []
-    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
-                                'n_epochs': 47, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
-                                'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100}
-    attacker_config = {'name': 'WRMFSGD', 'lr': lr, 'momentum': 1. - m_momentum,
-                       'n_fakes': 131, 'unroll_steps': 3, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
-                       'surrogate_model_config': surrogate_model_config,
-                       'surrogate_trainer_config': surrogate_trainer_config}
-    gowalla_attacker_config.append(attacker_config)
-
-    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
-                                'n_epochs': 50, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
-                                'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100}
-    attacker_config = {'name': 'PGA', 'lr': lr, 'momentum': 1 - m_momentum,
-                       'n_fakes': 131, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
-                       'surrogate_model_config': surrogate_model_config,
-                       'surrogate_trainer_config': surrogate_trainer_config}
-    gowalla_attacker_config.append(attacker_config)
-
-    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
-                                'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 2,
-                                'test_batch_size': 64, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
-                                'val_interval': 100}
-    attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'reg_u': reg_u, 'prob': 0.9, 'kappa': 1.,
-                       'step': 4, 'alpha': alpha, 'n_rounds': 5,
-                       'surrogate_model_config': surrogate_model_config,
-                       'surrogate_trainer_config': surrogate_trainer_config}
-    gowalla_attacker_config.append(attacker_config)
     return gowalla_attacker_config
 
 
@@ -126,8 +95,8 @@ def get_yelp_config(device):
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam',
-                      'lr': 0.013318639991483658, 'l2_reg': 0.002375395961651879,
-                      'eps': 1.0990263391828763, 'adv_reg': 0.012768267623407449,
+                      'lr': 0.001, 'l2_reg': 0.001,
+                      'eps': None, 'adv_reg': None,
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
@@ -139,7 +108,7 @@ def get_yelp_config(device):
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
-    model_config = {'name': 'ItemKNN', 'k': 978}
+    model_config = {'name': 'ItemKNN', 'k': None}
     trainer_config = {'name': 'BasicTrainer', 'n_epochs': 0,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
@@ -162,29 +131,99 @@ def get_yelp_config(device):
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
-                      'lr': 0.004373142178129419, 'l2_reg': 0.005797745872659756,
+                      'lr': None, 'l2_reg': None,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
-                      'lr': 0.0012257268783622802, 'l2_reg': 0.00028410025524581024,
+                      'lr': None, 'l2_reg': None,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': 0.02518732573468356, 'l2_reg': 0.0031657868721002135,
+                      'lr': None, 'l2_reg': None,
                       'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': 0.023431729702286325, 'l2_reg': 1.495941158635992e-05,
+                      'lr': None, 'l2_reg': None,
                       'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
     return yelp_config
+
+
+def get_tenrec_config(device):
+    dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Tenrec/time',
+                      'device': device}
+    tenrec_config = []
+
+    model_config = {'name': 'MF', 'embedding_size': 64}
+    trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None,
+                      'n_epochs': 200, 'batch_size': 2 ** 18, 'dataloader_num_workers': 6,
+                      'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
+    tenrec_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'MF', 'embedding_size': 64}
+    trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None,
+                      'eps': None, 'adv_reg': None,
+                      'n_epochs': 200, 'batch_size': 2 ** 18, 'dataloader_num_workers': 6,
+                      'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
+    tenrec_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
+    trainer_config = {'name': 'BPRTrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None,
+                      'n_epochs': 200, 'batch_size': 2 ** 18, 'dataloader_num_workers': 6,
+                      'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
+    tenrec_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'ItemKNN', 'k': None}
+    trainer_config = {'name': 'BasicTrainer', 'n_epochs': 0,
+                      'test_batch_size': 4096, 'topks': [50]}
+    tenrec_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'MultiVAE', 'layer_sizes': [64, 32],
+                    'dropout': None}
+    trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None, 'kl_reg': 0.2,
+                      'n_epochs': 200, 'batch_size': 4096, 'dataloader_num_workers': 6,
+                      'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
+    tenrec_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'MF', 'embedding_size': 64}
+    trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None,
+                      'n_epochs': 200, 'batch_size': 2 ** 16, 'dataloader_num_workers': 6,
+                      'test_batch_size': 4096, 'topks': [50], 'neg_ratio': 4, 'max_patience': 20}
+    tenrec_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
+    trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None,
+                      'n_epochs': 200, 'batch_size': 2 ** 16, 'dataloader_num_workers': 6,
+                      'test_batch_size': 4096, 'topks': [50], 'neg_ratio': 4, 'max_patience': 20}
+    tenrec_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'MF', 'embedding_size': 64}
+    trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None,
+                      'n_epochs': 200, 'batch_size': 4096, 'dataloader_num_workers': 2, 'weight': 20.,
+                      'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
+    tenrec_config.append((dataset_config, model_config, trainer_config))
+
+    model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
+    trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
+                      'lr': None, 'l2_reg': None,
+                      'n_epochs': 200, 'batch_size': 4096, 'dataloader_num_workers': 2, 'weight': 20.,
+                      'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
+    tenrec_config.append((dataset_config, model_config, trainer_config))
+    return tenrec_config
