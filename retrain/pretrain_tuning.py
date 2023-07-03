@@ -15,7 +15,7 @@ import shutil
 def objective(trial, n_epochs, pp, victim_model):
     lr = trial.suggest_float('lr', 1.e-5, 1.e-1, log=True)
     l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1.e-1, log=True)
-    pp_threshold = None if pp else trial.suggest_float('pp_threshold', 0., 1., )
+    pp_threshold = trial.suggest_float('pp_threshold', 0., 1., ) if pp else None
 
     set_seed(2023)
     device = torch.device('cuda')
@@ -46,7 +46,7 @@ def main():
     if pp:
         search_space['pp_threshold'] = [0., 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = 'pretrain_model_' + str(n_epochs) + '_' + str(victim_model) + '_pp' if pp else ''
+    study_name = 'pretrain_model_' + str(n_epochs) + '_' + str(victim_model) + ('_pp' if pp else '')
     storage_name = 'sqlite:///../{}.db'.format(study_name)
     study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
                                 sampler=optuna.samplers.GridSampler(search_space))
@@ -72,7 +72,7 @@ def main():
     save_path = '{:s}_{:s}_{:s}_{:.3f}.pth'.format(model_config['name'], trainer_config['name'],
                                                    dataset_config['name'], trial.value * 100)
     save_path = os.path.join('checkpoints', save_path)
-    new_path = 'retrain/pretrain_model_' + str(n_epochs) + '_' + str(victim_model) + '_pp' if pp else '' + '.pth'
+    new_path = 'retrain/pretrain_model_' + str(n_epochs) + '_' + str(victim_model) + ('_pp' if pp else '') + '.pth'
     new_path = os.path.join('checkpoints', new_path)
     os.rename(save_path, new_path)
 
