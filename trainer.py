@@ -26,15 +26,13 @@ def get_trainer(config, model):
 class PPConfig:
     def __init__(self, trainer_config):
         self.order = 0
-        if 'pp_proportion' in trainer_config:
+        if 'pp_threshold' in trainer_config:
             self.order = trainer_config.get('pp_order', 1)
-            self.proportion = trainer_config['pp_proportion']
+            self.threshold = trainer_config['pp_threshold']
             self.alpha = trainer_config.get('pp_alpha', 1.)
-
             model = trainer_config['model']
             dataset = trainer_config['dataset']
-            device = trainer_config['device']
-            self.mat = generate_adj_mat(dataset.train_array, model, device)
+            self.mat = generate_adj_mat(dataset.train_array, model)
 
 
 class BasicTrainer:

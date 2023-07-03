@@ -14,9 +14,9 @@ import matplotlib.pyplot as plt
 
 class PPFunction(Function):
     @staticmethod
-    def forward(ctx, rep, order, proportion, alpha, mat):
+    def forward(ctx, rep, order, threshold, alpha, mat):
         ctx.order = order
-        ctx.proportion = proportion
+        ctx.threshold = threshold
         ctx.alpha = alpha
         ctx.mat = mat
         ctx.save_for_backward(rep)
@@ -25,14 +25,13 @@ class PPFunction(Function):
     @staticmethod
     def backward(ctx, grad_out):
         order = ctx.order
-        proportion = ctx.proportion
+        threshold = ctx.threshold
         alpha = ctx.alpha
         mat = ctx.mat
         rep = ctx.saved_tensors[0]
 
-        dif = torch.sum(rep[mat.row, :] * grad_out[mat.col, :], dim=1) + \
-              torch.sum(rep[mat.col, :] * grad_out[mat.row, :], dim=1)
-        values = torch.gt(dif, torch.quantile(dif, 1. - proportion)).to(torch.float32)
+        sim = torch.sigmoid(torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1))
+        values = torch.gt(sim, threshold).to(torch.float32)
 
         grad = grad_out
         grads = [grad]
@@ -89,7 +88,7 @@ class BasicModel(nn.Module):
         rep = self.get_rep()
         if pp_config.order == 0:
             return rep
-        return PPFunction.apply(rep, pp_config.order, pp_config.proportion, pp_config.alpha, pp_config.mat)
+        return PPFunction.apply(rep, pp_config.order, pp_config.threshold, pp_config.alpha, pp_config.mat)
 
     def bpr_forward(self, users, pos_items, neg_items, pp_config):
         rep = self.pp_rep(pp_config)

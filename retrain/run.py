@@ -88,7 +88,7 @@ def eval_rec_and_surrogate(trainer, full_rec_items, topks, writer, verbose):
     return metrics['Jaccard'][topks[0]]
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, run_method, victim_model,
+def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run_method, victim_model,
                          verbose=False, topks=(50, 200)):
     device = torch.device('cuda')
     config = get_gowalla_config(device)
@@ -108,40 +108,30 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, ru
     sub_dataset = get_dataset(dataset_config)
     full_rec_items = trainer.get_rec_items('test', k=max(topks))[:sub_dataset.n_users, :]
 
-    if not verbose:
-        trainer_config['val_interval'] = 1000
     trainer_config['n_epochs'] = n_epochs if n_epochs is not None else trainer_config['n_epochs']
     trainer_config['lr'] = lr if lr is not None else trainer_config['lr']
     trainer_config['l2_reg'] = l2_reg if l2_reg is not None else trainer_config['l2_reg']
 
-    if run_method != 0:
-        pre_train_model = get_model(model_config, sub_dataset)
-        pre_train_model.load('retrain/pretrain_model.pth')
-
-    extra_eval = (eval_rec_and_surrogate, (full_rec_items, topks))
-    names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'pp_retrain'}
+    extra_eval = (eval_rec_and_surrogate, (full_rec_items, topks)) if verbose else None
+    names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'full_retrain_wh_pp', 3: 'pre_retrain_wh_pp'}
     writer = SummaryWriter(os.path.join(log_path, names[run_method]))
-    new_model = get_model(model_config, full_dataset)
+
     set_seed(seed)
-    if run_method == 0:
-        new_trainer = get_trainer(trainer_config, new_model)
-        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
-        print('Limited full Retrain!')
-
-    if run_method == 1:
-        new_trainer = get_trainer(trainer_config, new_model)
+    new_model = get_model(model_config, full_dataset)
+    if pp_threshold is not None and run_method >= 2:
+        trainer_config['pp_threshold'] = pp_threshold
+    new_trainer = get_trainer(trainer_config, new_model)
+    if run_method == 1 or run_method == 3:
+        pre_train_model = get_model(model_config, sub_dataset)
+        pp_str = '_pp' if run_method == 3 else ''
+        pre_train_model.load('retrain/pretrain_model' + pp_str + '.pth')
         initial_parameter(new_model, pre_train_model)
-        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
-        print('Part Retrain!')
-
-    if run_method == 2:
-        trainer_config['pp_proportion'] = pp_proportion
-        new_trainer = get_trainer(trainer_config, new_model)
-        initial_parameter(new_model, pre_train_model)
-        new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
-        print('Retrain with parameter propagation!')
-
+    new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
     writer.close()
+    print('--------------------------------Finish Training!--------------------------------')
+
+    results, _ = new_trainer.eval('val')
+    print(results)
     jaccard_sim = eval_rec_and_surrogate(new_trainer, full_rec_items, topks, None, True)
     return jaccard_sim
 
@@ -154,11 +144,11 @@ def main():
 
     lr = None
     l2_reg = None
-    pp_proportion = None
+    pp_threshold = None
     n_epochs = None
     run_method = None
     victim_model = None
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_proportion, n_epochs, run_method, victim_model)
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run_method, victim_model)
     print('Jaccard similarity', jaccard_sim)
 
 
