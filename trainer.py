@@ -26,7 +26,7 @@ def get_trainer(config, model):
 class PPConfig:
     def __init__(self, trainer_config):
         self.order = 0
-        if 'pp_threshold' in trainer_config:
+        if 'pp_threshold' in trainer_config and trainer_config['pp_threshold'] is not None:
             self.order = trainer_config.get('pp_order', 1)
             self.threshold = trainer_config['pp_threshold']
             self.alpha = trainer_config.get('pp_alpha', 1.)
@@ -129,7 +129,7 @@ class BasicTrainer:
 
         if self.save_path is not None:
             self.model.load(self.save_path)
-            print('Best NDCG {:.3f}'.format(self.best_ndcg))
+            print('Best NDCG {:.3f}'.format(self.best_ndcg), ', reload best model.')
         return self.best_ndcg
 
     def calculate_metrics(self, eval_data, rec_items):

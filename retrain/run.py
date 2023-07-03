@@ -4,7 +4,7 @@ from trainer import get_trainer
 import torch
 from utils import init_run, set_seed
 from tensorboardX import SummaryWriter
-from config import get_gowalla_config
+from config import get_gowalla_config as get_config
 import numpy as np
 import os
 import time
@@ -91,7 +91,7 @@ def eval_rec_and_surrogate(trainer, full_rec_items, topks, writer, verbose):
 def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run_method, victim_model,
                          verbose=False, topks=(50, 200)):
     device = torch.device('cuda')
-    config = get_gowalla_config(device)
+    config = get_config(device)
     dataset_config, model_config, trainer_config = config[victim_model]
     trainer_config['max_patience'] = trainer_config['n_epochs']
 

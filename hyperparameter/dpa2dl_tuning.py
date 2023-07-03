@@ -1,6 +1,6 @@
 from attacker import get_attacker
 from utils import set_seed, init_run, get_target_items
-from config import get_gowalla_config
+from config import get_gowalla_config as get_config
 import torch
 from dataset import get_dataset
 import optuna
@@ -17,7 +17,7 @@ def objective(trial):
     s_lr = trial.suggest_float('s_lr', 1.e-3, 1.e-2, log=True)
     set_seed(2023)
     device = torch.device('cuda')
-    dataset_config, model_config, trainer_config = get_gowalla_config(device)[0]
+    dataset_config, model_config, trainer_config = get_config(device)[0]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
                                 'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,

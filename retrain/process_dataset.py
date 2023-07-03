@@ -15,7 +15,7 @@ def main():
     dataset_config = {'name': 'ProcessedDataset', 'path': 'data/' + name + '/time',
                       'device': device}
     dataset = get_dataset(dataset_config)
-    resize_dataset(dataset, 0.8)
+    resize_dataset(dataset, 0.99)
     dataset.output_dataset('data/' +name + '/retrain')
 
 
