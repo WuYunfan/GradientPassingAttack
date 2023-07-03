@@ -24,6 +24,7 @@ def objective(trial, n_epochs, pp, victim_model):
 
     dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
     trainer_config['n_epochs'] = n_epochs
+    trainer_config['max_patience'] = n_epochs
     trainer_config['lr'] = lr
     trainer_config['l2_reg'] = l2_reg
     trainer_config['pp_threshold'] = pp_threshold
@@ -71,7 +72,7 @@ def main():
     save_path = '{:s}_{:s}_{:s}_{:.3f}.pth'.format(model_config['name'], trainer_config['name'],
                                                    dataset_config['name'], trial.value * 100)
     save_path = os.path.join('checkpoints', save_path)
-    new_path = 'retrain/pretrain_model' + '_pp_' if pp else '_' + str(n_epochs) + '_' + str(victim_model) + '.pth'
+    new_path = 'retrain/pretrain_model_' + str(n_epochs) + '_' + str(victim_model) + '_pp' if pp else '' + '.pth'
     new_path = os.path.join('checkpoints', new_path)
     os.rename(save_path, new_path)
 

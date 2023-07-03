@@ -35,7 +35,7 @@ def main():
 
     search_space = {'lr': [1.e-4, 1.e-3, 1.e-2, 1.e-1], 'l2_reg': [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1]}
     if run_method == 2:
-        search_space['pp_threshold'] = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
+        search_space['pp_threshold'] = [0., 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = name + '_' + str(n_epochs) + '_' + str(victim_model)
     storage_name = 'sqlite:///../{}.db'.format(study_name)
