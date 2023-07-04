@@ -67,15 +67,6 @@ def main():
     for key, value in trial.params.items():
         print('    {}: {}'.format(key, value))
 
-    config = get_config('cpu')
-    dataset_config, model_config, trainer_config = config[victim_model]
-    save_path = '{:s}_{:s}_{:s}_{:.3f}.pth'.format(model_config['name'], trainer_config['name'],
-                                                   dataset_config['name'], trial.value * 100)
-    save_path = os.path.join('checkpoints', save_path)
-    new_path = 'retrain/pretrain_model_' + str(n_epochs) + '_' + str(victim_model) + ('_pp' if pp else '') + '.pth'
-    new_path = os.path.join('checkpoints', new_path)
-    os.rename(save_path, new_path)
-
 
 if __name__ == '__main__':
     main()

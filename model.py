@@ -151,7 +151,7 @@ class LightGCN(BasicModel):
         self.to(device=self.device)
 
     def generate_graph(self, dataset):
-        adj_mat = generate_adj_mat(dataset.train_array, self, self.device)
+        adj_mat = generate_adj_mat(dataset.train_array, self)
         return adj_mat
 
     def get_rep(self):
