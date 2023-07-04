@@ -17,7 +17,7 @@ def objective(trial, name, run_method, n_epochs, victim_model):
     lr = trial.suggest_float('lr', 1.e-5, 1.e-1, log=True)
     l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1.e-1, log=True)
 
-    pp_threshold = None if run_method < 2 else trial.suggest_float('pp_threshold', 0., 1.,)
+    pp_threshold = trial.suggest_float('pp_threshold', 0., 1.,) if run_method >= 2 else None
 
     jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, pp_threshold, n_epochs, run_method, victim_model)
     return jaccard_sim
@@ -34,7 +34,7 @@ def main():
     name = names[run_method]
 
     search_space = {'lr': [1.e-4, 1.e-3, 1.e-2, 1.e-1], 'l2_reg': [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1]}
-    if run_method == 2:
+    if run_method >= 2:
         search_space['pp_threshold'] = [0., 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = name + '_' + str(n_epochs) + '_' + str(victim_model)
