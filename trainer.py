@@ -85,6 +85,7 @@ class BasicTrainer:
         self.dataset.negative_sample_ratio = self.negative_sample_ratio
         if not os.path.exists('checkpoints'): os.mkdir('checkpoints')
         patience = self.max_patience
+        train_start_time = time.time()
         for self.epoch in range(self.n_epochs):
             start_time = time.time()
             self.model.train()
@@ -130,6 +131,8 @@ class BasicTrainer:
         if self.save_path is not None:
             self.model.load(self.save_path)
             print('Best NDCG {:.3f}'.format(self.best_ndcg), ', reload best model.')
+        train_consumed_time = time.time() - train_start_time
+        print('Total consumed time of training {:.3f}'.format(train_consumed_time))
         return self.best_ndcg
 
     def calculate_metrics(self, eval_data, rec_items):
@@ -176,7 +179,7 @@ class BasicTrainer:
                     exclude_user_indexes = []
                     exclude_items = []
                     for user_idx, user in enumerate(users):
-                        items = self.dataset.train_data[user]
+                        items = list(self.dataset.train_data[user])
                         exclude_user_indexes.extend([user_idx] * len(items))
                         exclude_items.extend(items)
                     scores[exclude_user_indexes, exclude_items] = -np.inf

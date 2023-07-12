@@ -14,7 +14,7 @@ def eval_rec_on_new_users(trainer, n_old_users, writer):
     val_data = trainer.dataset.val_data.copy()
 
     for user in range(n_old_users):
-        trainer.dataset.val_data[user] = []
+        trainer.dataset.val_data[user] = {}
     results, metrics = trainer.eval('val')
     print('New users and all items result. {:s}'.format(results))
     trainer.dataset.val_data = val_data.copy()
@@ -22,7 +22,7 @@ def eval_rec_on_new_users(trainer, n_old_users, writer):
         trainer.record(writer, 'new_user', metrics)
 
     for user in range(n_old_users, trainer.model.n_users):
-        trainer.dataset.val_data[user] = []
+        trainer.dataset.val_data[user] = {}
     results, metrics = trainer.eval('val')
     print('Old users and all items result. {:s}'.format(results))
     trainer.dataset.val_data = val_data.copy()

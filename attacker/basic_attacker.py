@@ -37,9 +37,9 @@ class BasicAttacker:
                     self.dataset.attack_data[u].append(self.target_item)
 
             for fake_u in range(self.n_fakes):
-                items = np.nonzero(self.fake_users[fake_u, :])[0].tolist()
+                items = set(np.nonzero(self.fake_users[fake_u, :])[0].tolist())
                 self.dataset.train_data.append(items)
-                self.dataset.val_data.append([])
+                self.dataset.val_data.append({})
                 self.dataset.attack_data.append([])
                 self.dataset.train_array.extend([[fake_u + self.n_users, item] for item in items])
             self.dataset.n_users += self.n_fakes

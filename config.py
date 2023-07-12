@@ -13,7 +13,7 @@ def get_gowalla_config(device):
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 0.001,
-                      'eps': 1.0, 'adv_reg': 0.01,
+                      'eps': 1.0, 'adv_reg': 0.01, 'ckpt_path': 'checkpoints/pretrain_mf.pth',
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
@@ -34,7 +34,7 @@ def get_gowalla_config(device):
                     'dropout': 0.8}
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 0.0001, 'kl_reg': 0.2,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6,
+                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
@@ -96,7 +96,7 @@ def get_yelp_config(device):
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 0.001,
-                      'eps': None, 'adv_reg': None,
+                      'eps': 1.0, 'adv_reg': 0.01, 'ckpt_path': 'checkpoints/pretrain_mf.pth',
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
@@ -108,7 +108,7 @@ def get_yelp_config(device):
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
-    model_config = {'name': 'ItemKNN', 'k': None}
+    model_config = {'name': 'ItemKNN', 'k': 100}
     trainer_config = {'name': 'BasicTrainer', 'n_epochs': 0,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
@@ -117,7 +117,7 @@ def get_yelp_config(device):
                     'dropout': 0.8}
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 1e-05, 'kl_reg': 0.2,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 6,
+                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
@@ -131,28 +131,28 @@ def get_yelp_config(device):
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
-                      'lr': None, 'l2_reg': None,
+                      'lr': 0.001, 'l2_reg': 0.01,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
-                      'lr': None, 'l2_reg': None,
+                      'lr': 0.001, 'l2_reg': 0.001,
                       'n_epochs': 1000, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': None, 'l2_reg': None,
+                      'lr': 0.001, 'l2_reg': 1.e-5,
                       'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': None, 'l2_reg': None,
+                      'lr': 0.001, 'l2_reg': 1.e-5,
                       'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
@@ -174,7 +174,7 @@ def get_tenrec_config(device):
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam',
                       'lr': None, 'l2_reg': None,
-                      'eps': None, 'adv_reg': None,
+                      'eps': None, 'adv_reg': None, 'ckpt_path': 'checkpoints/pretrain_mf.pth',
                       'n_epochs': 200, 'batch_size': 2 ** 18, 'dataloader_num_workers': 6,
                       'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
     tenrec_config.append((dataset_config, model_config, trainer_config))
@@ -195,7 +195,7 @@ def get_tenrec_config(device):
                     'dropout': None}
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
                       'lr': None, 'l2_reg': None, 'kl_reg': 0.2,
-                      'n_epochs': 200, 'batch_size': 4096, 'dataloader_num_workers': 6,
+                      'n_epochs': 200, 'batch_size': 4096, 'dataloader_num_workers': 2,
                       'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
     tenrec_config.append((dataset_config, model_config, trainer_config))
 

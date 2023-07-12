@@ -46,7 +46,7 @@ def output_data(file_path, data):
 
 
 def get_negative_items(dataset, user, num):
-    pos_items = dataset.train_data_set[user]
+    pos_items = dataset.train_data[user]
     neg_items = np.zeros((num, ), dtype=np.int64)
     for i in range(num):
         item = random.randint(0, dataset.n_items - 1)
@@ -70,7 +70,6 @@ class BasicDataset(Dataset):
         self.n_items = 0
         self.user_inter_lists = None
         self.train_data = None
-        self.train_data_set = None
         self.val_data = None
         self.attack_data = None
         self.train_array = None
@@ -105,8 +104,8 @@ class BasicDataset(Dataset):
         return user_map, item_map
 
     def generate_data(self):
-        self.train_data = [[] for _ in range(self.n_users)]
-        self.val_data = [[] for _ in range(self.n_users)]
+        self.train_data = [None for _ in range(self.n_users)]
+        self.val_data = [None for _ in range(self.n_users)]
         self.train_array = []
         average_inters = []
         for user in range(self.n_users):
@@ -117,8 +116,8 @@ class BasicDataset(Dataset):
             n_inter_items = len(self.user_inter_lists[user])
             average_inters.append(n_inter_items)
             n_train_items = int(n_inter_items * self.split_ratio[0])
-            self.train_data[user] += [i_t[0] for i_t in self.user_inter_lists[user][:n_train_items]]
-            self.val_data[user] += [i_t[0] for i_t in self.user_inter_lists[user][n_train_items:]]
+            self.train_data[user] = {i_t[0] for i_t in self.user_inter_lists[user][:n_train_items]}
+            self.val_data[user] = {i_t[0] for i_t in self.user_inter_lists[user][n_train_items:]}
         average_inters = np.mean(average_inters)
         print('Users {:d}, Items {:d}, Average number of interactions {:.3f}, Total interactions {:.1f}'
               .format(self.n_users, self.n_items, average_inters, average_inters * self.n_users))
@@ -128,10 +127,10 @@ class BasicDataset(Dataset):
 
     def __getitem__(self, index):
         user = random.randint(0, self.n_users - 1)
-        while not self.train_data[user]:
+        while len(self.train_data[user]) == 0:
             user = random.randint(0, self.n_users - 1)
 
-        pos_item = np.random.choice(self.train_data[user])
+        pos_item = np.random.choice(list(self.train_data[user]))
         data_with_negs = np.ones((self.negative_sample_ratio, 3), dtype=np.int64)
         data_with_negs[:, 0] = user
         data_with_negs[:, 1] = pos_item
@@ -148,7 +147,6 @@ class ProcessedDataset(BasicDataset):
     def __init__(self, dataset_config):
         super(ProcessedDataset, self).__init__(dataset_config)
         self.train_data = self.read_data(os.path.join(dataset_config['path'], 'train.txt'))
-        self.train_data_set = [set(items) for items in self.train_data]
         self.val_data = self.read_data(os.path.join(dataset_config['path'], 'val.txt'))
         assert len(self.train_data) == len(self.val_data)
         self.n_users = len(self.train_data)
@@ -163,7 +161,7 @@ class ProcessedDataset(BasicDataset):
             lines = f.read().strip().split('\n')
         for line in lines:
             items = line.split(' ')[1:]
-            items = [int(item) for item in items]
+            items = {int(item) for item in items}
             if items:
                 self.n_items = max(self.n_items, max(items) + 1)
             data.append(items)

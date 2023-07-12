@@ -81,8 +81,8 @@ class DPA2DL(BasicAttacker):
             filler_items = filler_items.cpu().numpy()
             self.fake_users[f_u - self.n_users, filler_items] = 1.
 
-            filler_items = filler_items.tolist()
-            self.dataset.train_data[f_u] += filler_items
+            filler_items = set(filler_items.tolist())
+            self.dataset.train_data[f_u] |= filler_items
             self.dataset.train_array += [[f_u, item] for item in filler_items]
 
     def save_surrogate(self, surrogate_trainer, best_hr):
@@ -104,8 +104,8 @@ class DPA2DL(BasicAttacker):
 
             temp_fake_users = np.arange(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step]) + self.n_users
             n_temp_fakes = temp_fake_users.shape[0]
-            self.dataset.train_data += [[self.target_item]] * n_temp_fakes
-            self.dataset.val_data += [[]] * n_temp_fakes
+            self.dataset.train_data += [{self.target_item} for _ in range(n_temp_fakes)]
+            self.dataset.val_data += [{} for _ in range(n_temp_fakes)]
             self.dataset.train_array += [[fake_u, self.target_item] for fake_u in temp_fake_users]
             self.dataset.n_users += n_temp_fakes
 
