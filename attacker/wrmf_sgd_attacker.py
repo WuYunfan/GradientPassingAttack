@@ -104,8 +104,6 @@ class WRMFSGD(BasicAttacker):
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
             adv_loss = ce_loss(scores, self.target_item)
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
-        gc.collect()
-        torch.cuda.empty_cache()
         return adv_loss.item(), hr.item(), adv_grads
 
     def generate_fake_users(self, verbose=True, writer=None):
