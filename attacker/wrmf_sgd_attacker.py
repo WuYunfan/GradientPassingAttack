@@ -99,7 +99,7 @@ class WRMFSGD(BasicAttacker):
             self.retrain_time += consumed_time
 
             fmodel.eval()
-            scores = self.surrogate_model.predict(self.target_users)
+            scores = fmodel.predict(self.target_users)
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
             adv_loss = ce_loss(scores, self.target_item)

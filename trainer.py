@@ -132,7 +132,7 @@ class BasicTrainer:
             self.model.load(self.save_path)
             print('Best NDCG {:.3f}'.format(self.best_ndcg), ', reload best model.')
         train_consumed_time = time.time() - train_start_time
-        print('Total consumed time of training {:.3f}'.format(train_consumed_time))
+        print('Total consumed time of training {:.3f}s'.format(train_consumed_time))
         return self.best_ndcg
 
     def calculate_metrics(self, eval_data, rec_items):
