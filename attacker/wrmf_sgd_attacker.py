@@ -24,24 +24,22 @@ class WRMFSGD(BasicAttacker):
         self.adv_epochs = attacker_config['adv_epochs']
         self.unroll_steps = attacker_config['unroll_steps']
         self.weight = self.surrogate_trainer_config['weight']
-        self.initial_lr = attacker_config['lr']
+        self.lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
-        self.pre_train = attacker_config.get('pre_train', False)
+        # self.pre_train = attacker_config.get('pre_train', False)
 
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
         self.fake_tensor = self.init_fake_tensor()
-        self.adv_opt = SGD([self.fake_tensor], lr=self.initial_lr, momentum=self.momentum)
-        self.scheduler = StepLR(self.adv_opt, step_size=self.adv_epochs / 3, gamma=0.1)
+        self.adv_opt = SGD([self.fake_tensor], lr=self.lr, momentum=self.momentum)
 
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
-        target_users = TensorDataset(torch.tensor(target_users, dtype=torch.int64, device=self.device))
-        self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
-                                             shuffle=True)
+        self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
 
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         self.surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.surrogate_model)
 
+        """
         self.pre_train_weights = None
         if self.pre_train:
             surrogate_model_config = self.surrogate_model_config.copy()
@@ -49,6 +47,7 @@ class WRMFSGD(BasicAttacker):
             surrogate_model = get_model(surrogate_model_config, self.dataset)
             surrogate_model.load('run/pretrain_model.pth')
             self.pre_train_weights = torch.clone(surrogate_model.embedding.weight.detach())
+        """
 
         train_user = TensorDataset(torch.arange(self.surrogate_model.n_users, dtype=torch.int64, device=self.device))
         self.surrogate_trainer.train_user_loader = \
@@ -72,11 +71,13 @@ class WRMFSGD(BasicAttacker):
 
     def retrain_surrogate(self):
         initial_embeddings(self.surrogate_model)
+        """
         if self.pre_train:
             with torch.no_grad():
                 weight = self.surrogate_model.embedding.weight
                 weight.data[:-self.n_items - self.n_fakes, :] = self.pre_train_weights[:-self.n_items, :]
                 weight.data[-self.n_items:, :] = self.pre_train_weights[-self.n_items:, :]
+        """
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
         poisoned_data_tensor = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
@@ -98,23 +99,17 @@ class WRMFSGD(BasicAttacker):
             self.retrain_time += consumed_time
 
             fmodel.eval()
-            scores = []
-            for users in self.target_user_loader:
-                users = users[0]
-                scores.append(fmodel.predict(users))
-            scores = torch.cat(scores, dim=0)
-
+            scores = self.surrogate_model.predict(self.target_users)
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
             adv_loss = ce_loss(scores, self.target_item)
-            del poisoned_data_tensor, scores, topk_items
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
         gc.collect()
         torch.cuda.empty_cache()
         return adv_loss.item(), hr.item(), adv_grads
 
     def generate_fake_users(self, verbose=True, writer=None):
-        min_loss = np.inf
+        max_hr = -np.inf
         start_time = time.time()
         for epoch in range(self.adv_epochs):
             adv_loss, hit_k, adv_grads = self.retrain_surrogate()
@@ -127,10 +122,10 @@ class WRMFSGD(BasicAttacker):
             if writer:
                 writer.add_scalar('{:s}/Adv_Loss'.format(self.name), adv_loss, epoch)
                 writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), hit_k, epoch)
-            if adv_loss < min_loss:
-                print('Minimal loss, save fake users.')
+            if hit_k > max_hr:
+                print('Maximal hit ratio, save fake users.')
                 self.fake_users = self.fake_tensor.detach().cpu().numpy().copy()
-                min_loss = adv_loss
+                max_hr = hit_k
 
             start_time = time.time()
             normalized_adv_grads = F.normalize(adv_grads, p=2, dim=1)
@@ -138,4 +133,3 @@ class WRMFSGD(BasicAttacker):
             self.fake_tensor.grad = normalized_adv_grads
             self.adv_opt.step()
             self.project_fake_tensor()
-            self.scheduler.step()

@@ -25,7 +25,7 @@ def objective(trial):
                                 'n_epochs': 47, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100,
                                 'pp_proportion': pp_proportion}
-    attacker_config = {'name': 'WRMFSGD', 'lr': lr, 'momentum': 1. - m_momentum, 'pre_train': True,
+    attacker_config = {'name': 'WRMFSGD', 'lr': lr, 'momentum': 1. - m_momentum,
                        'n_fakes': 131, 'unroll_steps': 3, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
