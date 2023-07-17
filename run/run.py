@@ -23,7 +23,7 @@ def main():
         attacker_config['target_item'] = target_item
         dataset = get_dataset(dataset_config)
         attacker = get_attacker(attacker_config, dataset)
-        writer = SummaryWriter(log_path + str(target_items))
+        writer = SummaryWriter(log_path + '-' + str(target_item))
         attacker.generate_fake_users(writer=writer)
         configs = get_config(device)
         for idx, (_, model_config, trainer_config) in enumerate(configs):

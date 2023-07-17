@@ -124,7 +124,7 @@ def get_gowalla_attacker_config():
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.0001,
                                 'n_epochs': 50, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
-                                'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'pp_threshold': 1.}
+                                'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'pp_threshold': 0.7}
     attacker_config = {'name': 'PGA', 'lr': 0.1, 'momentum': 0.95,
                        'n_fakes': 131, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
