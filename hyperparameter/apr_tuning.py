@@ -11,6 +11,9 @@ from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
+    lr = None
+    l2_reg = None
+
     eps = trial.suggest_float('eps', 1.e-2, 1.e1, log=True)
     adv_reg = trial.suggest_float('adv_reg', 1.e-3, 1.e1, log=True)
     set_seed(2023)
@@ -18,7 +21,7 @@ def objective(trial):
     dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',
                       'device': device}
     model_config = {'name': 'MF', 'embedding_size': 64}
-    trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam', 'lr': 0.001, 'l2_reg': 0.001,
+    trainer_config = {'name': 'APRTrainer', 'optimizer': 'Adam', 'lr': lr, 'l2_reg': l2_reg,
                       'eps': eps, 'adv_reg': adv_reg, 'ckpt_path': 'checkpoints/pretrain_mf.pth',
                       'n_epochs': 1000, 'batch_size': 2 ** 14, 'dataloader_num_workers': 6,
                       'test_batch_size': 2048, 'topks': [50]}

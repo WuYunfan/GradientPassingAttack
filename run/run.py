@@ -17,7 +17,7 @@ def main():
     dataset = get_dataset(dataset_config)
     target_items = get_target_items(dataset)
     print('Target items: ', target_items)
-    attacker_config = get_attacker_config(device)[0]
+    attacker_config = get_attacker_config()[0]
 
     for target_item in target_items:
         attacker_config['target_item'] = target_item

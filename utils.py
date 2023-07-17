@@ -98,12 +98,12 @@ class Unbuffered(object):
         return getattr(self.stream, attr)
 
 
-def get_target_items(dataset, top_ratio=1.):
+def get_target_items(dataset, top_ratio=1., num=10):
     data_mat = sp.coo_matrix((np.ones((len(dataset.train_array),)), np.array(dataset.train_array).T),
                              shape=(dataset.n_users, dataset.n_items), dtype=np.float32).tocsr()
     item_degree = np.array(np.sum(data_mat, axis=0)).squeeze()
     selected_items = np.argsort(item_degree)[-int(dataset.n_items * top_ratio):]
-    target_items = np.random.choice(selected_items, size=10, replace=False)
+    target_items = np.random.choice(selected_items, size=num, replace=False)
     return target_items
 
 
