@@ -325,37 +325,37 @@ def get_tenrec_config(device):
     tenrec_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MultiVAE', 'layer_sizes': [64, 32],
-                    'dropout': None}
+                    'dropout': 0.8}
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
-                      'lr': None, 'l2_reg': None, 'kl_reg': 0.2,
+                      'lr': 0.001, 'l2_reg': 1e-5, 'kl_reg': 0.2,
                       'n_epochs': 200, 'batch_size': 4096, 'dataloader_num_workers': 2,
                       'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
     tenrec_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
-                      'lr': None, 'l2_reg': None,
+                      'lr': 0.001, 'l2_reg': 0.001,
                       'n_epochs': 200, 'batch_size': 2 ** 16, 'dataloader_num_workers': 6,
                       'test_batch_size': 4096, 'topks': [50], 'neg_ratio': 4, 'max_patience': 20}
     tenrec_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
-                      'lr': None, 'l2_reg': None,
+                      'lr': 0.01, 'l2_reg': 0.01,
                       'n_epochs': 200, 'batch_size': 2 ** 16, 'dataloader_num_workers': 6,
                       'test_batch_size': 4096, 'topks': [50], 'neg_ratio': 4, 'max_patience': 20}
     tenrec_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': None, 'l2_reg': None,
+                      'lr': 0.1, 'l2_reg': 0.1,
                       'n_epochs': 200, 'batch_size': 4096, 'dataloader_num_workers': 2, 'weight': 20.,
                       'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
     tenrec_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': None, 'l2_reg': None,
+                      'lr': 0.01, 'l2_reg': 1e-05,
                       'n_epochs': 200, 'batch_size': 4096, 'dataloader_num_workers': 2, 'weight': 20.,
                       'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
     tenrec_config.append((dataset_config, model_config, trainer_config))
