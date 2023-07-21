@@ -30,8 +30,17 @@ class PPFunction(Function):
         mat = ctx.mat
         rep = ctx.saved_tensors[0]
 
-        sim = torch.sigmoid(torch.sum(rep[mat.row, :] * rep[mat.col, :], dim=1))
-        values = torch.gt(sim, threshold).to(torch.float32)
+        n_non_zeros = mat.n_non_zeros
+        chunk_size = min(int(1e6), n_non_zeros)
+        end_indices = list(range(0, n_non_zeros, chunk_size)) + [n_non_zeros]
+        values = []
+        for i_chunk in range(1, len(end_indices)):
+            start_idx = end_indices[i_chunk - 1]
+            end_idx = end_indices[i_chunk]
+            sim_batch = torch.sigmoid(torch.sum(rep[mat.row[start_idx:end_idx], :] *
+                                                rep[mat.col[start_idx:end_idx], :], dim=1))
+            values.append(torch.gt(sim_batch, threshold).to(torch.float32))
+        values = torch.cat(values)
 
         grad = grad_out
         grads = [grad]

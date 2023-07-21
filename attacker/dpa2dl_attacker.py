@@ -136,9 +136,9 @@ class DPA2DL(BasicAttacker):
                     print('Round {:d}/{:d}, Poison Loss: {:.6f}, Train Loss: {:.6f}, Target Hit Ratio {:.6f}'.
                           format(i_round, self.n_rounds, p_loss, t_loss, target_hr))
                 if writer:
-                    writer.add_scalar('{:s}_{.s}/Poison_Loss'.format(self.name, fake_nums_str), p_loss, i_round)
-                    writer.add_scalar('{:s}_{.s}/Train_Loss'.format(self.name, fake_nums_str), t_loss, i_round)
-                    writer.add_scalar('{:s}_{.s}/Hit_Ratio@{:d}'.format(self.name, fake_nums_str, self.topk),
+                    writer.add_scalar('{:s}_{:s}/Poison_Loss'.format(self.name, fake_nums_str), p_loss, i_round)
+                    writer.add_scalar('{:s}_{:s}/Train_Loss'.format(self.name, fake_nums_str), t_loss, i_round)
+                    writer.add_scalar('{:s}_{:s}/Hit_Ratio@{:d}'.format(self.name, fake_nums_str, self.topk),
                                       target_hr, i_round)
                 if target_hr > best_hr:
                     os.remove(surrogate_trainer.save_path)
