@@ -79,6 +79,13 @@ def get_gowalla_config(device):
 def get_gowalla_attacker_config():
     gowalla_attacker_config = []
 
+    attacker_config = {'name': 'RandomAttacker',  'n_fakes': 131, 'n_inters': 41, 'topk': 50}
+    gowalla_attacker_config.append(attacker_config)
+
+    attacker_config = {'name': 'BandwagonAttacker', 'top_rate': 0.1, 'popular_inter_rate': 0.5,
+                       'n_fakes': 131, 'n_inters': 41, 'topk': 50}
+    gowalla_attacker_config.append(attacker_config)
+
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.0,
                                 'n_epochs': 47, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
@@ -225,6 +232,14 @@ def get_yelp_config(device):
 
 def get_yelp_attacker_config():
     yelp_attacker_config = []
+
+    attacker_config = {'name': 'RandomAttacker',  'n_fakes': 355, 'n_inters': 36, 'topk': 50}
+    yelp_attacker_config.append(attacker_config)
+
+    attacker_config = {'name': 'BandwagonAttacker', 'top_rate': 0.1, 'popular_inter_rate': 0.5,
+                       'n_fakes': 355, 'n_inters': 36, 'topk': 50}
+    yelp_attacker_config.append(attacker_config)
+
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
                                 'n_epochs': 50, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
