@@ -275,7 +275,7 @@ def get_yelp_attacker_config():
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.001, 'l2_reg': 0.01,
                                 'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
-                                'pp_threshold': None}
+                                'pp_threshold': 0.}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 355, 'topk': 50,
                        'n_inters': 36, 'reg_u': 10000.0, 'prob': 0.9, 'kappa': 1.,
                        'step': 20, 'alpha': 1e-05, 'n_rounds': 5,

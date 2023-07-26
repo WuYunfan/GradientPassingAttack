@@ -25,7 +25,7 @@ def objective(trial):
                                 'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
                                 'pp_threshold': pp_threshold}
-    attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50, 'pre_train': True,
+    attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'reg_u': reg_u, 'prob': 0.9, 'kappa': 1.,
                        'step': 4, 'alpha': alpha, 'n_rounds': 5,
                        'surrogate_model_config': surrogate_model_config,
