@@ -79,6 +79,9 @@ def get_gowalla_config(device):
 def get_gowalla_attacker_config():
     gowalla_attacker_config = []
 
+    attacker_config = {'name': 'RandomAttacker',  'n_fakes': 0, 'n_inters': 41, 'topk': 50}
+    gowalla_attacker_config.append(attacker_config)
+
     attacker_config = {'name': 'RandomAttacker',  'n_fakes': 131, 'n_inters': 41, 'topk': 50}
     gowalla_attacker_config.append(attacker_config)
 
@@ -233,6 +236,9 @@ def get_yelp_config(device):
 def get_yelp_attacker_config():
     yelp_attacker_config = []
 
+    attacker_config = {'name': 'RandomAttacker',  'n_fakes': 0, 'n_inters': 36, 'topk': 50}
+    yelp_attacker_config.append(attacker_config)
+
     attacker_config = {'name': 'RandomAttacker',  'n_fakes': 355, 'n_inters': 36, 'topk': 50}
     yelp_attacker_config.append(attacker_config)
 
@@ -357,6 +363,9 @@ def get_tenrec_config(device):
 
 def get_tenrec_attacker_config():
     tenrec_attacker_config = []
+
+    attacker_config = {'name': 'RandomAttacker',  'n_fakes': 0, 'n_inters': 34, 'topk': 50}
+    tenrec_attacker_config.append(attacker_config)
 
     attacker_config = {'name': 'RandomAttacker',  'n_fakes': 11952, 'n_inters': 34, 'topk': 50}
     tenrec_attacker_config.append(attacker_config)
