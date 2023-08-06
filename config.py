@@ -389,7 +389,7 @@ def get_tenrec_attacker_config():
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
                                 'n_epochs': 1, 'batch_size': 2 ** 16, 'dataloader_num_workers': 6,
                                 'test_batch_size': 4096, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
-                                'pp_threshold': None}
+                                'pp_threshold': 0.9}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 11952, 'topk': 50,
                        'n_inters': 34, 'reg_u': 1000.0, 'prob': 0.9, 'kappa': 1.,
                        'step': 500, 'alpha': 1e-06, 'n_rounds': 1,
