@@ -243,6 +243,47 @@ class BPRTrainer(BasicTrainer):
         return losses.avg
 
 
+class BPRTrainerRecord(BPRTrainer):
+    def __init__(self, trainer_config):
+        super(BPRTrainerRecord, self).__init__(trainer_config)
+        self.pos_pairs = torch.tensor(np.array(self.dataset.train_array).T, dtype=torch.int64, device=self.device)
+        self.pos_pairs[1, :] += self.model.n_users
+        self.rand_pairs = torch.vstack([torch.randint(self.model.n_users, (self.pos_pairs.shape[1], )),
+                                        torch.randint(self.model.n_items, (self.pos_pairs.shape[1], )) + self.model.n_users])
+        self.rand_pairs.to(dtype=torch.int64, device=self.device)
+        self.records = []
+
+    def train_one_epoch(self):
+        losses = AverageMeter()
+        grad = torch.zeros_like(self.model.embedding.weight)
+        n_batches = 0
+        for batch_data in self.dataloader:
+            inputs = batch_data[:, 0, :].to(device=self.device, dtype=torch.int64)
+            users, pos_items, neg_items = inputs[:, 0], inputs[:, 1], inputs[:, 2]
+
+            users_r, pos_items_r, neg_items_r, l2_norm_sq = \
+                self.model.bpr_forward(users, pos_items, neg_items, self.pp_config)
+            pos_scores = torch.sum(users_r * pos_items_r, dim=1)
+            neg_scores = torch.sum(users_r * neg_items_r, dim=1)
+
+            bpr_loss = F.softplus(neg_scores - pos_scores).mean()
+            reg_loss = self.l2_reg * l2_norm_sq.mean()
+            loss = bpr_loss + reg_loss
+            loss.backward()
+            grad += self.model.embedding.weight.grad
+            n_batches += 1
+            self.opt.step()
+            self.opt.zero_grad()
+            losses.update(loss.item(), inputs.shape[0])
+        grad /= n_batches
+        grad = F.normalize(grad, p=2, dim=1)
+        pos_scores = torch.sum(grad[self.pos_pairs[0, :], :] * grad[self.pos_pairs[1, :], :], dim=1)
+        rand_scores = torch.sum(grad[self.rand_pairs[0, :], :] * grad[self.rand_pairs[1, :], :], dim=1)
+        record = torch.hstack([torch.mean(pos_scores), torch.std(pos_scores), torch.mean(rand_scores), torch.std(rand_scores)])
+        self.records.append(record.cpu().numpy())
+        return losses.avg
+
+
 class APRTrainer(BasicTrainer):
     def __init__(self, trainer_config):
         super(APRTrainer, self).__init__(trainer_config)
