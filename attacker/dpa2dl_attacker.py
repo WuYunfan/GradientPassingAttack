@@ -47,15 +47,14 @@ class DPA2DL(BasicAttacker):
         losses = AverageMeter()
         for users in self.target_user_loader:
             users = users[0]
-            scores, _ = surrogate_model.mse_forward(users, surrogate_trainer.pp_config)
+            scores = surrogate_model.predict(users)
             loss = self.alpha * self.reg_u * topk_loss(scores, self.target_item, self.topk, self.kappa)
             surrogate_trainer.opt.zero_grad()
             loss.backward()
             surrogate_trainer.opt.step()
             losses.update(loss.item(), users.shape[0])
 
-        scores, _ = surrogate_model.mse_forward(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device),
-                                                surrogate_trainer.pp_config)
+        scores = surrogate_model.predict(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device))
         scores = torch.cat([scores[:, :self.target_item], scores[:, self.target_item + 1:]], dim=1)
         loss = self.alpha * (torch.sigmoid(scores) ** 2).mean()
         surrogate_trainer.opt.zero_grad()

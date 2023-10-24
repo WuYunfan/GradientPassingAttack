@@ -23,7 +23,6 @@ class WRMFSGD(BasicAttacker):
 
         self.adv_epochs = attacker_config['adv_epochs']
         self.unroll_steps = attacker_config['unroll_steps']
-        self.weight = self.surrogate_trainer_config['weight']
         self.lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
         # self.pre_train = attacker_config.get('pre_train', False)
@@ -92,7 +91,7 @@ class WRMFSGD(BasicAttacker):
                     users = users[0]
                     profiles = poisoned_data_tensor[users, :]
                     scores, l2_norm_sq = fmodel.mse_forward(users, self.surrogate_trainer.pp_config)
-                    m_loss = mse_loss(profiles, scores, self.weight)
+                    m_loss = mse_loss(profiles, scores)
                     loss = m_loss + self.surrogate_trainer.l2_reg * l2_norm_sq
                     diffopt.step(loss)
             consumed_time = time.time() - start_time

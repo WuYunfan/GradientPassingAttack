@@ -422,7 +422,6 @@ class MSETrainer(BasicTrainer):
                                       shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsr()
         self.initialize_optimizer()
         self.l2_reg = trainer_config['l2_reg']
-        self.weight = trainer_config['weight']
         self.merged_data_mat = None
 
     def merge_fake_tensor(self, fake_tensor):
@@ -446,7 +445,7 @@ class MSETrainer(BasicTrainer):
             users = users.cpu().numpy()
             profiles = data_mat[users, :]
             profiles = torch.tensor(profiles.toarray(), dtype=torch.float32, device=self.device)
-            m_loss = mse_loss(profiles, scores, self.weight)
+            m_loss = mse_loss(profiles, scores)
 
             loss = m_loss + self.l2_reg * l2_norm_sq
             self.opt.zero_grad()

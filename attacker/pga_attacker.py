@@ -11,6 +11,7 @@ import gc
 import time
 from model import get_model, initial_embeddings
 from trainer import get_trainer
+import torch.nn.functional as F
 
 
 class PGA(BasicAttacker):
@@ -81,18 +82,21 @@ class PGA(BasicAttacker):
         adv_loss = ce_loss(scores, self.target_item)
 
         adv_grads = []
-        adv_grads_wrt_item_embeddings = torch.autograd.grad(adv_loss,
-                                                            self.surrogate_model.embedding.weight)[0][-self.n_items:, :]
         with torch.no_grad():
+            normed_embeddings = F.normalize(self.surrogate_model.embedding.weight, dim=1, p=2)
+            adv_grads_wrt_item_embeddings = torch.autograd.grad(adv_loss, self.surrogate_model.embedding.weight)
+            adv_grads_wrt_item_embeddings = adv_grads_wrt_item_embeddings[0][-self.n_items:, :]
+            item_norm = torch.norm(self.surrogate_model.embedding.weight[-self.n_items:, :], dim=1, p=2)
+            adv_grads_wrt_normed_item_embeddings = adv_grads_wrt_item_embeddings * item_norm
+            normed_fake_user_embeddings = normed_embeddings[self.n_users:-self.n_items, :]
+            identity_mat = torch.eye(self.surrogate_model.embedding_size, device=self.device)
             for item in range(self.n_items):
                 interacted_users = self.surrogate_trainer.merged_data_mat[:, item].nonzero()[0]
-                interacted_user_embeddings = self.surrogate_model.embedding.weight[interacted_users, :]
-                sum_v_mat = torch.mm(interacted_user_embeddings.t(), interacted_user_embeddings)
-                inv_mat = torch.linalg.inv(sum_v_mat +
-                                           self.lmd * torch.eye(self.surrogate_model.embedding_size, device=self.device))
-                fake_user_embeddings = self.surrogate_model.embedding.weight[self.n_users:-self.n_items, :]
-                item_embedding_wrt_fake_inters = torch.mm(inv_mat, fake_user_embeddings.t())
-                adv_grad = torch.mm(adv_grads_wrt_item_embeddings[item:item + 1, :], item_embedding_wrt_fake_inters)
+                normed_interacted_user_embeddings = normed_embeddings[interacted_users, :]
+                sum_v_mat = torch.mm(normed_interacted_user_embeddings.t(), normed_interacted_user_embeddings)
+                inv_mat = torch.linalg.inv(sum_v_mat + self.lmd * identity_mat)
+                normed_item_embedding_wrt_fake_inters = torch.mm(inv_mat, normed_fake_user_embeddings.t())
+                adv_grad = torch.mm(adv_grads_wrt_normed_item_embeddings[item:item + 1, :], normed_item_embedding_wrt_fake_inters)
                 adv_grads.append(adv_grad)
         adv_grads = torch.cat(adv_grads, dim=0).t()
         return adv_loss.item(), hr.item(), adv_grads

@@ -107,19 +107,11 @@ def get_target_items(dataset, top_ratio=1., num=10):
     return target_items
 
 
-def mse_loss(profiles, scores, weight):
-    weights = torch.where(profiles > 0, weight, 1.)
-    loss = weights * (profiles - scores) ** 2
-    loss = torch.mean(loss)
-    return loss
-
-
-def bce_loss(profiles, scores, alpha):
+def mse_loss(profiles, scores):
     n_profiles = 1. - profiles
-    loss_p = (F.softplus(-scores) * profiles).sum() / profiles.sum()
-    loss_n = (F.softplus(scores) * n_profiles).sum() / n_profiles.sum()
-    loss = loss_p + alpha * loss_n
-    return loss
+    loss_p = ((scores - 1) ** 2 * profiles).sum() / profiles.sum()
+    loss_n = ((scores + 1) ** 2 * n_profiles).sum() / n_profiles.sum()
+    return loss_p + loss_n
 
 
 def ce_loss(scores, target_item):
