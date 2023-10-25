@@ -121,8 +121,9 @@ class BasicModel(nn.Module):
 
     def mse_forward(self, users, pp_config):
         rep = self.pp_rep(pp_config)
-        users_r = rep[users, :]
-        all_items_r = rep[self.n_users:, :]
+        normed_rep = F.normalize(rep, p=2, dim=1)
+        users_r = normed_rep[users, :]
+        all_items_r = normed_rep[self.n_users:, :]
         scores = torch.mm(users_r, all_items_r.t())
 
         l2_norm_sq = torch.norm(rep[users, :], p=2) ** 2
