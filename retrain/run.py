@@ -108,9 +108,9 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run
     sub_dataset = get_dataset(dataset_config)
     full_rec_items = trainer.get_rec_items('test', k=max(topks))[:sub_dataset.n_users, :]
 
-    trainer_config['n_epochs'] = n_epochs if n_epochs is not None else trainer_config['n_epochs']
-    trainer_config['lr'] = lr if lr is not None else trainer_config['lr']
-    trainer_config['l2_reg'] = l2_reg if l2_reg is not None else trainer_config['l2_reg']
+    trainer_config['n_epochs'] = n_epochs
+    trainer_config['lr'] = lr
+    trainer_config['l2_reg'] = l2_reg
 
     extra_eval = (eval_rec_and_surrogate, (full_rec_items, topks)) if verbose else None
     names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'full_retrain_wh_pp', 3: 'pre_retrain_wh_pp'}
@@ -118,7 +118,8 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run
 
     set_seed(seed)
     new_model = get_model(model_config, full_dataset)
-    if pp_threshold is not None and run_method >= 2:
+    if pp_threshold is not None:
+        assert run_method >= 2
         trainer_config['pp_threshold'] = pp_threshold
     new_trainer = get_trainer(trainer_config, new_model)
     if run_method == 1 or run_method == 3:
