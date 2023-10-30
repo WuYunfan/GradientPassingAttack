@@ -27,9 +27,10 @@ class PPConfig:
     def __init__(self, trainer_config):
         self.order = 0
         if 'pp_threshold' in trainer_config and trainer_config['pp_threshold'] is not None:
-            self.order = trainer_config.get('pp_order', 1)
+            self.order = trainer_config.get('pp_order', 2)
             self.threshold = trainer_config['pp_threshold']
             self.alpha = trainer_config.get('pp_alpha', 1.)
+            self.chunk_size = trainer_config.get('pp_chunk_size', int(1e6))
             model = trainer_config['model']
             dataset = trainer_config['dataset']
             self.mat = generate_adj_mat(dataset.train_array, model)

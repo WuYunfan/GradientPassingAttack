@@ -14,24 +14,22 @@ import matplotlib.pyplot as plt
 
 class PPFunction(Function):
     @staticmethod
-    def forward(ctx, rep, order, threshold, alpha, mat):
-        ctx.order = order
-        ctx.threshold = threshold
-        ctx.alpha = alpha
-        ctx.mat = mat
+    def forward(ctx, rep, config):
+        ctx.config = config
         ctx.save_for_backward(rep)
         return rep
 
     @staticmethod
     def backward(ctx, grad_out):
-        order = ctx.order
-        threshold = ctx.threshold
-        alpha = ctx.alpha
-        mat = ctx.mat
+        config = ctx.config
+        order = config.order
+        threshold = config.threshold
+        alpha = config.alpha
+        mat = config.mat
+        chunk_size = config.chunk_size
         rep = ctx.saved_tensors[0]
 
         n_non_zeros = mat.n_non_zeros
-        chunk_size = min(int(1e6), n_non_zeros)
         end_indices = list(range(0, n_non_zeros, chunk_size)) + [n_non_zeros]
         values = []
         for i_chunk in range(1, len(end_indices)):
@@ -47,8 +45,8 @@ class PPFunction(Function):
         for i in range(order):
             grad = mat.spmm(grad, values, norm='both')
             grads.append(alpha * grad)
-        grad = torch.stack(grads, dim=0).sum(dim=0)
-        return grad, None, None, None, None
+        grad = torch.stack(grads, dim=0).mean(dim=0)
+        return grad, None
 
 
 def get_model(config, dataset):
@@ -97,7 +95,7 @@ class BasicModel(nn.Module):
         rep = self.get_rep()
         if pp_config.order == 0:
             return rep
-        return PPFunction.apply(rep, pp_config.order, pp_config.threshold, pp_config.alpha, pp_config.mat)
+        return PPFunction.apply(rep, pp_config)
 
     def bpr_forward(self, users, pos_items, neg_items, pp_config):
         rep = self.pp_rep(pp_config)

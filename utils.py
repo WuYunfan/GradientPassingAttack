@@ -47,10 +47,10 @@ class TorchSparseMat:
         self.g = dgl.graph((self.col, self.row), num_nodes=max(shape), device=device)
         self.n_non_zeros = self.row.shape[0]
 
-        self.eps = torch.tensor(1.e-8, dtype=torch.float32, device=device)
+        eps = torch.tensor(1.e-8, dtype=torch.float32, device=device)
         values = torch.ones([self.n_non_zeros], dtype=torch.float32, device=device)
         degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
-        degree = torch.where(degree > 0, degree, self.eps)
+        degree = torch.where(degree > 0, degree, eps)
         self.inv_deg = torch.pow(degree, -0.5)
 
     def spmm(self, r_mat, value_tensor=None, norm=None):
