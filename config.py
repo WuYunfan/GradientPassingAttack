@@ -62,14 +62,14 @@ def get_gowalla_config(device):
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': 0.001, 'l2_reg': 1e-05,
+                      'lr': 0.001, 'l2_reg': 0.0001,
                       'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': 0.1, 'l2_reg': 0.0001,
+                      'lr': 0.01, 'l2_reg': 1e-05,
                       'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
@@ -219,14 +219,14 @@ def get_yelp_config(device):
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': 0.001, 'l2_reg': 1.e-5,
+                      'lr': 0.01, 'l2_reg': 1.e-5,
                       'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
     model_config = {'name': 'LightGCN', 'embedding_size': 64, 'n_layers': 3}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': 0.001, 'l2_reg': 1.e-5,
+                      'lr': 0.01, 'l2_reg': 1.e-5,
                       'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
@@ -347,7 +347,7 @@ def get_tenrec_config(device):
 
     model_config = {'name': 'MF', 'embedding_size': 64}
     trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam',
-                      'lr': 0.1, 'l2_reg': 0.1,
+                      'lr': 0.01, 'l2_reg': 1.e-5,
                       'n_epochs': 200, 'batch_size': 4096, 'dataloader_num_workers': 2,
                       'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
     tenrec_config.append((dataset_config, model_config, trainer_config))
