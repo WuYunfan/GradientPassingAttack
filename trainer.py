@@ -127,7 +127,7 @@ class BasicTrainer:
                     break
 
             if extra_eval:
-                extra_eval[0](self, *extra_eval[1], writer, verbose)
+                extra_eval[0](self, extra_eval[1], writer, verbose)
 
         if self.save_path is not None:
             self.model.load(self.save_path)

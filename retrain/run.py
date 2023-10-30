@@ -33,8 +33,10 @@ def eval_rec_on_new_users(trainer, n_old_users, writer):
 def initial_parameter(new_model, pre_train_model):
     dataset = pre_train_model.dataset
     with torch.no_grad():
-        new_model.embedding.weight.data[:dataset.n_users, :] = pre_train_model.embedding.weight[:dataset.n_users, :]
-        new_model.embedding.weight.data[-dataset.n_items:, :] = pre_train_model.embedding.weight[-dataset.n_items:, :]
+        new_model.embedding.weight.data[:dataset.n_users, :new_model.pretrain_fixed_dim] = \
+            pre_train_model.embedding.weight[:dataset.n_users, :]
+        new_model.embedding.weight.data[-dataset.n_items:, :new_model.pretrain_fixed_dim] = \
+            pre_train_model.embedding.weight[-dataset.n_items:, :]
 
 
 def calculate_jaccard_similarity(rec_items, full_rec_items):
@@ -61,35 +63,35 @@ def calculate_ndcg(rec_items, full_rec_items, denominator):
     return ndcgs
 
 
-def eval_rec_and_surrogate(trainer, full_rec_items, topks, writer, verbose):
+def eval_rec_and_surrogate(trainer, full_rec_items, writer, verbose):
     if not verbose:
         return
     start_time = time.time()
     n_old_users = full_rec_items.shape[0]
     eval_rec_on_new_users(trainer, n_old_users, writer)
-    rec_items = trainer.get_rec_items('test', k=max(topks))[:n_old_users, :]
+    rec_items = trainer.get_rec_items('test', k=max(trainer.topks))[:n_old_users, :]
     metrics = {'Jaccard': {}, 'NDCG': {}}
 
-    denominator = np.log2(np.arange(2, max(topks) + 2, dtype=np.float32))[None, :]
-    for k in topks:
+    denominator = np.log2(np.arange(2, max(trainer.topks) + 2, dtype=np.float32))[None, :]
+    for k in trainer.topks:
         metrics['Jaccard'][k] = np.mean(calculate_jaccard_similarity(rec_items[:, :k], full_rec_items[:, :k]))
         metrics['NDCG'][k] = np.mean(calculate_ndcg(rec_items[:, :k], full_rec_items[:, :k], denominator))
 
     jaccard = ''
     ndcg = ''
-    for k in topks:
+    for k in trainer.topks:
         jaccard += '{:.3f}%@{:d}, '.format(metrics['Jaccard'][k] * 100., k)
         ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100., k)
     results = 'Jaccard similarity: {:s}NDCG: {:s}'.format(jaccard, ndcg)
     consumed_time = time.time() - start_time
     print(results, 'Time: {:.3f}s'.format(consumed_time))
     if writer is not None:
-        trainer.record(writer, 'surrogate', metrics, topks)
-    return metrics['Jaccard'][topks[0]]
+        trainer.record(writer, 'surrogate', metrics)
+    return metrics['Jaccard'][trainer.topks[0]]
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run_method, victim_model,
-                         verbose=False, topks=(50, 200)):
+def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pretrain_fixed_dim, n_epochs,
+                         run_method, victim_model, verbose=False):
     device = torch.device('cuda')
     config = get_config(device)
     dataset_config, model_config, trainer_config = config[victim_model]
@@ -106,26 +108,28 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run
 
     dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
     sub_dataset = get_dataset(dataset_config)
-    full_rec_items = trainer.get_rec_items('test', k=max(topks))[:sub_dataset.n_users, :]
+    full_rec_items = trainer.get_rec_items('test', k=max(trainer.topks))[:sub_dataset.n_users, :]
 
     trainer_config['n_epochs'] = n_epochs
     trainer_config['lr'] = lr
     trainer_config['l2_reg'] = l2_reg
 
-    extra_eval = (eval_rec_and_surrogate, (full_rec_items, topks)) if verbose else None
+    extra_eval = (eval_rec_and_surrogate, full_rec_items) if verbose else None
     names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'full_retrain_wh_pp', 3: 'pre_retrain_wh_pp'}
     writer = SummaryWriter(os.path.join(log_path, names[run_method]))
 
     set_seed(seed)
+    if run_method == 1 or run_method == 3:
+        model_config['pretrain_fixed_dim'] = pretrain_fixed_dim
     new_model = get_model(model_config, full_dataset)
     if pp_threshold is not None:
         assert run_method >= 2
         trainer_config['pp_threshold'] = pp_threshold
     new_trainer = get_trainer(trainer_config, new_model)
     if run_method == 1 or run_method == 3:
+        model_config['embedding_size'] = pretrain_fixed_dim
         pre_train_model = get_model(model_config, sub_dataset)
-        pp_str = '_pp' if run_method == 3 else ''
-        pre_train_model.load('retrain/pretrain_model' + pp_str + '.pth')
+        pre_train_model.load('retrain/pretrain_model.pth')
         initial_parameter(new_model, pre_train_model)
     new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
     writer.close()
@@ -133,7 +137,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run
 
     results, _ = new_trainer.eval('val')
     print(results)
-    jaccard_sim = eval_rec_and_surrogate(new_trainer, full_rec_items, topks, None, True)
+    jaccard_sim = eval_rec_and_surrogate(new_trainer, full_rec_items, None, True)
     return jaccard_sim
 
 
@@ -146,10 +150,12 @@ def main():
     lr = None
     l2_reg = None
     pp_threshold = None
+    pretrain_fixed_dim = None
     n_epochs = None
     run_method = None
     victim_model = None
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, n_epochs, run_method, victim_model)
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pretrain_fixed_dim,
+                                       n_epochs, run_method, victim_model)
     print('Jaccard similarity', jaccard_sim)
 
 

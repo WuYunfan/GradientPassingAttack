@@ -80,6 +80,7 @@ class BasicModel(nn.Module):
         self.dataset = model_config['dataset']
         self.n_users = self.dataset.n_users + model_config.get('n_fakes', 0)
         self.n_items = self.dataset.n_items
+        self.pretrain_fixed_dim = model_config.get('pretrain_fixed_dim', 0)
         self.trainable = True
 
     def save(self, path):
@@ -92,7 +93,7 @@ class BasicModel(nn.Module):
         raise NotImplementedError
 
     def pp_rep(self, pp_config):
-        rep = self.get_rep()
+        rep = self.get_rep()[:, self.pretrain_fixed_dim:]
         if pp_config.order == 0:
             return rep
         return PPFunction.apply(rep, pp_config)
