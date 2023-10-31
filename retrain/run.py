@@ -30,15 +30,6 @@ def eval_rec_on_new_users(trainer, n_old_users, writer):
         trainer.record(writer, 'old_user', metrics)
 
 
-def initial_parameter(new_model, pre_train_model):
-    dataset = pre_train_model.dataset
-    with torch.no_grad():
-        new_model.embedding.weight.data[:dataset.n_users, :new_model.pretrain_fixed_dim] = \
-            pre_train_model.embedding.weight[:dataset.n_users, :]
-        new_model.embedding.weight.data[-dataset.n_items:, :new_model.pretrain_fixed_dim] = \
-            pre_train_model.embedding.weight[-dataset.n_items:, :]
-
-
 def calculate_jaccard_similarity(rec_items, full_rec_items):
     n = rec_items.shape[0]
     jaccard_sims = np.zeros((n, ), dtype=np.float32)
@@ -128,9 +119,9 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pretrain_fixe
     new_trainer = get_trainer(trainer_config, new_model)
     if run_method == 1 or run_method == 3:
         model_config['embedding_size'] = pretrain_fixed_dim
-        pre_train_model = get_model(model_config, sub_dataset)
-        pre_train_model.load('retrain/pretrain_model.pth')
-        initial_parameter(new_model, pre_train_model)
+        pre_trained_model = get_model(model_config, sub_dataset)
+        pre_trained_model.load('retrain/pretrain_model.pth')
+        new_model.initial_pretrained_parameters(pre_trained_model)
     new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
     writer.close()
     print('--------------------------------Finish Training!--------------------------------')

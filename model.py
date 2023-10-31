@@ -65,10 +65,6 @@ def init_one_layer(in_features, out_features):
     return layer
 
 
-def initial_embeddings(model):
-    normal_(model.embedding.weight, std=0.1)
-
-
 class BasicModel(nn.Module):
     def __init__(self, model_config):
         super(BasicModel, self).__init__()
@@ -81,6 +77,7 @@ class BasicModel(nn.Module):
         self.n_users = self.dataset.n_users + model_config.get('n_fakes', 0)
         self.n_items = self.dataset.n_items
         self.pretrain_fixed_dim = model_config.get('pretrain_fixed_dim', 0)
+        self.pretrain_weight = model_config.get('pretrain_weight', 1.)
         self.trainable = True
 
     def save(self, path):
@@ -91,6 +88,17 @@ class BasicModel(nn.Module):
 
     def get_rep(self):
         raise NotImplementedError
+
+    def initial_embeddings(self):
+        normal_(self.embedding.weight, std=0.1)
+
+    def initial_pretrained_parameters(self, pre_trained_model):
+        n_users = pre_trained_model.n_users
+        n_items = pre_trained_model.n_items
+        pretrained_embeddings = self.pretrain_weight * pre_trained_model.embedding.weight
+        with torch.no_grad():
+            self.embedding.weight.data[:n_users, :self.pretrain_fixed_dim] = pretrained_embeddings[:n_users, :]
+            self.embedding.weight.data[-n_items:, :self.pretrain_fixed_dim] = pretrained_embeddings[-n_items:, :]
 
     def pp_rep(self, pp_config):
         rep = self.get_rep()[:, self.pretrain_fixed_dim:]
@@ -142,7 +150,7 @@ class MF(BasicModel):
         super(MF, self).__init__(model_config)
         self.embedding_size = model_config['embedding_size']
         self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
-        initial_embeddings(self)
+        self.initial_embeddings()
         self.to(device=self.device)
 
     def get_rep(self):
@@ -156,7 +164,7 @@ class LightGCN(BasicModel):
         self.n_layers = model_config['n_layers']
         self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
         self.adj_mat = self.generate_graph(model_config['dataset'])
-        initial_embeddings(self)
+        self.initial_embeddings()
         self.to(device=self.device)
 
     def generate_graph(self, dataset):

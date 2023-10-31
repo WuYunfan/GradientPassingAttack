@@ -24,7 +24,6 @@ class DPA2DL(BasicAttacker):
         self.step = attacker_config['step']
         self.alpha = attacker_config['alpha']
         self.n_rounds = attacker_config['n_rounds']
-        self.pre_train = attacker_config.get('pre_train', False)
 
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         target_users = TensorDataset(torch.tensor(target_users, dtype=torch.int64, device=self.device))
@@ -93,7 +92,6 @@ class DPA2DL(BasicAttacker):
         self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)
         self.fake_users[:, self.target_item] = 1.
 
-        pre_train_weight = None
         prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step, dtype=np.int64)) + [self.n_fakes]
         for i_step in range(1, len(fake_user_end_indices)):
@@ -109,19 +107,12 @@ class DPA2DL(BasicAttacker):
             self.dataset.n_users += n_temp_fakes
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
-            if self.pre_train and pre_train_weight is not None:
-                with torch.no_grad():
-                    weight = surrogate_model.embedding.weight
-                    weight.data[:-self.n_items - n_temp_fakes, :] = pre_train_weight[:-self.n_items, :]
-                    weight.data[-self.n_items:, :] = pre_train_weight[-self.n_items:, :]
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
 
             start_time = time.time()
             surrogate_trainer.train(verbose=False)
             consumed_time = time.time() - start_time
             self.retrain_time += consumed_time
-            if self.pre_train:
-                pre_train_weight = torch.clone(surrogate_model.embedding.weight.detach())
 
             best_hr = self.get_target_hr(surrogate_model)
             print('Initial target HR: {:.4f}'.format(best_hr))

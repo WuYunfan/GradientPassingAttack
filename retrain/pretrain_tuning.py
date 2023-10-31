@@ -12,10 +12,9 @@ import os
 import shutil
 
 
-def objective(trial, n_epochs, pp, victim_model):
-    lr = trial.suggest_float('lr', 1.e-5, 1.e-1, log=True)
+def objective(trial, pretrain_fixed_dim, victim_model):
+    lr = trial.suggest_float('lr', 1.e-4, 1.e-1, log=True)
     l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1.e-1, log=True)
-    pp_threshold = trial.suggest_float('pp_threshold', 0., 1., ) if pp else None
 
     set_seed(2023)
     device = torch.device('cuda')
@@ -23,11 +22,9 @@ def objective(trial, n_epochs, pp, victim_model):
     dataset_config, model_config, trainer_config = config[victim_model]
 
     dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
-    trainer_config['n_epochs'] = n_epochs
-    trainer_config['max_patience'] = n_epochs
+    model_config['embedding_size'] = pretrain_fixed_dim
     trainer_config['lr'] = lr
     trainer_config['l2_reg'] = l2_reg
-    trainer_config['pp_threshold'] = pp_threshold
     dataset = get_dataset(dataset_config)
     model = get_model(model_config, dataset)
     trainer = get_trainer(trainer_config, model)
@@ -38,20 +35,17 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    n_epochs = 100
-    pp = True
+    pretrain_fixed_dim = 4
     victim_model = 0
 
     search_space = {'lr': [1.e-4, 1.e-3, 1.e-2, 1.e-1], 'l2_reg': [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1]}
-    if pp:
-        search_space['pp_threshold'] = [0., 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = 'pretrain_model_' + str(n_epochs) + '_' + str(victim_model) + ('_pp' if pp else '')
+    study_name = 'pretrain_model_' + str(victim_model)
     storage_name = 'sqlite:///../{}.db'.format(study_name)
     study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
                                 sampler=optuna.samplers.GridSampler(search_space))
 
-    study.optimize(lambda trial: objective(trial, n_epochs, pp, victim_model))
+    study.optimize(lambda trial: objective(trial, pretrain_fixed_dim, victim_model))
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 

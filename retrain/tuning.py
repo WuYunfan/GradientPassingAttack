@@ -9,7 +9,7 @@ import shutil
 import os
 
 
-def objective(trial, name, run_method, n_epochs, victim_model):
+def objective(trial, name, pretrain_fixed_dim, n_epochs, run_method, victim_model):
     log_path = __file__[:-3]
     if os.path.exists(os.path.join(log_path, name)):
         shutil.rmtree(os.path.join(log_path, name))
@@ -18,7 +18,8 @@ def objective(trial, name, run_method, n_epochs, victim_model):
     l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1.e-1, log=True)
     pp_threshold = trial.suggest_float('pp_threshold', 0., 1.,) if run_method >= 2 else None
 
-    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, pp_threshold, n_epochs, run_method, victim_model)
+    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, pp_threshold, pretrain_fixed_dim,
+                                       n_epochs, run_method, victim_model)
     return jaccard_sim
 
 
@@ -26,6 +27,7 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
+    pretrain_fixed_dim = 4
     n_epochs = 100
     run_method = 2
     victim_model = 0
@@ -41,7 +43,7 @@ def main():
     study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
                                 sampler=optuna.samplers.GridSampler(search_space))
 
-    study.optimize(lambda trial: objective(trial, name, run_method, n_epochs, victim_model))
+    study.optimize(lambda trial: objective(trial, name, pretrain_fixed_dim, n_epochs, run_method, victim_model))
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 

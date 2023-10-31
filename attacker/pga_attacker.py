@@ -9,7 +9,7 @@ from torch.optim import Adam, SGD
 from utils import mse_loss, ce_loss
 import gc
 import time
-from model import get_model, initial_embeddings
+from model import get_model
 from trainer import get_trainer
 import torch.nn.functional as F
 
@@ -25,7 +25,6 @@ class PGA(BasicAttacker):
         self.lmd = self.surrogate_trainer_config['l2_reg']
         self.lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
-        # self.pre_train = attacker_config.get('pre_train', False)
 
         self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                       shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
@@ -38,16 +37,6 @@ class PGA(BasicAttacker):
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         self.surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.surrogate_model)
 
-        """
-        self.pre_train_weights = None
-        if self.pre_train:
-            surrogate_model_config = self.surrogate_model_config.copy()
-            surrogate_model_config['n_fakes'] = 0
-            surrogate_model = get_model(surrogate_model_config, self.dataset)
-            surrogate_model.load('run/pretrain_model.pth')
-            self.pre_train_weights = torch.clone(surrogate_model.embedding.weight.detach())
-        """
-
         train_user = TensorDataset(torch.arange(self.surrogate_model.n_users, dtype=torch.int64, device=self.device))
         self.surrogate_trainer.train_user_loader = \
             DataLoader(train_user, batch_size=self.surrogate_trainer_config['batch_size'], shuffle=True)
@@ -59,14 +48,7 @@ class PGA(BasicAttacker):
         WRMFSGD.project_fake_tensor(self)
 
     def retrain_surrogate(self):
-        initial_embeddings(self.surrogate_model)
-        """
-        if self.pre_train:
-            with torch.no_grad():
-                weight = self.surrogate_model.embedding.weight
-                weight.data[:-self.n_items - self.n_fakes, :] = self.pre_train_weights[:-self.n_items, :]
-                weight.data[-self.n_items:, :] = self.pre_train_weights[-self.n_items:, :]
-        """
+        self.surrogate_model.initial_embeddings()
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
 
