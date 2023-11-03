@@ -120,7 +120,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pretrain_fixe
     if run_method == 1 or run_method == 3:
         model_config['embedding_size'] = pretrain_fixed_dim
         pre_trained_model = get_model(model_config, sub_dataset)
-        pre_trained_model.load('retrain/pretrain_model.pth')
+        pre_trained_model.load('retrain/pre_trained_model.pth')
         new_model.initial_pretrained_parameters(pre_trained_model)
     new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
     writer.close()

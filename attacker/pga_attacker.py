@@ -18,7 +18,6 @@ class PGA(BasicAttacker):
     def __init__(self, attacker_config):
         super(PGA, self).__init__(attacker_config)
         self.surrogate_model_config = attacker_config['surrogate_model_config']
-        self.surrogate_model_config['n_fakes'] = self.n_fakes
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 
         self.adv_epochs = attacker_config['adv_epochs']
@@ -34,12 +33,17 @@ class PGA(BasicAttacker):
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
 
+        self.pre_trained_model = self.load_pretrained_model(self.surrogate_trainer_config.get('pre_train_path', None))
+        self.surrogate_model_config['n_fakes'] = self.n_fakes
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         self.surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.surrogate_model)
 
         train_user = TensorDataset(torch.arange(self.surrogate_model.n_users, dtype=torch.int64, device=self.device))
         self.surrogate_trainer.train_user_loader = \
             DataLoader(train_user, batch_size=self.surrogate_trainer_config['batch_size'], shuffle=True)
+
+    def load_pretrained_model(self, path):
+        return WRMFSGD.load_pretrained_model(self, path)
 
     def init_fake_tensor(self):
         return WRMFSGD.init_fake_tensor(self)
@@ -49,6 +53,8 @@ class PGA(BasicAttacker):
 
     def retrain_surrogate(self):
         self.surrogate_model.initial_embeddings()
+        if self.pre_trained_model is not None:
+            self.surrogate_model.initial_pretrained_parameters(self.pre_trained_model)
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
 
