@@ -59,7 +59,7 @@ def get_model(config, dataset):
 
 
 def init_one_layer(in_features, out_features):
-    layer = nn.Linear(in_features, out_features)
+    layer = nn.Linear(in_features, out_features, dtype=torch.float32)
     kaiming_uniform_(layer.weight)
     zeros_(layer.bias)
     return layer
@@ -149,7 +149,7 @@ class MF(BasicModel):
     def __init__(self, model_config):
         super(MF, self).__init__(model_config)
         self.embedding_size = model_config['embedding_size']
-        self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
+        self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size, dtype=torch.float32)
         self.initial_embeddings()
         self.to(device=self.device)
 
@@ -162,7 +162,7 @@ class LightGCN(BasicModel):
         super(LightGCN, self).__init__(model_config)
         self.embedding_size = model_config['embedding_size']
         self.n_layers = model_config['n_layers']
-        self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
+        self.embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size, dtype=torch.float32)
         self.adj_mat = self.generate_graph(model_config['dataset'])
         self.initial_embeddings()
         self.to(device=self.device)
@@ -305,14 +305,14 @@ class NeuMF(BasicModel):
         super(NeuMF, self).__init__(model_config)
         self.embedding_size = model_config['embedding_size']
         self.layer_sizes = model_config['layer_sizes']
-        self.mf_embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size)
-        self.mlp_embedding = nn.Embedding(self.n_users + self.n_items, self.layer_sizes[0] // 2)
+        self.mf_embedding = nn.Embedding(self.n_users + self.n_items, self.embedding_size, dtype=torch.float32)
+        self.mlp_embedding = nn.Embedding(self.n_users + self.n_items, self.layer_sizes[0] // 2, dtype=torch.float32)
         self.mlp_layers = []
         for layer_idx in range(1, len(self.layer_sizes)):
-            dense_layer = nn.Linear(self.layer_sizes[layer_idx - 1], self.layer_sizes[layer_idx])
+            dense_layer = nn.Linear(self.layer_sizes[layer_idx - 1], self.layer_sizes[layer_idx], dtype=torch.float32)
             self.mlp_layers.append(dense_layer)
         self.mlp_layers = nn.ModuleList(self.mlp_layers)
-        self.output_layer = nn.Linear(self.layer_sizes[-1] + self.embedding_size, 1, bias=False)
+        self.output_layer = nn.Linear(self.layer_sizes[-1] + self.embedding_size, 1, bias=False, dtype=torch.float32)
 
         kaiming_uniform_(self.mf_embedding.weight)
         kaiming_uniform_(self.mlp_embedding.weight)
