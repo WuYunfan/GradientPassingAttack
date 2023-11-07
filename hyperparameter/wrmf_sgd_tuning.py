@@ -20,7 +20,7 @@ def objective(trial):
     dataset_config, model_config, trainer_config = get_config(device)[0]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
-                                'n_epochs': 47, 'batch_size': 2048, 'dataloader_num_workers': 2, 'weight': 20.,
+                                'n_epochs': 47, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100}
     attacker_config = {'name': 'WRMFSGD', 'lr': lr, 'momentum': 1. - m_momentum,
                        'n_fakes': 131, 'unroll_steps': 3, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
