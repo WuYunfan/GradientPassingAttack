@@ -75,7 +75,7 @@ class PGA(BasicAttacker):
             adv_grads_wrt_item_embeddings = torch.autograd.grad(adv_loss, self.surrogate_model.embedding.weight)
             adv_grads_wrt_item_embeddings = adv_grads_wrt_item_embeddings[0][-self.n_items:, :]
             item_norm = torch.norm(self.surrogate_model.embedding.weight[-self.n_items:, :], dim=1, p=2)
-            adv_grads_wrt_normed_item_embeddings = adv_grads_wrt_item_embeddings * item_norm
+            adv_grads_wrt_normed_item_embeddings = adv_grads_wrt_item_embeddings * item_norm[:, None]
             normed_fake_user_embeddings = normed_embeddings[self.n_users:-self.n_items, :]
             identity_mat = torch.eye(self.surrogate_model.embedding_size, device=self.device)
             for item in range(self.n_items):
