@@ -34,7 +34,7 @@ def get_gowalla_config(device):
                     'dropout': 0.8}
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 0.0001, 'kl_reg': 0.2,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2,
+                      'n_epochs': 1000, 'batch_size': 2048,
                       'test_batch_size': 2048, 'topks': [50]}
     gowalla_config.append((dataset_config, model_config, trainer_config))
 
@@ -193,7 +193,7 @@ def get_yelp_config(device):
                     'dropout': 0.8}
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 1e-05, 'kl_reg': 0.2,
-                      'n_epochs': 1000, 'batch_size': 2048, 'dataloader_num_workers': 2,
+                      'n_epochs': 1000, 'batch_size': 2048,
                       'test_batch_size': 2048, 'topks': [50]}
     yelp_config.append((dataset_config, model_config, trainer_config))
 
@@ -332,7 +332,7 @@ def get_tenrec_config(device):
                     'dropout': 0.8}
     trainer_config = {'name': 'MLTrainer', 'optimizer': 'Adam',
                       'lr': 0.001, 'l2_reg': 1e-5, 'kl_reg': 0.2,
-                      'n_epochs': 200, 'batch_size': 4096, 'dataloader_num_workers': 2,
+                      'n_epochs': 200, 'batch_size': 4096,
                       'test_batch_size': 4096, 'topks': [50], 'max_patience': 20}
     tenrec_config.append((dataset_config, model_config, trainer_config))
 
