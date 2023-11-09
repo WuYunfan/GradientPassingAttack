@@ -91,7 +91,7 @@ def get_gowalla_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 49, 'batch_size': 2048,
+                                'n_epochs': 9, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100}
     attacker_config = {'name': 'WRMFSGD', 'lr': None, 'momentum': 0.95,
                        'n_fakes': 131, 'unroll_steps': 1, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
@@ -101,7 +101,7 @@ def get_gowalla_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 50, 'batch_size': 2048,
+                                'n_epochs': 10, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100}
     attacker_config = {'name': 'PGA', 'lr': None, 'momentum': 0.95,
                        'n_fakes': 131, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
@@ -123,7 +123,7 @@ def get_gowalla_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 49, 'batch_size': 2048,
+                                'n_epochs': 9, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100,
                                 'pp_threshold': None}
     attacker_config = {'name': 'WRMFSGD', 'lr': None, 'momentum': 0.95,
@@ -134,7 +134,7 @@ def get_gowalla_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 50, 'batch_size': 2048,
+                                'n_epochs': 10, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False,
                                 'val_interval': 100, 'pp_threshold': None}
     attacker_config = {'name': 'PGA', 'lr': None, 'momentum': 0.95,
@@ -250,7 +250,7 @@ def get_yelp_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 50, 'batch_size': 2048,
+                                'n_epochs': 10, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False,
                                 'val_interval': 100}
     attacker_config = {'name': 'PGA', 'lr': None, 'momentum': 0.95,
@@ -261,19 +261,19 @@ def get_yelp_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
+                                'n_epochs': 5, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
                                 'val_interval': 100}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 355, 'topk': 50,
                        'n_inters': 36, 'reg_u': None, 'prob': 0.9, 'kappa': 1.,
-                       'step': 20, 'alpha': None, 'n_rounds': 5,
+                       'step': 4, 'alpha': None, 'n_rounds': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 50, 'batch_size': 2048,
+                                'n_epochs': 10, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False,
                                 'val_interval': 100, 'pp_threshold': None}
     attacker_config = {'name': 'PGA', 'lr': None, 'momentum': 0.95,
@@ -284,12 +284,12 @@ def get_yelp_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
+                                'n_epochs': 5, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
                                 'val_interval': 100, 'pp_threshold': None}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 355, 'topk': 50,
                        'n_inters': 36, 'reg_u': None, 'prob': 0.9, 'kappa': 1.,
-                       'step': 20, 'alpha': None, 'n_rounds': 5,
+                       'step': 4, 'alpha': None, 'n_rounds': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
