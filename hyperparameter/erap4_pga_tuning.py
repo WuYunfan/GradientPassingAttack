@@ -8,6 +8,8 @@ import logging
 import sys
 from optuna.trial import TrialState
 from optuna.study import MaxTrialsCallback
+import shutil
+import numpy as np
 
 
 def objective(trial):
@@ -29,12 +31,19 @@ def objective(trial):
                        'n_fakes': 131, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
+
+    trainer_config['n_epochs'] = trainer_config['n_epochs'] // 10
     dataset = get_dataset(dataset_config)
-    target_item = get_target_items(dataset, 0.1)[0]
-    attacker_config['target_item'] = target_item
-    attacker = get_attacker(attacker_config, dataset)
-    attacker.generate_fake_users()
-    return attacker.eval(model_config, trainer_config)
+    target_items = get_target_items(dataset)
+    hits = []
+    for target_item in target_items:
+        attacker_config['target_item'] = target_item
+        dataset = get_dataset(dataset_config)
+        attacker = get_attacker(attacker_config, dataset)
+        attacker.generate_fake_users(verbose=False)
+        hits.append(attacker.eval(model_config, trainer_config))
+        shutil.rmtree('checkpoints')
+    return np.mean(hits)
 
 
 def main():

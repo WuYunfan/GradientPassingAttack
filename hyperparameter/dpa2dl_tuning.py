@@ -8,11 +8,13 @@ import logging
 import sys
 from optuna.trial import TrialState
 from optuna.study import MaxTrialsCallback
+import shutil
+import numpy as np
 
 
 def objective(trial):
     reg_u = trial.suggest_float('reg_u', 1., 1.e3, log=True)
-    alpha = trial.suggest_float('alpha', 1.e-6, 1.e-4, log=True)
+    alpha = trial.suggest_float('alpha', 1.e-7, 1.e-5, log=True)
     s_l2 = trial.suggest_float('s_l2', 1.e-5, 1.e-2, log=True)
     s_lr = trial.suggest_float('s_lr', 1.e-3, 1.e-2, log=True)
     set_seed(2023)
@@ -28,19 +30,26 @@ def objective(trial):
                        'step': 4, 'alpha': alpha, 'n_rounds': 5,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
+
+    trainer_config['n_epochs'] = trainer_config['n_epochs'] // 10
     dataset = get_dataset(dataset_config)
-    target_item = get_target_items(dataset, 0.1)[0]
-    attacker_config['target_item'] = target_item
-    attacker = get_attacker(attacker_config, dataset)
-    attacker.generate_fake_users()
-    return attacker.eval(model_config, trainer_config)
+    target_items = get_target_items(dataset)
+    hits = []
+    for target_item in target_items:
+        attacker_config['target_item'] = target_item
+        dataset = get_dataset(dataset_config)
+        attacker = get_attacker(attacker_config, dataset)
+        attacker.generate_fake_users(verbose=False)
+        hits.append(attacker.eval(model_config, trainer_config))
+        shutil.rmtree('checkpoints')
+    return np.mean(hits)
 
 
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    search_space = {'reg_u': [1.e2, 1.e3, 1.e4], 'alpha': [1.e-6, 1.e-5, 1.e-4],
+    search_space = {'reg_u': [1.e2, 1.e3, 1.e4], 'alpha': [1.e-7, 1.e-6, 1.e-5],
                     's_l2': [1.e-3, 1.e-2, 1.e-1], 's_lr': [1.e-3, 1.e-2]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'dpa2dl-tuning'
