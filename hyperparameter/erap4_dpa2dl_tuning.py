@@ -29,7 +29,7 @@ def objective(trial):
                                 'val_interval': 100, 'pp_threshold': pp_threshold}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'reg_u': reg_u, 'prob': 0.9, 'kappa': 1.,
-                       'step': 5, 'alpha': alpha, 'n_rounds': 1,
+                       'step': 4, 'alpha': alpha, 'n_rounds': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 

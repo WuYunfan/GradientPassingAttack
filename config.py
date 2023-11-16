@@ -123,7 +123,7 @@ def get_gowalla_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 8, 'batch_size': 2048,
+                                'n_epochs': 9, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100,
                                 'pp_threshold': None}
     attacker_config = {'name': 'WRMFSGD', 'lr': None, 'momentum': 0.95,
@@ -134,7 +134,7 @@ def get_gowalla_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 9, 'batch_size': 2048,
+                                'n_epochs': 10, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False,
                                 'val_interval': 100, 'pp_threshold': None}
     attacker_config = {'name': 'PGA', 'lr': None, 'momentum': 0.95,
@@ -150,7 +150,7 @@ def get_gowalla_attacker_config():
                                 'val_interval': 100, 'pp_threshold': None}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'reg_u': None, 'prob': 0.9, 'kappa': 1.,
-                       'step': 5, 'alpha': None, 'n_rounds': 1,
+                       'step': 4, 'alpha': None, 'n_rounds': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
@@ -273,7 +273,7 @@ def get_yelp_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
-                                'n_epochs': 9, 'batch_size': 2048,
+                                'n_epochs': 10, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False,
                                 'val_interval': 100, 'pp_threshold': None}
     attacker_config = {'name': 'PGA', 'lr': None, 'momentum': 0.95,
@@ -289,7 +289,7 @@ def get_yelp_attacker_config():
                                 'val_interval': 100, 'pp_threshold': None}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 355, 'topk': 50,
                        'n_inters': 36, 'reg_u': None, 'prob': 0.9, 'kappa': 1.,
-                       'step': 5, 'alpha': None, 'n_rounds': 1,
+                       'step': 4, 'alpha': None, 'n_rounds': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
@@ -398,7 +398,7 @@ def get_tenrec_attacker_config():
                                 'val_interval': 100, 'pp_threshold': None}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 11952, 'topk': 50,
                        'n_inters': 34, 'reg_u': None, 'prob': 0.9, 'kappa': 1.,
-                       'step': 600, 'alpha': None, 'n_rounds': 1,
+                       'step': 500, 'alpha': None, 'n_rounds': 1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     tenrec_attacker_config.append(attacker_config)
