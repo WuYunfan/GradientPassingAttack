@@ -45,7 +45,7 @@ class PPFunction(Function):
         for i in range(order):
             grad = mat.spmm(grad, values, norm='both')
             grads.append(alpha * grad)
-        grad = torch.stack(grads, dim=0).mean(dim=0)
+        grad = torch.stack(grads, dim=0).sum(dim=0)
         return grad, None
 
 
