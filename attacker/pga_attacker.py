@@ -87,6 +87,8 @@ class PGA(BasicAttacker):
                 adv_grad = torch.mm(adv_grads_wrt_normed_item_embeddings[item:item + 1, :], normed_item_embedding_wrt_fake_inters)
                 adv_grads.append(adv_grad)
         adv_grads = torch.cat(adv_grads, dim=0).t()
+        gc.collect()
+        torch.cuda.empty_cache()
         return adv_loss.item(), hr.item(), adv_grads
 
     def generate_fake_users(self, verbose=True, writer=None):

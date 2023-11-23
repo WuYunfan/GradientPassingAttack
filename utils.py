@@ -125,3 +125,9 @@ def topk_loss(scores, target_item, topk, kappa):
     loss = F.logsigmoid(top_scores[:, -1]) - F.logsigmoid(target_scores)
     loss = torch.max(loss, -kappa).mean()
     return loss
+
+
+def occupy_gpu_mem(memeory_size):
+    x = torch.cuda.FloatTensor(256, 1024, memeory_size)
+    torch.cuda.synchronize()
+    del x

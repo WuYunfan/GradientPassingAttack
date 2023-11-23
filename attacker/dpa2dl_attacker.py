@@ -149,6 +149,8 @@ class DPA2DL(BasicAttacker):
             print('Poison #{:s} has been generated!'.format(fake_nums_str))
             consumed_time = time.time() - step_start_time
             self.consumed_time += consumed_time
+            gc.collect()
+            torch.cuda.empty_cache()
 
         self.dataset.train_data = self.dataset.train_data[:-self.n_fakes]
         self.dataset.val_data = self.dataset.val_data[:-self.n_fakes]
