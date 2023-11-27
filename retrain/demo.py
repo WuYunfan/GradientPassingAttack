@@ -19,7 +19,7 @@ def main():
     trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam',
                       'lr': 0.01, 'l2_reg': 0.2,
                       'n_epochs': 0, 'batch_size': 1, 'dataloader_num_workers': 2,
-                      'test_batch_size': 1, 'topks': [50], 'neg_ratio': 1, 'gp_threshold': 0.9}
+                      'test_batch_size': 1, 'topks': [50], 'neg_ratio': 1, 'gp_proportion': 0.1}
     old_dataset = get_dataset(dataset_config)
     old_model = get_model(model_config, old_dataset)
     old_trainer = get_trainer(trainer_config, old_model)

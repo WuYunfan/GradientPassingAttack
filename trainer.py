@@ -26,7 +26,7 @@ def get_trainer(config, model):
 class GPConfig:
     def __init__(self, trainer_config):
         self.order = 0
-        if 'gp_threshold' in trainer_config and trainer_config['gp_threshold'] is not None:
+        if 'gp_proportion' in trainer_config and trainer_config['gp_proportion'] is not None:
             self.order = trainer_config.get('gp_order', 2)
             self.proportion = trainer_config['gp_proportion']
             self.alpha = trainer_config.get('gp_alpha', 1.)

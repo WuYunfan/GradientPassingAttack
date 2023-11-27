@@ -51,7 +51,7 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    search_space = {'gp_threshold': [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]}
+    search_space = {'gp_proportion': [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'gp_dpa2dl-tuning'
     storage_name = 'sqlite:///../{}.db'.format(study_name)
