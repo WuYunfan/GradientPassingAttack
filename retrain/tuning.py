@@ -17,12 +17,12 @@ def objective(trial, name, n_epochs, run_method, victim_model):
 
     lr = trial.suggest_float('lr', 1.e-5, 1.e-1, log=True)
     l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1.e-1, log=True)
-    gp_threshold = trial.suggest_float('gp_threshold', 0., 1.,) if run_method >= 2 else None
+    gp_proportion = trial.suggest_float('gp_proportion', 0., 1.,) if run_method >= 2 else None
     pretrain_weight = trial.suggest_float('pretrain_weight', 0., 100.,) if run_method == 1 or run_method == 3 else None
     pretrain_fixed_dim = trial.suggest_int('pretrain_fixed_dim', 0, 64,) \
         if run_method == 1 or run_method == 3 else None
 
-    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, gp_threshold, pretrain_weight, pretrain_fixed_dim,
+    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, gp_proportion, pretrain_weight, pretrain_fixed_dim,
                                        n_epochs, run_method, victim_model)
     return jaccard_sim
 
@@ -39,8 +39,7 @@ def main():
 
     search_space = {'lr': [1.e-4, 1.e-3, 1.e-2, 1.e-1], 'l2_reg': [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1]}
     if run_method >= 2:
-        search_space['gp_threshold'] = [0., 0.4, 0.5, 0.52, 0.54, 0.56, 0.58, 0.6,
-                                        0.7, 0.8, 0.9, 0.95, 0.99, 1.]
+        search_space['gp_proportion'] = [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
     if run_method == 1 or run_method == 3:
         search_space['pretrain_weight'] = [100., 10., 1., 0.1, 0.01, 0.]
         search_space['pretrain_fixed_dim'] = [4]

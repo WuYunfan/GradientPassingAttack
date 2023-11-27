@@ -23,7 +23,7 @@ class GPFunction(Function):
     def backward(ctx, grad_out):
         config = ctx.config
         order = config.order
-        threshold = config.threshold
+        proportion = config.proportion
         alpha = config.alpha
         mat = config.mat
         chunk_size = config.chunk_size
@@ -39,7 +39,7 @@ class GPFunction(Function):
                                                 rep[mat.col[start_idx:end_idx], :], dim=1))
             values.append(sim_batch)
         values = torch.cat(values)
-        values = torch.gt(values, threshold).to(torch.float32)
+        values = torch.gt(values, torch.quantile(values, 1. - proportion)).to(torch.float32)
 
         grad = grad_out
         grads = [grad]

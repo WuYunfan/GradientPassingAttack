@@ -28,7 +28,7 @@ class GPConfig:
         self.order = 0
         if 'gp_threshold' in trainer_config and trainer_config['gp_threshold'] is not None:
             self.order = trainer_config.get('gp_order', 2)
-            self.threshold = trainer_config['gp_threshold']
+            self.proportion = trainer_config['gp_proportion']
             self.alpha = trainer_config.get('gp_alpha', 1.)
             self.chunk_size = trainer_config.get('gp_chunk_size', int(1e6))
             model = trainer_config['model']
