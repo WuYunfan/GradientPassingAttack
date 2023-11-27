@@ -12,7 +12,7 @@ from torch.autograd import Function
 import matplotlib.pyplot as plt
 
 
-class PPFunction(Function):
+class GPFunction(Function):
     @staticmethod
     def forward(ctx, rep, config):
         ctx.config = config
@@ -101,22 +101,22 @@ class BasicModel(nn.Module):
             self.embedding.weight.data[:n_users, :self.pretrain_fixed_dim] = pretrained_embeddings[:n_users, :]
             self.embedding.weight.data[-n_items:, :self.pretrain_fixed_dim] = pretrained_embeddings[-n_items:, :]
 
-    def pp_rep(self, pp_config):
+    def gp_rep(self, gp_config):
         rep = self.get_rep()[:, self.pretrain_fixed_dim:]
-        if pp_config.order == 0:
+        if gp_config.order == 0:
             return rep
-        return PPFunction.apply(rep, pp_config)
+        return GPFunction.apply(rep, gp_config)
 
-    def bpr_forward(self, users, pos_items, neg_items, pp_config):
-        rep = self.pp_rep(pp_config)
+    def bpr_forward(self, users, pos_items, neg_items, gp_config):
+        rep = self.gp_rep(gp_config)
         users_r = rep[users, :]
         pos_items_r, neg_items_r = rep[self.n_users + pos_items, :], rep[self.n_users + neg_items, :]
         l2_norm_sq = torch.norm(users_r, p=2, dim=1) ** 2 + torch.norm(pos_items_r, p=2, dim=1) ** 2 \
                      + torch.norm(neg_items_r, p=2, dim=1) ** 2
         return users_r, pos_items_r, neg_items_r, l2_norm_sq
 
-    def bce_forward(self, pos_users, pos_items, neg_users, neg_items, pp_config):
-        rep = self.pp_rep(pp_config)
+    def bce_forward(self, pos_users, pos_items, neg_users, neg_items, gp_config):
+        rep = self.gp_rep(gp_config)
         pos_users_r, pos_items_r = rep[pos_users, :], rep[self.n_users + pos_items, :]
         neg_users_r, neg_items_r = rep[neg_users, :], rep[self.n_users + neg_items, :]
         pos_scores = torch.sum(pos_users_r * pos_items_r, dim=1)
@@ -127,11 +127,10 @@ class BasicModel(nn.Module):
         l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)
         return pos_scores, neg_scores, l2_norm_sq
 
-    def mse_forward(self, users, pp_config):
-        rep = self.pp_rep(pp_config)
-        normed_rep = F.normalize(rep, p=2, dim=1)
-        users_r = normed_rep[users, :]
-        all_items_r = normed_rep[self.n_users:, :]
+    def forward(self, users, gp_config):
+        rep = self.gp_rep(gp_config)
+        users_r = rep[users, :]
+        all_items_r = rep[self.n_users:, :]
         scores = torch.mm(users_r, all_items_r.t())
 
         l2_norm_sq = torch.norm(rep[users, :], p=2) ** 2
@@ -327,7 +326,7 @@ class NeuMF(BasicModel):
             zeros_(layer.bias)
         ones_(self.output_layer.weight)
 
-    def bce_forward(self, pos_users, pos_items, neg_users, neg_items, pp_config):
+    def bce_forward(self, pos_users, pos_items, neg_users, neg_items, gp_config):
         pos_scores, pos_l2_norm_sq = self.forward(pos_users, pos_items)
         neg_scores, neg_l2_norm_sq = self.forward(neg_users, neg_items)
         l2_norm_sq = torch.cat([pos_l2_norm_sq, neg_l2_norm_sq], dim=0)

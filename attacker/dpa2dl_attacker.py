@@ -10,7 +10,7 @@ from utils import AverageMeter, topk_loss
 import torch.nn.functional as F
 import time
 import os
-from attacker.wrmf_sgd_attacker import WRMFSGD
+from attacker.revadv_attacker import RevAdv
 
 
 class DPA2DL(BasicAttacker):
@@ -33,7 +33,7 @@ class DPA2DL(BasicAttacker):
         self.pre_trained_model = self.load_pretrained_model(self.surrogate_trainer_config.get('pre_train_path', None))
 
     def load_pretrained_model(self, path):
-        return WRMFSGD.load_pretrained_model(self, path)
+        return RevAdv.load_pretrained_model(self, path)
 
     def get_target_hr(self, surrogate_model):
         surrogate_model.eval()
