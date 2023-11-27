@@ -51,7 +51,8 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    search_space = {'pp_threshold': [0., 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]}
+    search_space = {'pp_threshold': [0., 0.4, 0.5, 0.52, 0.54, 0.56, 0.58, 0.6,
+                                     0.7, 0.8, 0.9, 0.95, 0.99, 1.]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'erap4_dpa2dl-tuning'
     storage_name = 'sqlite:///../{}.db'.format(study_name)

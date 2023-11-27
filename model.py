@@ -37,8 +37,9 @@ class PPFunction(Function):
             end_idx = end_indices[i_chunk]
             sim_batch = torch.sigmoid(torch.sum(rep[mat.row[start_idx:end_idx], :] *
                                                 rep[mat.col[start_idx:end_idx], :], dim=1))
-            values.append(torch.gt(sim_batch, threshold).to(torch.float32))
+            values.append(sim_batch)
         values = torch.cat(values)
+        values = torch.gt(values, threshold).to(torch.float32)
 
         grad = grad_out
         grads = [grad]
@@ -77,7 +78,7 @@ class BasicModel(nn.Module):
         self.n_users = self.dataset.n_users + model_config.get('n_fakes', 0)
         self.n_items = self.dataset.n_items
         self.pretrain_fixed_dim = model_config.get('pretrain_fixed_dim', 0)
-        self.pretrain_weight = model_config['pretrain_weight']
+        self.pretrain_weight = model_config.get('pretrain_weight', 0.)
         self.trainable = True
 
     def save(self, path):
