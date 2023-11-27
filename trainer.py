@@ -442,7 +442,7 @@ class MSETrainer(BasicTrainer):
         for users in self.train_user_loader:
             users = users[0]
 
-            scores, l2_norm_sq = self.model.mse_forward(users, self.gp_config)
+            scores, l2_norm_sq = self.model.forward(users, self.gp_config)
             users = users.cpu().numpy()
             profiles = data_mat[users, :]
             profiles = torch.tensor(profiles.toarray(), dtype=torch.float32, device=self.device)

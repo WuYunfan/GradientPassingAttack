@@ -70,33 +70,6 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    full_retrain = [0.018065507, 0.458145171, 0.605804324, 0.791859567, 0.883519351, 0.855535269]
-    full_retrain_wt_GP = [0.147620425, 0.55498302, 0.654133379, 0.791915298, 0.883646131, 0.855554283]
-    pre_retrain = [0.077724367, 0.782507241, 0.847826719, 0.908701897, 0.935608387, 0.947650433]
-    pre_retrain_wt_GP = [0.412097782, 0.619480371, 0.84749496, 0.78099072, 0.78099072, 0.78099072]
-    epochs = [1, 5, 10, 20, 50, 100]
-    pdf = PdfPages('retrain_gowalla_mf_mse.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
-    ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
-    ax.set_xlabel('Retraining Epoch', fontsize=17)
-    ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Gowalla-MF-MSE', fontsize=17)
-    ax.legend(fontsize=13, loc=4, frameon=False)
-    ax.grid(True, which='major', linestyle=':', linewidth=0.8)
-    ax.minorticks_on()
-    ax.tick_params(which='both', direction='in')
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close(fig)
-    pdf.close()
-
     full_retrain = [0.272299916, 0.302604526, 0.345752031, 0.429740041, 0.579233468, 0.594510257]
     full_retrain_wt_GP = [0.301306635, 0.328880131, 0.359562844, 0.466831774, 0.601292491, 0.598199308]
     pre_retrain = [0.297682077, 0.353523135, 0.4299301217, 0.516808569, 0.555641949, 0.513404012]
@@ -140,33 +113,6 @@ def main():
     ax.set_xlabel('Retraining Epoch', fontsize=17)
     ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
     ax.set_title('Gowalla-LightGCN-BCE', fontsize=17)
-    ax.legend(fontsize=13, loc=4, frameon=False)
-    ax.grid(True, which='major', linestyle=':', linewidth=0.8)
-    ax.minorticks_on()
-    ax.tick_params(which='both', direction='in')
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close(fig)
-    pdf.close()
-
-    full_retrain = [1, 1, 1, 1, 1, 1]
-    full_retrain_wt_GP = [1, 1, 1, 1, 1, 1]
-    pre_retrain = [0.349318922, 0.402463704, 0.402463704, 0.402462363, 0.402462363, 0.402462363]
-    pre_retrain_wt_GP = [0.340363413, 0.370431542, 0.370431542, 0.370431542, 0.370431542, 0.370431542]
-    epochs = [1, 5, 10, 20, 50, 100]
-    pdf = PdfPages('retrain_gowalla_lgcn_mse.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
-    ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
-    ax.set_xlabel('Retraining Epoch', fontsize=17)
-    ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Gowalla-LightGCN-MSE', fontsize=17)
     ax.legend(fontsize=13, loc=4, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
@@ -232,33 +178,6 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    full_retrain = [0.032052275, 1, 1]
-    full_retrain_wt_GP = [0.032096721, 1, 1]
-    pre_retrain = [0.030159269, 0.030716877, 0.030716877]
-    pre_retrain_wt_GP = [0.03031054, 0.030716877, 0.030716877]
-    epochs = [1, 5, 10]
-    pdf = PdfPages('retrain_tenrec_mf_mse.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
-    ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
-    ax.set_xlabel('Retraining Epoch', fontsize=17)
-    ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Tenrec-MF-MSE', fontsize=17)
-    ax.legend(fontsize=13, loc=4, frameon=False)
-    ax.grid(True, which='major', linestyle=':', linewidth=0.8)
-    ax.minorticks_on()
-    ax.tick_params(which='both', direction='in')
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close(fig)
-    pdf.close()
-
     full_retrain = [0.146111056, 0.225820974, 0.240686223]
     full_retrain_wt_GP = [0.156768695, 0.225820988, 0.24878861]
     pre_retrain = [0.184574515, 0.31090644, 0.350310683]
@@ -313,38 +232,11 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    full_retrain = [0.020889737, 0.020889435, 0.999872506]
-    full_retrain_wt_GP = [0.037261892, 0.037252951, 0.99987936]
-    pre_retrain = [0.008863258, 0.014410376, 0.541428387]
-    pre_retrain_wt_GP = [0.013287422, 0.139606193, 0.579030335]
-    epochs = [1, 5, 10]
-    pdf = PdfPages('retrain_tenrec_lgcn_mse.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
-    ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
-    ax.set_xlabel('Retraining Epoch', fontsize=17)
-    ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Tenrec-LightGCN-MSE', fontsize=17)
-    ax.legend(fontsize=13, loc=4, frameon=False)
-    ax.grid(True, which='major', linestyle=':', linewidth=0.8)
-    ax.minorticks_on()
-    ax.tick_params(which='both', direction='in')
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close(fig)
-    pdf.close()
-
-    mean_retrain = [3.749275, 3.814666667, 4.703283333, 4.807458333, 0.88005, 0.921591667]
-    mean_retrain_wt_GP = [3.97095, 3.89775, 4.758966667, 4.914191667, 0.916416667, 0.933858333]
-    std_retrain = [0.225533219, 0.215850846, 0.062322604, 0.11386256, 0.023414894, 0.024640117]
-    std_retrain_wt_GP = [0.288210714, 0.281850055, 0.183178226, 0.084019343, 0.050092348, 0.029010075]
-    methods = ['MF-BPR', 'LightGCN-BPR', 'MF-BCE', 'LightGCN-BCE', 'MF-MSE', 'LightGCN-MSE']
+    mean_retrain = [3.749275, 3.814666667, 4.703283333, 4.807458333]
+    mean_retrain_wt_GP = [3.97095, 3.89775, 4.758966667, 4.914191667]
+    std_retrain = [0.225533219, 0.215850846, 0.062322604, 0.11386256]
+    std_retrain_wt_GP = [0.288210714, 0.281850055, 0.183178226, 0.084019343]
+    methods = ['MF-BPR', 'LightGCN-BPR', 'MF-BCE', 'LightGCN-BCE']
     idx = np.arange(len(methods))
     width = 0.2
     pdf = PdfPages('retain_time_gowalla.pdf')

@@ -84,7 +84,7 @@ class RevAdv(BasicAttacker):
                 for users in self.surrogate_trainer.train_user_loader:
                     users = users[0]
                     profiles = poisoned_data_tensor[users, :]
-                    scores, l2_norm_sq = fmodel.mse_forward(users, self.surrogate_trainer.gp_config)
+                    scores, l2_norm_sq = fmodel.forward(users, self.surrogate_trainer.gp_config)
                     m_loss = mse_loss(profiles, scores)
                     loss = m_loss + self.surrogate_trainer.l2_reg * l2_norm_sq
                     diffopt.step(loss)
