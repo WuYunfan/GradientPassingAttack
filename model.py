@@ -77,7 +77,7 @@ class BasicModel(nn.Module):
         self.n_users = self.dataset.n_users + model_config.get('n_fakes', 0)
         self.n_items = self.dataset.n_items
         self.pretrain_fixed_dim = model_config.get('pretrain_fixed_dim', 0)
-        self.pretrain_weight = model_config.get('pretrain_weight', 1.)
+        self.pretrain_weight = model_config['pretrain_weight']
         self.trainable = True
 
     def save(self, path):

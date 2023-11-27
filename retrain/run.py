@@ -81,7 +81,7 @@ def eval_rec_and_surrogate(trainer, full_rec_items, writer, verbose):
     return metrics['Jaccard'][trainer.topks[0]]
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pretrain_fixed_dim, n_epochs,
+def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pretrain_weight, pretrain_fixed_dim, n_epochs,
                          run_method, victim_model, verbose=False):
     device = torch.device('cuda')
     config = get_config(device)
@@ -109,13 +109,15 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pretrain_fixe
     names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'full_retrain_wh_pp', 3: 'pre_retrain_wh_pp'}
     writer = SummaryWriter(os.path.join(log_path, names[run_method]))
 
-    set_seed(seed)
-    if run_method == 1 or run_method == 3:
-        model_config['pretrain_fixed_dim'] = pretrain_fixed_dim
-    new_model = get_model(model_config, full_dataset)
     if pp_threshold is not None:
         assert run_method >= 2
         trainer_config['pp_threshold'] = pp_threshold
+    if pretrain_weight is not None and pretrain_fixed_dim is not None:
+        assert run_method == 1 or run_method == 3
+        model_config['pretrain_fixed_dim'] = pretrain_fixed_dim
+        model_config['pretrain_weight'] = pretrain_weight
+    set_seed(seed)
+    new_model = get_model(model_config, full_dataset)
     new_trainer = get_trainer(trainer_config, new_model)
     if run_method == 1 or run_method == 3:
         model_config['embedding_size'] = pretrain_fixed_dim
@@ -141,11 +143,12 @@ def main():
     lr = None
     l2_reg = None
     pp_threshold = None
+    pretrain_weight = None
     pretrain_fixed_dim = None
     n_epochs = None
     run_method = None
     victim_model = None
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pretrain_fixed_dim,
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, pp_threshold, pretrain_weight, pretrain_fixed_dim,
                                        n_epochs, run_method, victim_model)
     print('Jaccard similarity', jaccard_sim)
 
