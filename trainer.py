@@ -168,7 +168,7 @@ class BasicTrainer:
             metrics['NDCG'][k] = ndcgs[user_masks].mean()
         return metrics
 
-    def get_rec_items(self, val_or_test, banned_items=None, k=None):
+    def get_rec_items(self, val_or_test):
         rec_items = []
         with torch.no_grad():
             for users in self.test_user_loader:
@@ -184,22 +184,18 @@ class BasicTrainer:
                         exclude_user_indexes.extend([user_idx] * len(items))
                         exclude_items.extend(items)
                     scores[exclude_user_indexes, exclude_items] = -np.inf
-                if banned_items is not None:
-                    scores[:, banned_items] = -np.inf
 
-                if k is None:
-                    k = max(self.topks)
-                _, items = torch.topk(scores, k=k)
+                _, items = torch.topk(scores, k=max(self.topks))
                 rec_items.append(items.cpu().numpy())
 
         rec_items = np.concatenate(rec_items, axis=0)
         return rec_items
 
-    def eval(self, val_or_test, banned_items=None):
+    def eval(self, val_or_test):
         self.model.eval()
         eval_data = getattr(self.dataset, val_or_test + '_data')
 
-        rec_items = self.get_rec_items(val_or_test, banned_items)
+        rec_items = self.get_rec_items(val_or_test)
         metrics = self.calculate_metrics(eval_data, rec_items)
 
         precision = ''

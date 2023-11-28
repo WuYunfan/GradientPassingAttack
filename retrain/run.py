@@ -58,9 +58,8 @@ def eval_rec_and_surrogate(trainer, full_rec_items, writer, verbose):
     if not verbose:
         return
     start_time = time.time()
-    n_old_users = full_rec_items.shape[0]
     eval_rec_on_new_users(trainer, n_old_users, writer)
-    rec_items = trainer.get_rec_items('test', k=max(trainer.topks))[:n_old_users, :]
+    rec_items = trainer.get_rec_items('test')
     metrics = {'Jaccard': {}, 'NDCG': {}}
 
     denominator = np.log2(np.arange(2, max(trainer.topks) + 2, dtype=np.float32))[None, :]
@@ -90,22 +89,20 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, gp_threshold, n_epochs,
 
     full_dataset = get_dataset(dataset_config)
     full_train_model = get_model(model_config, full_dataset)
-    trainer = get_trainer(trainer_config, full_train_model)
+    full_train_trainer = get_trainer(trainer_config, full_train_model)
     if os.path.exists('retrain/full_train_model.pth'):
         full_train_model.load('retrain/full_train_model.pth')
     else:
-        trainer.train(verbose=False)
+        full_train_trainer.train(verbose=False)
         full_train_model.save('retrain/full_train_model.pth')
-
-    dataset_config['path'] = dataset_config['path'][:-4] + 'retrain'
-    sub_dataset = get_dataset(dataset_config)
-    full_rec_items = trainer.get_rec_items('test', k=max(trainer.topks))[:sub_dataset.n_users, :]
+    full_rec_items = full_train_trainer.get_rec_items('test')
+    del full_train_trainer, full_train_model
 
     trainer_config['n_epochs'] = n_epochs
     trainer_config['lr'] = lr
     trainer_config['l2_reg'] = l2_reg
 
-    extra_eval = (eval_rec_and_surrogate, full_rec_items) if verbose else None
+    extra_eval = (eval_rec_and_surrogate, full_rec_items)
     names = {0: 'full_retrain', 1: 'full_retrain_wh_gp'}
     writer = SummaryWriter(os.path.join(log_path, names[run_method]))
 
