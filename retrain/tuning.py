@@ -29,7 +29,7 @@ def main():
     init_run(log_path, 2023)
 
     n_epochs = 100
-    run_method = 2
+    run_method = 0
     victim_model = 0
     names = {0: 'full_retrain', 1: 'full_retrain_wh_gp'}
     name = names[run_method]

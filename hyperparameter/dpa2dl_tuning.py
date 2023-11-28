@@ -13,10 +13,10 @@ import numpy as np
 
 
 def objective(trial):
-    reg_u = trial.suggest_float('reg_u', 1., 1.e3, log=True)
+    reg_u = trial.suggest_float('reg_u', 1.e1, 1.e3, log=True)
     alpha = trial.suggest_float('alpha', 1.e-7, 1.e-5, log=True)
-    s_l2 = trial.suggest_float('s_l2', 1.e-5, 1.e-2, log=True)
-    s_lr = trial.suggest_float('s_lr', 1.e-3, 1.e-2, log=True)
+    s_l2 = trial.suggest_float('s_l2', 1.e-3, 1.e-1, log=True)
+    s_lr = trial.suggest_float('s_lr', 1.e-2, 1.e-1, log=True)
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[-4]
@@ -49,8 +49,8 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    search_space = {'reg_u': [1.e2, 1.e3, 1.e4], 'alpha': [1.e-7, 1.e-6, 1.e-5],
-                    's_l2': [1.e-3, 1.e-2, 1.e-1], 's_lr': [1.e-3, 1.e-2]}
+    search_space = {'reg_u': [1.e1, 1.e2, 1.e3], 'alpha': [1.e-7, 1.e-6, 1.e-5],
+                    's_l2': [1.e-3, 1.e-2, 1.e-1], 's_lr': [1.e-2, 1.e-1]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'dpa2dl-tuning'
     storage_name = 'sqlite:///../{}.db'.format(study_name)
