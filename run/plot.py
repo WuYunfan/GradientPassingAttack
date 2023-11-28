@@ -18,15 +18,11 @@ def main():
 
     full_retrain = [0.075286202, 0.281853884, 0.322035164, 0.330106795, 0.352520406, 0.386516035]
     full_retrain_wt_GP = [0.136697352, 0.290027261, 0.330552369, 0.336562991, 0.374702543, 0.395789742]
-    pre_retrain = [0.216898873, 0.279095858, 0.323871017, 0.341205478, 0.335344315, 0.362560958]
-    pre_retrain_wt_GP = [0.14917773, 0.281438619, 0.289617866, 0.344945639, 0.340409458, 0.366380721]
     epochs = [1, 5, 10, 20, 50, 100]
     pdf = PdfPages('retrain_gowalla_mf_bpr.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
     ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
     ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
     ax.set_xticks(np.arange(len(epochs)))
     ax.set_xticklabels(epochs)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
@@ -45,15 +41,11 @@ def main():
 
     full_retrain = [0.093881384, 0.457104355, 0.49532634, 0.529270589, 0.579583585, 0.657972336]
     full_retrain_wt_GP = [0.231648549, 0.471861839, 0.508978844, 0.538056493, 0.59916538, 0.67374748]
-    pre_retrain = [0.206953079, 0.542729735, 0.622267127, 0.670113921, 0.700894117, 0.683104634]
-    pre_retrain_wt_GP = [0.349154055, 0.55354178, 0.633893192, 0.677671671, 0.708003521, 0.695266366]
     epochs = [1, 5, 10, 20, 50, 100]
     pdf = PdfPages('retrain_gowalla_mf_bce.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
     ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
     ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
     ax.set_xticks(np.arange(len(epochs)))
     ax.set_xticklabels(epochs)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
@@ -72,15 +64,11 @@ def main():
 
     full_retrain = [0.272299916, 0.302604526, 0.345752031, 0.429740041, 0.579233468, 0.594510257]
     full_retrain_wt_GP = [0.301306635, 0.328880131, 0.359562844, 0.466831774, 0.601292491, 0.598199308]
-    pre_retrain = [0.297682077, 0.353523135, 0.4299301217, 0.516808569, 0.555641949, 0.513404012]
-    pre_retrain_wt_GP = [0.328485936, 0.372067511, 0.461907566, 0.533941805, 0.559640884, 0.551152229]
     epochs = [1, 5, 10, 20, 50, 100]
     pdf = PdfPages('retrain_gowalla_lgcn_bpr.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
     ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
     ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
     ax.set_xticks(np.arange(len(epochs)))
     ax.set_xticklabels(epochs)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
@@ -99,15 +87,11 @@ def main():
 
     full_retrain = [0.384082317, 0.491609573, 0.56656003, 0.615256667, 0.620204329, 0.620204329]
     full_retrain_wt_GP = [0.403211951, 0.516695857, 0.585517287, 0.615605414, 0.620204329, 0.639455557]
-    pre_retrain = [0.424951434, 0.55832231, 0.601104677, 0.62620765, 0.65176183, 0.676508009]
-    pre_retrain_wt_GP = [0.44653815, 0.574776471, 0.6027807, 0.619222641, 0.647773564, 0.668172538]
     epochs = [1, 5, 10, 20, 50, 100]
     pdf = PdfPages('retrain_gowalla_lgcn_bce.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
     ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
     ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
     ax.set_xticks(np.arange(len(epochs)))
     ax.set_xticklabels(epochs)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
@@ -126,15 +110,11 @@ def main():
 
     full_retrain = [0.13598834, 0.28148815, 0.342309505]
     full_retrain_wt_GP = [0.175653771, 0.338578314, 0.373460144]
-    pre_retrain = [0.205222294, 0.312482774, 0.413624197]
-    pre_retrain_wt_GP = [0.255332023, 0.378011674, 0.455757767]
     epochs = [1, 5, 10]
     pdf = PdfPages('retrain_tenrec_mf_bpr.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
     ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
     ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
     ax.set_xticks(np.arange(len(epochs)))
     ax.set_xticklabels(epochs)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
@@ -153,15 +133,11 @@ def main():
 
     full_retrain = [0.135694683, 0.318301648, 0.370315135]
     full_retrain_wt_GP = [0.160667032, 0.33530426, 0.380230695]
-    pre_retrain = [0.217158407, 0.343279243, 0.346117646]
-    pre_retrain_wt_GP = [0.231641382, 0.366947889, 0.390629679]
     epochs = [1, 5, 10]
     pdf = PdfPages('retrain_tenrec_mf_bce.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
     ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
     ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
     ax.set_xticks(np.arange(len(epochs)))
     ax.set_xticklabels(epochs)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
@@ -180,15 +156,11 @@ def main():
 
     full_retrain = [0.146111056, 0.225820974, 0.240686223]
     full_retrain_wt_GP = [0.156768695, 0.225820988, 0.24878861]
-    pre_retrain = [0.184574515, 0.31090644, 0.350310683]
-    pre_retrain_wt_GP = [0.19176507, 0.312526673, 0.362075716]
     epochs = [1, 5, 10]
     pdf = PdfPages('retrain_tenrec_lgcn_bpr.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
     ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
     ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
     ax.set_xticks(np.arange(len(epochs)))
     ax.set_xticklabels(epochs)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
@@ -207,15 +179,11 @@ def main():
 
     full_retrain = [0.195325017, 0.29538098, 0.375609398]
     full_retrain_wt_GP = [0.241570234, 0.295381188, 0.375609398]
-    pre_retrain = [0.252017081, 0.371241152, 0.433536589]
-    pre_retrain_wt_GP = [0.298810601, 0.371241361, 0.4335365]
     epochs = [1, 5, 10]
     pdf = PdfPages('retrain_tenrec_lgcn_bce.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
     ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
     ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain), 'd--', markersize=3, label='pre_retrain', color='blue')
-    ax.plot(np.arange(len(epochs)), np.array(pre_retrain_wt_GP), 'v-', markersize=3, label='pre_retrain_wt_GP', color='blue')
     ax.set_xticks(np.arange(len(epochs)))
     ax.set_xticklabels(epochs)
     ax.set_xlabel('Retraining Epoch', fontsize=17)

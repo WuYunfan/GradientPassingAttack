@@ -33,7 +33,6 @@ class RevAdv(BasicAttacker):
         target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
         self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
 
-        self.pre_trained_model = self.load_pretrained_model(self.surrogate_trainer_config.get('pre_train_path', None))
         self.surrogate_model_config['n_fakes'] = self.n_fakes
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         self.surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.surrogate_model)
@@ -43,15 +42,6 @@ class RevAdv(BasicAttacker):
             DataLoader(train_user, batch_size=self.surrogate_trainer_config['batch_size'], shuffle=True)
         self.data_tensor = torch.tensor(self.surrogate_trainer.data_mat.toarray(),
                                         dtype=torch.float32, device=self.device)
-
-    def load_pretrained_model(self, path):
-        if path is None:
-            return None
-        pre_trained_model_config = self.surrogate_model_config.copy()
-        pre_trained_model_config['embedding_size'] = pre_trained_model_config['pretrain_fixed_dim']
-        pre_trained_model = get_model(pre_trained_model_config, self.dataset)
-        pre_trained_model.load(path)
-        return pre_trained_model
 
     def init_fake_tensor(self):
         degree = np.array(np.sum(self.data_mat, axis=1)).squeeze()
@@ -69,8 +59,6 @@ class RevAdv(BasicAttacker):
 
     def retrain_surrogate(self):
         self.surrogate_model.initial_embeddings()
-        if self.pre_trained_model is not None:
-            self.surrogate_model.initial_pretrained_parameters(self.pre_trained_model)
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
         poisoned_data_tensor = torch.cat([self.data_tensor, self.fake_tensor], dim=0)

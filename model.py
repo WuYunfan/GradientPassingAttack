@@ -82,8 +82,6 @@ class BasicModel(nn.Module):
         self.dataset = model_config['dataset']
         self.n_users = self.dataset.n_users + model_config.get('n_fakes', 0)
         self.n_items = self.dataset.n_items
-        self.pretrain_fixed_dim = model_config.get('pretrain_fixed_dim', 0)
-        self.pretrain_weight = model_config.get('pretrain_weight', 0.)
         self.trainable = True
 
     def save(self, path):
@@ -98,16 +96,8 @@ class BasicModel(nn.Module):
     def initial_embeddings(self):
         normal_(self.embedding.weight, std=0.1)
 
-    def initial_pretrained_parameters(self, pre_trained_model):
-        n_users = pre_trained_model.n_users
-        n_items = pre_trained_model.n_items
-        pretrained_embeddings = self.pretrain_weight * pre_trained_model.embedding.weight
-        with torch.no_grad():
-            self.embedding.weight.data[:n_users, :self.pretrain_fixed_dim] = pretrained_embeddings[:n_users, :]
-            self.embedding.weight.data[-n_items:, :self.pretrain_fixed_dim] = pretrained_embeddings[-n_items:, :]
-
     def gp_rep(self, gp_config):
-        rep = self.get_rep()[:, self.pretrain_fixed_dim:]
+        rep = self.get_rep()
         if gp_config.order == 0:
             return rep
         return GPFunction.apply(rep, gp_config)

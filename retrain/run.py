@@ -81,7 +81,7 @@ def eval_rec_and_surrogate(trainer, full_rec_items, writer, verbose):
     return metrics['Jaccard'][trainer.topks[0]]
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg, gp_threshold, pretrain_weight, pretrain_fixed_dim, n_epochs,
+def run_new_items_recall(log_path, seed, lr, l2_reg, gp_threshold, n_epochs,
                          run_method, victim_model, verbose=False):
     device = torch.device('cuda')
     config = get_config(device)
@@ -106,24 +106,15 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, gp_threshold, pretrain_weig
     trainer_config['l2_reg'] = l2_reg
 
     extra_eval = (eval_rec_and_surrogate, full_rec_items) if verbose else None
-    names = {0: 'full_retrain', 1: 'pre_retrain', 2: 'full_retrain_wh_gp', 3: 'pre_retrain_wh_gp'}
+    names = {0: 'full_retrain', 1: 'full_retrain_wh_gp'}
     writer = SummaryWriter(os.path.join(log_path, names[run_method]))
 
     if gp_threshold is not None:
-        assert run_method >= 2
+        assert run_method == 1
         trainer_config['gp_threshold'] = gp_threshold
-    if pretrain_weight is not None and pretrain_fixed_dim is not None:
-        assert run_method == 1 or run_method == 3
-        model_config['pretrain_fixed_dim'] = pretrain_fixed_dim
-        model_config['pretrain_weight'] = pretrain_weight
     set_seed(seed)
     new_model = get_model(model_config, full_dataset)
     new_trainer = get_trainer(trainer_config, new_model)
-    if run_method == 1 or run_method == 3:
-        model_config['embedding_size'] = pretrain_fixed_dim
-        pre_trained_model = get_model(model_config, sub_dataset)
-        pre_trained_model.load('retrain/pre_trained_model.pth')
-        new_model.initial_pretrained_parameters(pre_trained_model)
     new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
     writer.close()
     print('--------------------------------Finish Training!--------------------------------')
@@ -143,12 +134,10 @@ def main():
     lr = None
     l2_reg = None
     gp_threshold = None
-    pretrain_weight = None
-    pretrain_fixed_dim = None
     n_epochs = None
     run_method = None
     victim_model = None
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, gp_threshold, pretrain_weight, pretrain_fixed_dim,
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, gp_threshold,
                                        n_epochs, run_method, victim_model)
     print('Jaccard similarity', jaccard_sim)
 

@@ -30,10 +30,6 @@ class DPA2DL(BasicAttacker):
         target_users = TensorDataset(torch.tensor(target_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=True)
-        self.pre_trained_model = self.load_pretrained_model(self.surrogate_trainer_config.get('pre_train_path', None))
-
-    def load_pretrained_model(self, path):
-        return RevAdv.load_pretrained_model(self, path)
 
     def get_target_hr(self, surrogate_model):
         surrogate_model.eval()
@@ -112,8 +108,6 @@ class DPA2DL(BasicAttacker):
             self.dataset.n_users += n_temp_fakes
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
-            if self.pre_trained_model is not None:
-                surrogate_model.initial_pretrained_parameters(self.pre_trained_model)
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
 
             start_time = time.time()
