@@ -10,26 +10,6 @@ import os
 import time
 
 
-def eval_rec_on_new_users(trainer, n_old_users, writer):
-    val_data = trainer.dataset.val_data.copy()
-
-    for user in range(n_old_users):
-        trainer.dataset.val_data[user] = {}
-    results, metrics = trainer.eval('val')
-    print('New users and all items result. {:s}'.format(results))
-    trainer.dataset.val_data = val_data.copy()
-    if writer is not None:
-        trainer.record(writer, 'new_user', metrics)
-
-    for user in range(n_old_users, trainer.model.n_users):
-        trainer.dataset.val_data[user] = {}
-    results, metrics = trainer.eval('val')
-    print('Old users and all items result. {:s}'.format(results))
-    trainer.dataset.val_data = val_data.copy()
-    if writer is not None:
-        trainer.record(writer, 'old_user', metrics)
-
-
 def calculate_jaccard_similarity(rec_items, full_rec_items):
     n = rec_items.shape[0]
     jaccard_sims = np.zeros((n, ), dtype=np.float32)
@@ -58,10 +38,9 @@ def eval_rec_and_surrogate(trainer, full_rec_items, writer, verbose):
     if not verbose:
         return
     start_time = time.time()
-    eval_rec_on_new_users(trainer, n_old_users, writer)
-    rec_items = trainer.get_rec_items('test')
-    metrics = {'Jaccard': {}, 'NDCG': {}}
+    rec_items = trainer.get_rec_items('val')
 
+    metrics = {'Jaccard': {}, 'NDCG': {}}
     denominator = np.log2(np.arange(2, max(trainer.topks) + 2, dtype=np.float32))[None, :]
     for k in trainer.topks:
         metrics['Jaccard'][k] = np.mean(calculate_jaccard_similarity(rec_items[:, :k], full_rec_items[:, :k]))
@@ -73,6 +52,7 @@ def eval_rec_and_surrogate(trainer, full_rec_items, writer, verbose):
         jaccard += '{:.3f}%@{:d}, '.format(metrics['Jaccard'][k] * 100., k)
         ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100., k)
     results = 'Jaccard similarity: {:s}NDCG: {:s}'.format(jaccard, ndcg)
+
     consumed_time = time.time() - start_time
     print(results, 'Time: {:.3f}s'.format(consumed_time))
     if writer is not None:
@@ -95,7 +75,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, gp_threshold, n_epochs,
     else:
         full_train_trainer.train(verbose=False)
         full_train_model.save('retrain/full_train_model.pth')
-    full_rec_items = full_train_trainer.get_rec_items('test')
+    full_rec_items = full_train_trainer.get_rec_items('val')
     del full_train_trainer, full_train_model
 
     trainer_config['n_epochs'] = n_epochs
