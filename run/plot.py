@@ -227,11 +227,11 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    mean_retrain = [344.9129167, 391.6187333, 385.7989, 393.6217, 231.6462333, 252.93105]
-    mean_retrain_wt_GP = [371.1690667, 453.1785167, 408.9144, 472.0270333, 287.9294167, 351.39295]
-    std_retrain = [131.5710992, 125.522134, 161.289596, 135.4116029, 79.94709292, 43.35285593]
-    std_retrain_wt_GP = [64.70370844, 92.12506417, 64.74408923, 60.74967801, 45.95772361, 62.95571001]
-    methods = ['MF-BPR', 'LightGCN-BPR', 'MF-BCE', 'LightGCN-BCE', 'MF-MSE', 'LightGCN-MSE']
+    mean_retrain = [344.9129167, 391.6187333, 385.7989, 393.6217]
+    mean_retrain_wt_GP = [371.1690667, 453.1785167, 408.9144, 472.0270333]
+    std_retrain = [131.5710992, 125.522134, 161.289596, 135.4116029]
+    std_retrain_wt_GP = [64.70370844, 92.12506417, 64.74408923, 60.74967801]
+    methods = ['MF-BPR', 'LightGCN-BPR', 'MF-BCE', 'LightGCN-BCE']
     idx = np.arange(len(methods))
     width = 0.2
     pdf = PdfPages('retain_time_tenrec.pdf')

@@ -21,7 +21,7 @@ def objective(trial):
     gp_threshold = trial.suggest_float('gp_threshold', 0., 1.,)
     set_seed(2023)
     device = torch.device('cuda')
-    dataset_config, model_config, trainer_config = get_config(device)[-4]
+    dataset_config, model_config, trainer_config = get_config(device)[0]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
                                 'n_epochs': 5, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
@@ -33,9 +33,8 @@ def objective(trial):
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 
-    trainer_config['n_epochs'] = trainer_config['n_epochs'] // 10
     dataset = get_dataset(dataset_config)
-    target_items = get_target_items(dataset)  # [:4] for yelp, [:2] for tenrec
+    target_items = get_target_items(dataset)
     hits = []
     for target_item in target_items:
         attacker_config['target_item'] = target_item
