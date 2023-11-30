@@ -40,6 +40,8 @@ class GPFunction(Function):
                                   rep[mat.col[start_idx:end_idx], :], dim=1)
             away_batch = torch.sum(rep[mat.row[start_idx:end_idx], :] *
                                    grad_out[mat.col[start_idx:end_idx], :], dim=1)
+            away_batch += torch.sum(rep[mat.col[start_idx:end_idx], :] *
+                                    grad_out[mat.row[start_idx:end_idx], :], dim=1)
             sims.append(sim_batch)
             aways.append(away_batch)
         sims, aways = torch.cat(sims), torch.cat(aways)
