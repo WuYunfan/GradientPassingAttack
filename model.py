@@ -130,8 +130,9 @@ class BasicModel(nn.Module):
         all_items_r = rep[self.n_users:, :]
         scores = torch.mm(users_r, all_items_r.t())
 
-        l2_norm_sq = torch.norm(rep[users, :], p=2) ** 2
-        l2_norm_sq += torch.norm(rep[-self.n_items:, :], p=2) ** 2
+        l2_norm_sq_user = torch.norm(rep[users, :], p=2, dim=1) ** 2
+        l2_norm_sq_item = torch.norm(rep[-self.n_items:, :], p=2, dim=1) ** 2
+        l2_norm_sq = torch.cat([l2_norm_sq_user, l2_norm_sq_item], dim=0)
         return scores, l2_norm_sq
 
     def predict(self, users):

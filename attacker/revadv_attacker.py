@@ -3,7 +3,7 @@ from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import StepLR
 import scipy.sparse as sp
 import numpy as np
-from utils import mse_loss, ce_loss
+from utils import diff_bce_loss, ce_loss
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
 import higher
@@ -25,30 +25,23 @@ class RevAdv(BasicAttacker):
         self.lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
 
-        self.data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
-                                      shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
-        self.fake_tensor = self.init_fake_tensor()
-        self.adv_opt = SGD([self.fake_tensor], lr=self.lr, momentum=self.momentum)
-
-        self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
-
         self.surrogate_model_config['n_fakes'] = self.n_fakes
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
         self.surrogate_trainer = get_trainer(self.surrogate_trainer_config, self.surrogate_model)
 
-        train_user = TensorDataset(torch.arange(self.surrogate_model.n_users, dtype=torch.int64, device=self.device))
-        self.surrogate_trainer.train_user_loader = \
-            DataLoader(train_user, batch_size=self.surrogate_trainer_config['batch_size'], shuffle=True)
-        self.data_tensor = torch.tensor(self.surrogate_trainer.data_mat.toarray(),
-                                        dtype=torch.float32, device=self.device)
+        self.fake_tensor = self.init_fake_tensor(self.surrogate_trainer.data_tensor)
+        self.adv_opt = SGD([self.fake_tensor], lr=self.lr, momentum=self.momentum)
 
-    def init_fake_tensor(self):
-        degree = np.array(np.sum(self.data_mat, axis=1)).squeeze()
-        qualified_users = self.data_mat[degree <= self.n_inters, :]
-        sample_idx = np.random.choice(qualified_users.shape[0], self.n_fakes, replace=False)
-        fake_data = qualified_users[sample_idx, :].toarray()
-        fake_data = torch.tensor(fake_data, dtype=torch.float32, device=self.device, requires_grad=True)
-        return fake_data
+        self.target_user_tensor = torch.arange(self.n_users, dtype=torch.int64, device=self.device)
+        self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
+
+    def init_fake_tensor(self, data_tensor):
+        degree = torch.sum(data_tensor, dim=1)
+        qualified_users = data_tensor[degree <= self.n_inters, :]
+        sample_idxes = torch.randint(qualified_users.shape[0], size=[self.n_fakes])
+        fake_tensor = qualified_users[sample_idxes, :]
+        fake_tensor.requires_grad = True
+        return fake_tensor
 
     def project_fake_tensor(self):
         with torch.no_grad():
@@ -60,26 +53,24 @@ class RevAdv(BasicAttacker):
         self.surrogate_model.initial_embeddings()
         self.surrogate_trainer.initialize_optimizer()
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
-        poisoned_data_tensor = torch.cat([self.data_tensor, self.fake_tensor], dim=0)
 
         start_time = time.time()
         self.surrogate_trainer.train(verbose=False)
-
         with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
             fmodel.train()
             for _ in range(self.unroll_steps):
                 for users in self.surrogate_trainer.train_user_loader:
                     users = users[0]
-                    profiles = poisoned_data_tensor[users, :]
                     scores, l2_norm_sq = fmodel.forward(users, self.surrogate_trainer.gp_config)
-                    m_loss = mse_loss(profiles, scores)
-                    loss = m_loss + self.surrogate_trainer.l2_reg * l2_norm_sq
+                    profiles = self.surrogate_trainer.merged_data_tensor[users, :]
+                    bce_loss = diff_bce_loss(profiles, scores)
+                    loss = bce_loss + self.surrogate_trainer.l2_reg * l2_norm_sq.mean()
                     diffopt.step(loss)
             consumed_time = time.time() - start_time
             self.retrain_time += consumed_time
 
             fmodel.eval()
-            scores = fmodel.predict(self.target_item_tensor)
+            scores = fmodel.predict(self.target_user_tensor)
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items.unsqueeze(2), self.target_item_tensor.unsqueeze(0).unsqueeze(0))
             hr = hr.float().sum(dim=1).mean()
@@ -91,9 +82,20 @@ class RevAdv(BasicAttacker):
 
     def generate_fake_users(self, verbose=True, writer=None):
         max_hr = -np.inf
-        start_time = time.time()
         for epoch in range(self.adv_epochs):
+            start_time = time.time()
+
             adv_loss, hit_k, adv_grads = self.retrain_surrogate()
+            if hit_k > max_hr:
+                print('Maximal hit ratio, save fake users.')
+                self.fake_users = self.fake_tensor.detach().cpu().numpy().copy()
+                max_hr = hit_k
+
+            normalized_adv_grads = F.normalize(adv_grads, p=2, dim=1)
+            self.adv_opt.zero_grad()
+            self.fake_tensor.grad = normalized_adv_grads
+            self.adv_opt.step()
+            self.project_fake_tensor()
 
             consumed_time = time.time() - start_time
             self.consumed_time += consumed_time
@@ -103,14 +105,3 @@ class RevAdv(BasicAttacker):
             if writer:
                 writer.add_scalar('{:s}/Adv_Loss'.format(self.name), adv_loss, epoch)
                 writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), hit_k, epoch)
-            if hit_k > max_hr:
-                print('Maximal hit ratio, save fake users.')
-                self.fake_users = self.fake_tensor.detach().cpu().numpy().copy()
-                max_hr = hit_k
-
-            start_time = time.time()
-            normalized_adv_grads = F.normalize(adv_grads, p=2, dim=1)
-            self.adv_opt.zero_grad()
-            self.fake_tensor.grad = normalized_adv_grads
-            self.adv_opt.step()
-            self.project_fake_tensor()

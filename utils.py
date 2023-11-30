@@ -107,10 +107,10 @@ def get_target_items(dataset, top_ratio=1., num=10):
     return target_items
 
 
-def mse_loss(profiles, scores):
+def diff_bce_loss(profiles, scores):
     n_profiles = 1. - profiles
-    loss_p = ((scores - 1) ** 2 * profiles).sum() / profiles.sum()
-    loss_n = ((scores + 1) ** 2 * n_profiles).sum() / n_profiles.sum()
+    loss_p = (F.softplus(-scores) * profiles).sum() / profiles.sum()
+    loss_n = (F.softplus(scores) * n_profiles).sum() / n_profiles.sum()
     return loss_p + loss_n
 
 

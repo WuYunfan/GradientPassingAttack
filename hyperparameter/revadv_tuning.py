@@ -45,7 +45,7 @@ def main():
     init_run(log_path, 2023)
 
     search_space = {'lr': [1., 1.e1, 1.e2], 's_lr': [1.e-3, 1.e-2, 1.e-1],
-                    's_l2': [0., 1.e-7, 1.e-6, 1.e-5]}
+                    's_l2': [1.e-3, 1.e-2, 1.e-1]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'revadv-tuning'
     storage_name = 'sqlite:///../{}.db'.format(study_name)
