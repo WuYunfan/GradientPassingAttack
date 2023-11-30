@@ -114,15 +114,15 @@ def mse_loss(profiles, scores):
     return loss_p + loss_n
 
 
-def ce_loss(scores, target_item):
+def ce_loss(scores, target_item_tensor):
     log_probs = F.log_softmax(scores, dim=1)
-    return -log_probs[:, target_item].mean()
+    return -log_probs[:, target_item_tensor].mean()
 
 
-def topk_loss(scores, target_item, topk, kappa):
+def topk_loss(scores, target_item_tensor, topk, kappa):
     top_scores, _ = scores.topk(topk, dim=1)
-    target_scores = scores[:, target_item]
-    loss = F.logsigmoid(top_scores[:, -1]) - F.logsigmoid(target_scores)
+    target_scores = scores[:, target_item_tensor]
+    loss = F.logsigmoid(top_scores[:, -1:]) - F.logsigmoid(target_scores)
     loss = torch.max(loss, -kappa).mean()
     return loss
 

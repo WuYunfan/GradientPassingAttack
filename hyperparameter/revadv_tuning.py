@@ -31,15 +31,13 @@ def objective(trial):
 
     dataset = get_dataset(dataset_config)
     target_items = get_target_items(dataset)
-    hits = []
-    for target_item in target_items:
-        attacker_config['target_item'] = target_item
-        dataset = get_dataset(dataset_config)
-        attacker = get_attacker(attacker_config, dataset)
-        attacker.generate_fake_users(verbose=False)
-        hits.append(attacker.eval(model_config, trainer_config))
-        shutil.rmtree('checkpoints')
-    return np.mean(hits)
+    attacker_config['target_items'] = target_items
+    dataset = get_dataset(dataset_config)
+    attacker = get_attacker(attacker_config, dataset)
+    attacker.generate_fake_users(verbose=False)
+    hr = attacker.eval(model_config, trainer_config)
+    shutil.rmtree('checkpoints')
+    return hr
 
 
 def main():

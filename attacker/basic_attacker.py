@@ -17,7 +17,7 @@ class BasicAttacker:
         self.n_items = self.dataset.n_items
         self.n_fakes = attacker_config['n_fakes']
         self.n_inters = attacker_config['n_inters']
-        self.target_item = attacker_config['target_item']
+        self.target_items = np.array(attacker_config['target_items'])
         self.device = attacker_config['device']
         self.topk = attacker_config['topk']
         self.fake_users = None
@@ -33,8 +33,9 @@ class BasicAttacker:
         if self.dataset.attack_data is None:
             self.dataset.attack_data = [[] for _ in range(self.n_users)]
             for u in range(self.n_users):
-                if self.target_item not in self.dataset.train_data[u]:
-                    self.dataset.attack_data[u].append(self.target_item)
+                for item in self.target_items:
+                    if item not in self.dataset.train_data[u]:
+                        self.dataset.attack_data[u].append(item)
 
             for fake_u in range(self.n_fakes):
                 items = set(np.nonzero(self.fake_users[fake_u, :])[0].tolist())
@@ -57,7 +58,7 @@ class BasicAttacker:
                 hit_ratio += '{:.3f}%@{:d}, '.format(metrics['Recall'][k] * 100, k)
                 ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100, k)
             results = 'Hit Ratio: {:s}NDCG: {:s}'.format(hit_ratio, ndcg)
-            print('Target Item: {:d}'.format(self.target_item))
+            print('Target Items: {:s}'.format(str(self.target_items)))
             print('Attack result. {:s}'.format(results))
             print('Consumed time: {:.3f}s, retrain time: {:.3f}'.format(self.consumed_time, self.retrain_time))
 

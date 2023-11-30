@@ -30,8 +30,7 @@ class RevAdv(BasicAttacker):
         self.fake_tensor = self.init_fake_tensor()
         self.adv_opt = SGD([self.fake_tensor], lr=self.lr, momentum=self.momentum)
 
-        target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
-        self.target_users = torch.tensor(target_users, dtype=torch.int64, device=self.device)
+        self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
 
         self.surrogate_model_config['n_fakes'] = self.n_fakes
         self.surrogate_model = get_model(self.surrogate_model_config, self.dataset)
@@ -80,10 +79,11 @@ class RevAdv(BasicAttacker):
             self.retrain_time += consumed_time
 
             fmodel.eval()
-            scores = fmodel.predict(self.target_users)
+            scores = fmodel.predict(self.target_item_tensor)
             _, topk_items = scores.topk(self.topk, dim=1)
-            hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
-            adv_loss = ce_loss(scores, self.target_item)
+            hr = torch.eq(topk_items.unsqueeze(2), self.target_item_tensor.unsqueeze(0).unsqueeze(0))
+            hr = hr.float().sum(dim=1).mean()
+            adv_loss = ce_loss(scores, self.target_item_tensor)
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
         gc.collect()
         torch.cuda.empty_cache()

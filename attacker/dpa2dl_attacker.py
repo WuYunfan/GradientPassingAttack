@@ -26,8 +26,10 @@ class DPA2DL(BasicAttacker):
         self.alpha = attacker_config['alpha']
         self.n_rounds = attacker_config['n_rounds']
 
-        target_users = [user for user in range(self.n_users) if self.target_item not in self.dataset.train_data[user]]
-        target_users = TensorDataset(torch.tensor(target_users, dtype=torch.int64, device=self.device))
+        self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
+        non_target_items = [i for i in range(self.n_items) if i not in self.target_items]
+        self.non_target_item_tensor = torch.tensor(non_target_items, dtype=torch.int64, device=self.device)
+        target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
         self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
                                              shuffle=True)
 
@@ -39,7 +41,8 @@ class DPA2DL(BasicAttacker):
                 users = users[0]
                 scores = surrogate_model.predict(users)
                 _, topk_items = scores.topk(self.topk, dim=1)
-                hr = torch.eq(topk_items, self.target_item).float().sum(dim=1).mean()
+                hr = torch.eq(topk_items.unsqueeze(2), self.target_item_tensor.unsqueeze(0).unsqueeze(0))
+                hr = hr.float().sum(dim=1).mean()
                 hrs.update(hr.item(), users.shape[0])
         return hrs.avg
 
@@ -48,14 +51,14 @@ class DPA2DL(BasicAttacker):
         for users in self.target_user_loader:
             users = users[0]
             scores = surrogate_model.predict(users)
-            loss = self.alpha * self.reg_u * topk_loss(scores, self.target_item, self.topk, self.kappa)
+            loss = self.alpha * self.reg_u * topk_loss(scores, self.target_item_tensor, self.topk, self.kappa)
             surrogate_trainer.opt.zero_grad()
             loss.backward()
             surrogate_trainer.opt.step()
             losses.update(loss.item(), users.shape[0])
 
         scores = surrogate_model.predict(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device))
-        scores = torch.cat([scores[:, :self.target_item], scores[:, self.target_item + 1:]], dim=1)
+        scores = scores[:, self.non_target_item_tensor]
         loss = self.alpha * (torch.sigmoid(scores) ** 2).mean()
         surrogate_trainer.opt.zero_grad()
         loss.backward()
@@ -69,8 +72,8 @@ class DPA2DL(BasicAttacker):
             scores = surrogate_model.predict(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device))
         for u_idx in range(temp_fake_users.shape[0]):
             row_score = torch.sigmoid(scores[u_idx, :]) * prob
-            row_score[self.target_item] = 0.
-            filler_items = row_score.topk(self.n_inters - 1).indices
+            row_score[self.target_items] = 0.
+            filler_items = row_score.topk(self.n_inters - self.target_items.shape[0]).indices
             prob[filler_items] *= self.prob
             if (prob < 1.0).all():
                 prob[:] = 1.
@@ -91,7 +94,7 @@ class DPA2DL(BasicAttacker):
 
     def generate_fake_users(self, verbose=True, writer=None):
         self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)
-        self.fake_users[:, self.target_item] = 1.
+        self.fake_users[:, self.target_items] = 1.
 
         prob = torch.ones(self.n_items, dtype=torch.float32, device=self.device)
         fake_user_end_indices = list(np.arange(0, self.n_fakes, self.step, dtype=np.int64)) + [self.n_fakes]
@@ -102,9 +105,9 @@ class DPA2DL(BasicAttacker):
 
             temp_fake_users = np.arange(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step]) + self.n_users
             n_temp_fakes = temp_fake_users.shape[0]
-            self.dataset.train_data += [{self.target_item} for _ in range(n_temp_fakes)]
+            self.dataset.train_data += [set(self.target_items) for _ in range(n_temp_fakes)]
             self.dataset.val_data += [{} for _ in range(n_temp_fakes)]
-            self.dataset.train_array += [[fake_u, self.target_item] for fake_u in temp_fake_users]
+            self.dataset.train_array += [[fake_u, item] for item in self.target_items for fake_u in temp_fake_users]
             self.dataset.n_users += n_temp_fakes
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
