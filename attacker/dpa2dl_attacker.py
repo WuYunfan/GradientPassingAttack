@@ -72,7 +72,7 @@ class DPA2DL(BasicAttacker):
             scores = surrogate_model.predict(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device))
         for u_idx in range(temp_fake_users.shape[0]):
             row_score = torch.sigmoid(scores[u_idx, :]) * prob
-            row_score[self.target_items] = 0.
+            row_score[self.target_item_tensor] = 0.
             filler_items = row_score.topk(self.n_inters - self.target_items.shape[0]).indices
             prob[filler_items] *= self.prob
             if (prob < 1.0).all():

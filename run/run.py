@@ -11,7 +11,7 @@ import shutil
 def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
-    seed_list = [2023, 42, 0, 131, 1024]
+    seed_list = [2024, 42, 0, 131, 1024]
 
     device = torch.device('cuda')
     dataset_config = get_config(device)[0][0]
