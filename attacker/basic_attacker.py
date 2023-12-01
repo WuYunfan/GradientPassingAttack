@@ -17,6 +17,7 @@ class BasicAttacker:
         self.n_items = self.dataset.n_items
         self.n_fakes = attacker_config['n_fakes']
         self.n_inters = attacker_config['n_inters']
+        self.n_train_inters = int(self.n_inters * attacker_config.get('train_ratio', 0.8))
         self.target_items = np.array(attacker_config['target_items'])
         self.device = attacker_config['device']
         self.topk = attacker_config['topk']
@@ -38,11 +39,15 @@ class BasicAttacker:
                         self.dataset.attack_data[u].append(item)
 
             for fake_u in range(self.n_fakes):
-                items = set(np.nonzero(self.fake_users[fake_u, :])[0].tolist())
-                self.dataset.train_data.append(items)
-                self.dataset.val_data.append({})
+                items = np.nonzero(self.fake_users[fake_u, :])[0].tolist()
+                assert len(items) == self.n_inters
+                random.shuffle(items)
+                train_items = items[:self.n_train_inters]
+                val_items = items[self.n_train_inters:]
+                self.dataset.train_data.append(set(train_items))
+                self.dataset.val_data.append(set(val_items))
                 self.dataset.attack_data.append([])
-                self.dataset.train_array.extend([[fake_u + self.n_users, item] for item in items])
+                self.dataset.train_array.extend([[fake_u + self.n_users, item] for item in train_items])
             self.dataset.n_users += self.n_fakes
 
         if self.model is None or retrain:
