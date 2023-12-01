@@ -48,8 +48,9 @@ def main():
                     's_l2': [1.e-3, 1.e-2, 1.e-1]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'revadv-tuning'
-    storage_name = 'sqlite:///../{}.db'.format(study_name)
-    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
+    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name),
+                                         failed_trial_callback=optuna.storages.RetryFailedTrialCallback())
+    study = optuna.create_study(study_name=study_name, storage=storage, load_if_exists=True, direction='maximize',
                                 sampler=optuna.samplers.GridSampler(search_space))
 
     study.optimize(objective)

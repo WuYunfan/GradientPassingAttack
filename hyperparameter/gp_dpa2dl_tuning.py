@@ -51,8 +51,9 @@ def main():
     search_space = {'gp_threshold': [0., 0.4, 0.5, 0.53, 0.56, 0.6, 0.9, 0.99, 1.]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'gp_dpa2dl-tuning'
-    storage_name = 'sqlite:///../{}.db'.format(study_name)
-    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction='maximize',
+    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name),
+                                         failed_trial_callback=optuna.storages.RetryFailedTrialCallback())
+    study = optuna.create_study(study_name=study_name, storage=storage, load_if_exists=True, direction='maximize',
                                 sampler=optuna.samplers.GridSampler(search_space))
 
     study.optimize(objective)

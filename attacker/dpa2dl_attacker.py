@@ -46,7 +46,7 @@ class DPA2DL(BasicAttacker):
                 hrs.update(hr.item(), users.shape[0])
         return hrs.avg
 
-    def poison_train(self, surrogate_model, surrogate_trainer, temp_fake_users):
+    def poison_train(self, surrogate_model, surrogate_trainer, temp_fake_user_tensor):
         losses = AverageMeter()
         for users in self.target_user_loader:
             users = users[0]
@@ -55,22 +55,22 @@ class DPA2DL(BasicAttacker):
             surrogate_trainer.opt.zero_grad()
             loss.backward()
             surrogate_trainer.opt.step()
-            losses.update(loss.item(), users.shape[0])
+            losses.update(loss.item(), users.shape[0] * self.target_items.shape[0])
 
-        scores = surrogate_model.predict(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device))
+        scores = surrogate_model.predict(temp_fake_user_tensor)
         scores = scores[:, self.non_target_item_tensor]
         loss = self.alpha * (torch.sigmoid(scores) ** 2).mean()
         surrogate_trainer.opt.zero_grad()
         loss.backward()
         surrogate_trainer.opt.step()
-        losses.update(loss.item(), temp_fake_users.shape[0] * (self.n_items - 1))
+        losses.update(loss.item(), temp_fake_user_tensor.shape[0] * (self.n_items - self.target_items.shape[0]))
         return losses.avg
 
-    def choose_filler_items(self, surrogate_model, temp_fake_users, prob):
+    def choose_filler_items(self, surrogate_model, temp_fake_user_tensor, prob):
         surrogate_model.eval()
         with torch.no_grad():
-            scores = surrogate_model.predict(torch.tensor(temp_fake_users, dtype=torch.int64, device=self.device))
-        for u_idx in range(temp_fake_users.shape[0]):
+            scores = surrogate_model.predict(temp_fake_user_tensor)
+        for u_idx in range(temp_fake_user_tensor.shape[0]):
             row_score = torch.sigmoid(scores[u_idx, :]) * prob
             row_score[self.target_item_tensor] = 0.
             filler_items = row_score.topk(self.n_inters - self.target_items.shape[0]).indices
@@ -78,7 +78,7 @@ class DPA2DL(BasicAttacker):
             if (prob < 1.0).all():
                 prob[:] = 1.
 
-            f_u = temp_fake_users[u_idx]
+            f_u = temp_fake_user_tensor[u_idx]
             filler_items = filler_items.cpu().numpy()
             self.fake_users[f_u - self.n_users, filler_items] = 1.
 
@@ -103,11 +103,12 @@ class DPA2DL(BasicAttacker):
             fake_nums_str = '{}-{}'.format(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step])
             print('Start generating poison #{:s} !'.format(fake_nums_str))
 
-            temp_fake_users = np.arange(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step]) + self.n_users
-            n_temp_fakes = temp_fake_users.shape[0]
+            temp_fake_user_tensor = np.arange(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step]) + self.n_users
+            temp_fake_user_tensor = torch.tensor(temp_fake_user_tensor, dtype=torch.int64, device=self.device)
+            n_temp_fakes = temp_fake_user_tensor.shape[0]
             self.dataset.train_data += [set(self.target_items) for _ in range(n_temp_fakes)]
             self.dataset.val_data += [{} for _ in range(n_temp_fakes)]
-            self.dataset.train_array += [[fake_u, item] for item in self.target_items for fake_u in temp_fake_users]
+            self.dataset.train_array += [[fake_u, item] for item in self.target_items for fake_u in temp_fake_user_tensor]
             self.dataset.n_users += n_temp_fakes
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
@@ -123,12 +124,17 @@ class DPA2DL(BasicAttacker):
             self.save_surrogate(surrogate_trainer, best_hr)
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
-                p_loss = self.poison_train(surrogate_model, surrogate_trainer, temp_fake_users)
+                p_loss = self.poison_train(surrogate_model, surrogate_trainer, temp_fake_user_tensor)
+
+                start_time = time.time()
                 t_loss = surrogate_trainer.train_one_epoch()
+                consumed_time = time.time() - start_time
+                self.retrain_time += consumed_time
+
                 target_hr = self.get_target_hr(surrogate_model)
                 if verbose:
-                    print('Round {:d}/{:d}, Poison Loss: {:.6f}, Train Loss: {:.6f}, Target Hit Ratio {:.6f}'.
-                          format(i_round, self.n_rounds, p_loss, t_loss, target_hr))
+                    print('Round {:d}/{:d}, Poison Loss: {:.6f}, Train Loss: {:.6f}, Target Hit Ratio {:.6f}%'.
+                          format(i_round, self.n_rounds, p_loss, t_loss, target_hr * 100.))
                 if writer:
                     writer.add_scalar('{:s}_{:s}/Poison_Loss'.format(self.name, fake_nums_str), p_loss, i_round)
                     writer.add_scalar('{:s}_{:s}/Train_Loss'.format(self.name, fake_nums_str), t_loss, i_round)
@@ -142,7 +148,7 @@ class DPA2DL(BasicAttacker):
             surrogate_model.load(surrogate_trainer.save_path)
             os.remove(surrogate_trainer.save_path)
 
-            self.choose_filler_items(surrogate_model, temp_fake_users, prob)
+            self.choose_filler_items(surrogate_model, temp_fake_user_tensor, prob)
             print('Poison #{:s} has been generated!'.format(fake_nums_str))
             consumed_time = time.time() - step_start_time
             self.consumed_time += consumed_time
