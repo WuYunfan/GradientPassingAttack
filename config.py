@@ -76,7 +76,7 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'RevAdvBCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
                                 'n_epochs': 9, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100}
     attacker_config = {'name': 'RevAdv', 'lr': None, 'momentum': 0.95,
@@ -98,7 +98,7 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'MSETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'RevAdvBCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
                                 'n_epochs': 9, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100,
                                 'gp_threshold': None}
