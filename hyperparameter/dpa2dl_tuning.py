@@ -13,10 +13,10 @@ import numpy as np
 
 
 def objective(trial):
-    reg_u = trial.suggest_float('reg_u', 1.e1, 1.e3, log=True)
-    alpha = trial.suggest_float('alpha', 1.e-7, 1.e-5, log=True)
-    s_l2 = trial.suggest_float('s_l2', 1.e-3, 1.e-1, log=True)
-    s_lr = trial.suggest_float('s_lr', 1.e-2, 1.e-1, log=True)
+    reg_u = trial.suggest_categorical('reg_u', [1.e1, 1.e2, 1.e3])
+    alpha = trial.suggest_categorical('alpha', [1.e-7, 1.e-6, 1.e-5])
+    s_l2 = trial.suggest_categorical('s_l2', [1.e-3, 1.e-2, 1.e-1])
+    s_lr = trial.suggest_categorical('s_lr', [1.e-2, 1.e-1])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
@@ -46,14 +46,11 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    search_space = {'reg_u': [1.e1, 1.e2, 1.e3], 'alpha': [1.e-7, 1.e-6, 1.e-5],
-                    's_l2': [1.e-3, 1.e-2, 1.e-1], 's_lr': [1.e-2, 1.e-1]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'dpa2dl-tuning'
-    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name),
-                                         failed_trial_callback=optuna.storages.RetryFailedTrialCallback())
+    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name))
     study = optuna.create_study(study_name=study_name, storage=storage, load_if_exists=True, direction='maximize',
-                                sampler=optuna.samplers.GridSampler(search_space))
+                                sampler=optuna.samplers.BruteForceSampler())
 
     study.optimize(objective)
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])

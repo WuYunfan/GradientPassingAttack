@@ -14,8 +14,8 @@ def objective(trial):
     lr = None
     l2_reg = None
 
-    eps = trial.suggest_float('eps', 1.e-2, 1.e1, log=True)
-    adv_reg = trial.suggest_float('adv_reg', 1.e-3, 1.e1, log=True)
+    eps = trial.suggest_categorical('eps', [1.e-2, 1.e-1, 1., 1.e1])
+    adv_reg = trial.suggest_categorical('adv_reg', 1.e-3, 1.e1, [1.e-3, 1.e-2, 1.e-1, 1., 1.e1])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',
@@ -35,13 +35,11 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    search_space = {'eps': [1.e-2, 1.e-1, 1., 1.e1], 'adv_reg': [1.e-3, 1.e-2, 1.e-1, 1., 1.e1]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'apr-tuning'
-    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name),
-                                         failed_trial_callback=optuna.storages.RetryFailedTrialCallback())
+    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name))
     study = optuna.create_study(study_name=study_name, storage=storage, load_if_exists=True, direction='maximize',
-                                sampler=optuna.samplers.GridSampler(search_space))
+                                sampler=optuna.samplers.BruteForceSampler())
 
     study.optimize(objective)
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])

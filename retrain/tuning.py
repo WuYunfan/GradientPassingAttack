@@ -15,9 +15,10 @@ def objective(trial, name, n_epochs, run_method, victim_model):
     if os.path.exists(os.path.join(log_path, name)):
         shutil.rmtree(os.path.join(log_path, name))
 
-    lr = trial.suggest_float('lr', 1.e-5, 1.e-1, log=True)
-    l2_reg = trial.suggest_float('l2_reg', 1.e-5, 1.e-1, log=True)
-    gp_threshold = trial.suggest_float('gp_threshold', 0., 1.,) if run_method == 1 else None
+    lr = trial.suggest_categorical('lr', [1.e-4, 1.e-3, 1.e-2, 1.e-1])
+    l2_reg = trial.suggest_categorical('l2_reg', [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1])
+    gp_threshold = trial.suggest_categorical('gp_threshold', [0., 0.4, 0.5, 0.53, 0.56, 0.6, 0.9, 0.99, 1.]) \
+        if run_method == 1 else None
 
     jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, gp_threshold,
                                        n_epochs, run_method, victim_model)
@@ -34,16 +35,11 @@ def main():
     names = {0: 'full_retrain', 1: 'full_retrain_wh_gp'}
     name = names[run_method]
 
-    search_space = {'lr': [1.e-4, 1.e-3, 1.e-2, 1.e-1], 'l2_reg': [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1]}
-    if run_method == 1:
-        search_space['gp_threshold'] = [0., 0.4, 0.5, 0.53, 0.56, 0.6, 0.9, 0.99, 1.]
-
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = name + '_' + str(n_epochs) + '_' + str(victim_model)
-    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name),
-                                         failed_trial_callback=optuna.storages.RetryFailedTrialCallback())
+    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name))
     study = optuna.create_study(study_name=study_name, storage=storage, load_if_exists=True, direction='maximize',
-                                sampler=optuna.samplers.GridSampler(search_space))
+                                sampler=optuna.samplers.BruteForceSampler())
 
     study.optimize(lambda trial: objective(trial, name, n_epochs, run_method, victim_model))
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])

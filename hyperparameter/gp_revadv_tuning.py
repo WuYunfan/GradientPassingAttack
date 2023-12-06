@@ -18,7 +18,7 @@ def objective(trial):
     s_l2 = None
     m_momentum = 0.05
 
-    gp_threshold = trial.suggest_float('gp_threshold', 0., 1.,)
+    gp_threshold = trial.suggest_categorical('gp_threshold', [0., 0.4, 0.5, 0.53, 0.56, 0.6, 0.9, 0.99, 1.])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
@@ -47,13 +47,11 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    search_space = {'gp_threshold': [0., 0.4, 0.5, 0.53, 0.56, 0.6, 0.9, 0.99, 1.]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'gp_revadv-tuning'
-    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name),
-                                         failed_trial_callback=optuna.storages.RetryFailedTrialCallback())
+    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name))
     study = optuna.create_study(study_name=study_name, storage=storage, load_if_exists=True, direction='maximize',
-                                sampler=optuna.samplers.GridSampler(search_space))
+                                sampler=optuna.samplers.BruteForceSampler())
 
     study.optimize(objective)
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])

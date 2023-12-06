@@ -13,9 +13,9 @@ import numpy as np
 
 
 def objective(trial):
-    lr = trial.suggest_float('lr', 1., 1.e2, log=True)
-    s_lr = trial.suggest_float('s_lr', 1.e-3, 1.e-1, log=True)
-    s_l2 = trial.suggest_float('s_l2', 0., 1.)
+    lr = trial.suggest_categorical('lr', [1.e1, 1.e2, 1.e3])
+    s_lr = trial.suggest_categorical('s_lr', [1.e-3, 1.e-2, 1.e-1])
+    s_l2 = trial.suggest_categorical('s_l2', [1.e-2, 1.e-1, 1.])
     m_momentum = 0.05
     set_seed(2023)
     device = torch.device('cuda')
@@ -44,14 +44,11 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    search_space = {'lr': [1., 1.e1, 1.e2], 's_lr': [1.e-3, 1.e-2, 1.e-1],
-                    's_l2': [1.e-3, 1.e-2, 1.e-1]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'revadv-tuning'
-    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name),
-                                         failed_trial_callback=optuna.storages.RetryFailedTrialCallback())
+    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name))
     study = optuna.create_study(study_name=study_name, storage=storage, load_if_exists=True, direction='maximize',
-                                sampler=optuna.samplers.GridSampler(search_space))
+                                sampler=optuna.samplers.BruteForceSampler())
 
     study.optimize(objective)
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])

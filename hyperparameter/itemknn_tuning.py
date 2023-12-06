@@ -11,7 +11,7 @@ from optuna.study import MaxTrialsCallback
 
 
 def objective(trial):
-    k = trial.suggest_int('k', 10, 1000, log=True)
+    k = trial.suggest_categorical('k', [10, 100, 1000])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config = {'name': 'ProcessedDataset', 'path': 'data/Gowalla/time',
@@ -29,13 +29,11 @@ def main():
     log_path = __file__[:-3]
     init_run(log_path, 2023)
 
-    search_space = {'k': [10, 100, 1000]}
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
     study_name = 'knn-tuning'
-    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name),
-                                         failed_trial_callback=optuna.storages.RetryFailedTrialCallback())
+    storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name))
     study = optuna.create_study(study_name=study_name, storage=storage, load_if_exists=True, direction='maximize',
-                                sampler=optuna.samplers.GridSampler(search_space))
+                                sampler=optuna.samplers.BruteForceSampler())
 
     study.optimize(objective)
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
