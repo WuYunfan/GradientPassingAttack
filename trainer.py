@@ -26,11 +26,10 @@ def get_trainer(config, model):
 class GPConfig:
     def __init__(self, trainer_config):
         self.order = 0
-        if 'gp_threshold' in trainer_config and trainer_config['gp_threshold'] is not None:
+        if 'gp_alpha' in trainer_config:
+            assert trainer_config['gp_alpha'] is not None
             self.order = trainer_config.get('gp_order', 2)
-            self.threshold = trainer_config['gp_threshold']
-            self.alpha = trainer_config.get('gp_alpha', 1.)
-            self.chunk_size = trainer_config.get('gp_chunk_size', int(1e6))
+            self.alpha = trainer_config['gp_alpha']
             model = trainer_config['model']
             dataset = trainer_config['dataset']
             self.mat = generate_adj_mat(dataset.train_array, model)

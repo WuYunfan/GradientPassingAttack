@@ -23,37 +23,16 @@ class GPFunction(Function):
     def backward(ctx, grad_out):
         config = ctx.config
         order = config.order
-        threshold = config.threshold
         alpha = config.alpha
         mat = config.mat
-        chunk_size = config.chunk_size
-        rep = ctx.saved_tensors[0]
-
-        n_non_zeros = mat.n_non_zeros
-        end_indices = list(range(0, n_non_zeros, chunk_size)) + [n_non_zeros]
-        sims = []
-        aways = []
-        for i_chunk in range(1, len(end_indices)):
-            start_idx = end_indices[i_chunk - 1]
-            end_idx = end_indices[i_chunk]
-            sim_batch = torch.sum(rep[mat.row[start_idx:end_idx], :] *
-                                  rep[mat.col[start_idx:end_idx], :], dim=1)
-            away_batch = torch.sum(rep[mat.row[start_idx:end_idx], :] *
-                                   grad_out[mat.col[start_idx:end_idx], :], dim=1)
-            away_batch += torch.sum(rep[mat.col[start_idx:end_idx], :] *
-                                    grad_out[mat.row[start_idx:end_idx], :], dim=1)
-            sims.append(sim_batch)
-            aways.append(away_batch)
-        sims, aways = torch.cat(sims), torch.cat(aways)
-        values = torch.gt(torch.sigmoid(sims), threshold) & torch.gt(aways, 0.)
-        values = values.to(torch.float32)
 
         grad = grad_out
         grads = [grad]
-        for i in range(order):
-            grad = mat.spmm(grad, values, norm='both')
+        for i in range(order * 2):
+            grad = mat.spmm(grad, norm='left')
             grads.append(alpha * grad)
-        grad = torch.stack(grads, dim=0).sum(dim=0)
+        gathered_order = torch.arange(order + 1) * 2
+        grad = torch.stack(grads, dim=0)[gathered_order, :, :].sum(dim=0)
         return grad, None
 
 

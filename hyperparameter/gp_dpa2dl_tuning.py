@@ -18,7 +18,7 @@ def objective(trial):
     s_l2 = None
     s_lr = None
 
-    gp_threshold = trial.suggest_categorical('gp_threshold', [0., 0.4, 0.5, 0.53, 0.56, 0.6, 0.9, 0.99, 1.])
+    gp_alpha = trial.suggest_categorical('gp_alpha', [0., 1, 10, 100, 1000])
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
@@ -26,7 +26,7 @@ def objective(trial):
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
                                 'n_epochs': 5, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
-                                'val_interval': 100, 'gp_threshold': gp_threshold}
+                                'val_interval': 100, 'gp_alpha': gp_alpha}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'reg_u': reg_u, 'prob': 0.9, 'kappa': 1.,
                        'step': 4, 'alpha': alpha, 'n_rounds': 1,

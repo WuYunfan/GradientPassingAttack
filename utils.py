@@ -66,6 +66,8 @@ class TorchSparseMat:
 
         if norm == 'both':
             values = values * self.inv_deg[self.row] * self.inv_deg[self.col]
+        if norm == 'left':
+            values = values * self.inv_deg[self.row] * self.inv_deg[self.row]
         x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)
         return x[:self.shape[0], :]
 
