@@ -16,7 +16,6 @@ class GPFunction(Function):
     @staticmethod
     def forward(ctx, rep, config):
         ctx.config = config
-        ctx.save_for_backward(rep)
         return rep
 
     @staticmethod
@@ -31,8 +30,8 @@ class GPFunction(Function):
         for i in range(order * 2):
             grad = mat.spmm(grad, norm='left')
             grads.append(alpha * grad)
-        gathered_order = torch.arange(order + 1) * 2
-        grad = torch.stack(grads, dim=0)[gathered_order, :, :].sum(dim=0)
+        gathered_orders = torch.arange(order + 1) * 2
+        grad = torch.stack(grads, dim=0)[gathered_orders, :, :].sum(dim=0)
         return grad, None
 
 
