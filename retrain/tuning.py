@@ -17,7 +17,7 @@ def objective(trial, name, n_epochs, run_method, victim_model):
 
     lr = trial.suggest_categorical('lr', [1.e-4, 1.e-3, 1.e-2, 1.e-1])
     l2_reg = trial.suggest_categorical('l2_reg', [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1])
-    gp_alpha = trial.suggest_categorical('gp_alpha', [0., 1, 10, 100, 1000]) \
+    gp_alpha = trial.suggest_categorical('gp_alpha', [0., 0.1, 1, 10, 100, 1000]) \
         if run_method == 1 else None
 
     jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, gp_alpha,

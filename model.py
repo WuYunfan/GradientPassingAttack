@@ -26,13 +26,11 @@ class GPFunction(Function):
         mat = config.mat
 
         grad = grad_out
-        grads = [grad]
         for i in range(order * 2):
             grad = mat.spmm(grad, norm='left')
-            grads.append(alpha * grad)
-        gathered_orders = torch.arange(order + 1) * 2
-        grad = torch.stack(grads, dim=0)[gathered_orders, :, :].sum(dim=0)
-        return grad, None
+            if i % 2 == 1:
+                grad_out += alpha * grad
+        return grad_out, None
 
 
 def get_model(config, dataset):
