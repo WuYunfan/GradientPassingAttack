@@ -17,14 +17,12 @@ def objective(trial, name, n_epochs, run_method, victim_model):
 
     lr = trial.suggest_categorical('lr', [1.e-4, 1.e-3, 1.e-2, 1.e-1])
     l2_reg = trial.suggest_categorical('l2_reg', [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1])
-    gp_proportion = trial.suggest_categorical('gp_proportion', [0.6, 0.8, 1.]) \
+    gp_threshold = trial.suggest_categorical('gp_threshold', [-np.inf, 0., np.inf]) \
         if run_method == 1 else None
-    gp_alpha = trial.suggest_categorical('gp_alpha', [0., 10., 100.]) \
-        if run_method == 1 else None
-    gp_beta = trial.suggest_categorical('gp_beta', [0., 0.1]) \
-        if run_method == 1 else None
+    gp_alpha = trial.suggest_categorical('gp_alpha', [0., 1., 10., 100.]) \
+        if gp_threshold != np.inf else 0. if run_method == 1 else None
 
-    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, gp_proportion, gp_alpha, gp_beta,
+    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, gp_threshold, gp_alpha,
                                        n_epochs, run_method, victim_model)
     return jaccard_sim
 

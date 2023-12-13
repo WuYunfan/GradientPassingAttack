@@ -24,8 +24,7 @@ class GPFunction(Function):
         config = ctx.config
         order = config.order
         alpha = config.alpha
-        beta = config.beta
-        proportion = config.proportion
+        threshold = config.threshold
         mat = config.mat
         chunk_size = config.chunk_size
         rep = ctx.saved_tensors[0]
@@ -42,15 +41,15 @@ class GPFunction(Function):
                 away_batch += torch.sum(rep[col[start_idx:end_idx], :] * grad_out[row[start_idx:end_idx], :], dim=1)
                 away.append(away_batch)
             away = torch.cat(away)
-            threshold = np.quantile(away.cpu().numpy(), 1. - proportion)
             away = torch.gt(away, threshold).to(torch.float32)
 
         grad = grad_out
-        grad_out = grad_out + beta * mat.spmm(grad, norm='both')
         for i in range(order * 2):
             grad = mat.spmm(grad, away, norm='both')
             if i % 2 == 1:
                 grad_out = grad_out + alpha * grad
+            elif i == 0:
+                grad_out = grad_out + grad
         return grad_out, None
 
 
