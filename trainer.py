@@ -30,8 +30,8 @@ class GPConfig:
             assert trainer_config['gp_proportion'] is not None
             assert trainer_config['gp_alpha'] is not None
             self.order = trainer_config.get('gp_order', 2)
-            self.chunk_size = int(trainer_config.get('chunk_size', 1e6))
-            self.proportion = trainer_config['proportion']
+            self.chunk_size = int(trainer_config.get('gp_chunk_size', 1e6))
+            self.proportion = trainer_config['gp_proportion']
             self.alpha = trainer_config['gp_alpha']
             model = trainer_config['model']
             dataset = trainer_config['dataset']
