@@ -16,6 +16,7 @@ class GPFunction(Function):
     @staticmethod
     def forward(ctx, rep, config):
         ctx.config = config
+        ctx.save_for_backward(rep)
         return rep
 
     @staticmethod
@@ -23,13 +24,32 @@ class GPFunction(Function):
         config = ctx.config
         order = config.order
         alpha = config.alpha
+        proportion = config.proportion
         mat = config.mat
+        chunk_size = config.chunk_size
+        rep = ctx.saved_tensors[0]
+
+        col, row = mat.g.edges()
+        n_non_zeros = mat.g.num_edges()
+        end_indices = list(range(0, n_non_zeros, chunk_size)) + [n_non_zeros]
+        with torch.no_grad():
+            away = []
+            for i_chunk in range(1, len(end_indices)):
+                start_idx = end_indices[i_chunk - 1]
+                end_idx = end_indices[i_chunk]
+                away_batch = torch.sum(rep[row[start_idx:end_idx], :] * grad_out[col[start_idx:end_idx], :], dim=1)
+                away_batch += torch.sum(rep[col[start_idx:end_idx], :] * grad_out[row[start_idx:end_idx], :], dim=1)
+                away.append(away_batch)
+            away = torch.cat(away)
+            threshold = np.quantile(away.cpu().numpy(), 1. - proportion)
+            away = torch.gt(away, threshold).to(torch.float32)
 
         grad = grad_out
+        grad_out = grad_out + mat.spmm(grad_out, norm='both')
         for i in range(order * 2):
-            grad = mat.spmm(grad, norm='left')
+            grad = mat.spmm(grad, away, norm='both')
             if i % 2 == 1:
-                grad_out += alpha * grad
+                grad_out = grad_out + alpha * grad
         return grad_out, None
 
 
@@ -247,11 +267,11 @@ class MultiVAE(BasicModel):
 
         representations = self.dropout_sp_mat(representations)
         representations = torch.sparse.mm(representations, self.encoder_layers[0].weight.t())
-        representations += self.encoder_layers[0].bias[None, :]
+        representations = representations + self.encoder_layers[0].bias[None, :]
         l2_norm_sq = torch.norm(self.encoder_layers[0].weight, p=2)[None] ** 2
         for layer in self.encoder_layers[1:]:
             representations = layer(torch.tanh(representations))
-            l2_norm_sq += torch.norm(layer.weight, p=2)[None] ** 2
+            l2_norm_sq = l2_norm_sq + torch.norm(layer.weight, p=2)[None] ** 2
 
         mean, log_var = representations[:, :self.mid_size], representations[:, -self.mid_size:]
         std = torch.exp(0.5 * log_var)
@@ -261,9 +281,9 @@ class MultiVAE(BasicModel):
 
         for layer in self.decoder_layers[:-1]:
             representations = torch.tanh(layer(representations))
-            l2_norm_sq += torch.norm(layer.weight, p=2)[None] ** 2
+            l2_norm_sq = l2_norm_sq + torch.norm(layer.weight, p=2)[None] ** 2
         scores = self.decoder_layers[-1](representations)
-        l2_norm_sq += torch.norm(self.decoder_layers[-1].weight, p=2)[None] ** 2
+        l2_norm_sq = l2_norm_sq + torch.norm(self.decoder_layers[-1].weight, p=2)[None] ** 2
         return scores, kl, l2_norm_sq
 
     def predict(self, users):

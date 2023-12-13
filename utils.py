@@ -42,20 +42,17 @@ class TorchSparseMat:
     def __init__(self, row, col, shape, device):
         self.shape = shape
         self.device = device
-        self.row = row
-        self.col = col
-        self.g = dgl.graph((self.col, self.row), num_nodes=max(shape), device=device)
-        self.n_non_zeros = self.row.shape[0]
+        self.g = dgl.graph((col, row), num_nodes=max(shape), device=device)
 
         eps = torch.tensor(1.e-8, dtype=torch.float32, device=device)
-        values = torch.ones([self.n_non_zeros], dtype=torch.float32, device=device)
+        values = torch.ones([self.g.num_edges()], dtype=torch.float32, device=device)
         degree = dgl.ops.gspmm(self.g, 'copy_rhs', 'sum', lhs_data=None, rhs_data=values)
         degree = torch.where(degree > 0, degree, eps)
         self.inv_deg = torch.pow(degree, -0.5)
 
     def spmm(self, r_mat, value_tensor=None, norm=None):
         if value_tensor is None:
-            values = torch.ones([self.n_non_zeros], dtype=torch.float32, device=self.device)
+            values = torch.ones([self.g.num_edges()], dtype=torch.float32, device=self.device)
         else:
             values = value_tensor
 
@@ -64,10 +61,13 @@ class TorchSparseMat:
                                      dtype=torch.float32, device=self.device)
         padded_r_mat = torch.cat([r_mat, padding_tensor], dim=0)
 
+        col, row = self.g.edges()
         if norm == 'both':
-            values = values * self.inv_deg[self.row] * self.inv_deg[self.col]
+            values = values * self.inv_deg[row] * self.inv_deg[col]
+        if norm == 'right':
+            values = values * self.inv_deg[col] * self.inv_deg[col]
         if norm == 'left':
-            values = values * self.inv_deg[self.row] * self.inv_deg[self.row]
+            values = values * self.inv_deg[row] * self.inv_deg[row]
         x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)
         return x[:self.shape[0], :]
 
