@@ -24,6 +24,7 @@ class GPFunction(Function):
         config = ctx.config
         order = config.order
         alpha = config.alpha
+        beta = config.beta
         proportion = config.proportion
         mat = config.mat
         chunk_size = config.chunk_size
@@ -45,6 +46,7 @@ class GPFunction(Function):
             away = torch.gt(away, threshold).to(torch.float32)
 
         grad = grad_out
+        grad_out = grad_out + beta * mat.spmm(grad, norm='both')
         for i in range(order * 2):
             grad = mat.spmm(grad, away, norm='both')
             if i % 2 == 1:

@@ -26,13 +26,15 @@ def get_trainer(config, model):
 class GPConfig:
     def __init__(self, trainer_config):
         self.order = 0
-        if 'gp_proportion' in trainer_config and 'gp_alpha' in trainer_config:
+        if 'gp_proportion' in trainer_config and 'gp_alpha' in trainer_config and 'gp_beta' in trainer_config:
             assert trainer_config['gp_proportion'] is not None
             assert trainer_config['gp_alpha'] is not None
+            assert trainer_config['gp_beta'] is not None
             self.order = trainer_config.get('gp_order', 2)
             self.chunk_size = int(trainer_config.get('gp_chunk_size', 1e6))
             self.proportion = trainer_config['gp_proportion']
             self.alpha = trainer_config['gp_alpha']
+            self.beta = trainer_config['gp_beta']
             model = trainer_config['model']
             dataset = trainer_config['dataset']
             self.mat = generate_adj_mat(dataset.train_array, model)

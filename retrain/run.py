@@ -60,8 +60,8 @@ def eval_rec_and_surrogate(trainer, full_rec_items, writer, verbose):
     return metrics['Jaccard'][trainer.topks[0]]
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg, gp_proportion, gp_alpha, n_epochs,
-                         run_method, victim_model, verbose=False):
+def run_new_items_recall(log_path, seed, lr, l2_reg, gp_proportion, gp_alpha, gp_beta,
+                         n_epochs, run_method, victim_model, verbose=False):
     device = torch.device('cuda')
     config = get_config(device)
     dataset_config, model_config, trainer_config = config[victim_model]
@@ -86,10 +86,11 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, gp_proportion, gp_alpha, n_
     names = {0: 'full_retrain', 1: 'full_retrain_wh_gp'}
     writer = SummaryWriter(os.path.join(log_path, names[run_method]))
 
-    if gp_proportion is not None and gp_alpha is not None:
+    if gp_proportion is not None and gp_alpha is not None and gp_beta is not None:
         assert run_method == 1
         trainer_config['gp_proportion'] = gp_proportion
         trainer_config['gp_alpha'] = gp_alpha
+        trainer_config['gp_beta'] = gp_beta
     set_seed(seed)
     new_model = get_model(model_config, full_dataset)
     new_trainer = get_trainer(trainer_config, new_model)
@@ -113,10 +114,11 @@ def main():
     l2_reg = None
     gp_proportion = None
     gp_alpha = None
+    gp_beta = None
     n_epochs = None
     run_method = None
     victim_model = None
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, gp_proportion, gp_alpha,
+    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, gp_proportion, gp_alpha, gp_beta,
                                        n_epochs, run_method, victim_model)
     print('Jaccard similarity', jaccard_sim)
 
