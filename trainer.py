@@ -26,13 +26,14 @@ def get_trainer(config, model):
 class GPConfig:
     def __init__(self, trainer_config):
         self.order = 0
-        if 'gp_threshold' in trainer_config and 'gp_alpha' in trainer_config:
-            assert trainer_config['gp_threshold'] is not None
-            assert trainer_config['gp_alpha'] is not None
-            self.order = trainer_config.get('gp_order', 2)
-            self.chunk_size = int(trainer_config.get('gp_chunk_size', 1e6))
-            self.threshold = trainer_config['gp_threshold']
-            self.alpha = trainer_config['gp_alpha']
+        if 'gp_config' in trainer_config:
+            config = trainer_config['gp_config']
+            self.order = config.get('order', 2)
+            self.chunk_size = int(config.get('chunk_size', 1e6))
+            self.threshold_odd = config['threshold_odd']
+            self.threshold_even = config['threshold_even']
+            self.alpha_odd = config['alpha_odd']
+            self.alpha_even = config['alpha_even']
             model = trainer_config['model']
             dataset = trainer_config['dataset']
             self.mat = generate_adj_mat(dataset.train_array, model)

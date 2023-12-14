@@ -17,12 +17,17 @@ def objective(trial, name, n_epochs, run_method, victim_model):
 
     lr = trial.suggest_categorical('lr', [1.e-4, 1.e-3, 1.e-2, 1.e-1])
     l2_reg = trial.suggest_categorical('l2_reg', [1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1])
-    gp_threshold = trial.suggest_categorical('gp_threshold', [-np.inf, 0., np.inf]) \
-        if run_method == 1 else None
-    gp_alpha = trial.suggest_categorical('gp_alpha', [0., 1., 10., 100.]) \
-        if gp_threshold != np.inf else 0. if run_method == 1 else None
+    gp_config = None
+    if run_method == 1:
+        gp_config = dict()
+        gp_config['threshold_odd'] = trial.suggest_categorical('threshold_odd', [-np.inf, 0., np.inf])
+        gp_config['threshold_even'] = trial.suggest_categorical('threshold_even', [-np.inf, 0., np.inf])
+        gp_config['alpha_odd'] = trial.suggest_categorical('alpha_odd', [1., 10., 100., 1000.]) \
+            if gp_config['threshold_odd'] != np.inf else 0.
+        gp_config['alpha_even'] = trial.suggest_categorical('alpha_even', [0.1, 1., 10.]) \
+            if gp_config['threshold_even'] != np.inf else 0.
 
-    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, gp_threshold, gp_alpha,
+    jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, gp_config,
                                        n_epochs, run_method, victim_model)
     return jaccard_sim
 

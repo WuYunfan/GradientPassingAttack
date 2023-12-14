@@ -23,8 +23,10 @@ class GPFunction(Function):
     def backward(ctx, grad_out):
         config = ctx.config
         order = config.order
-        alpha = config.alpha
-        threshold = config.threshold
+        threshold_odd = config.threshold_odd
+        threshold_even = config.threshold_even
+        alpha_odd = config.alpha_odd
+        alpha_even = config.alpha_even
         mat = config.mat
         chunk_size = config.chunk_size
         rep = ctx.saved_tensors[0]
@@ -41,15 +43,17 @@ class GPFunction(Function):
                 away_batch += torch.sum(rep[col[start_idx:end_idx], :] * grad_out[row[start_idx:end_idx], :], dim=1)
                 away.append(away_batch)
             away = torch.cat(away)
-            away = torch.gt(away, threshold).to(torch.float32)
+            edge_odd = torch.gt(away, threshold_odd).to(torch.float32)
+            edge_even = torch.gt(away, threshold_even).to(torch.float32)
 
-        grad = grad_out
+        grad_odd = grad_even = grad_out
         for i in range(order * 2):
-            grad = mat.spmm(grad, away, norm='both')
+            grad_odd = mat.spmm(grad_odd, edge_odd, norm='both')
+            grad_even = mat.spmm(grad_even, edge_even, norm='both')
             if i % 2 == 1:
-                grad_out = grad_out + alpha * grad
-            elif i == 0:
-                grad_out = grad_out + grad
+                grad_out = grad_out + alpha_odd * grad_odd
+            else:
+                grad_out = grad_out + alpha_even * grad_even
         return grad_out, None
 
 
