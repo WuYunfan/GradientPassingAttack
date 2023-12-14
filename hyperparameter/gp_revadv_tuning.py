@@ -18,7 +18,14 @@ def objective(trial):
     s_l2 = None
     m_momentum = 0.05
 
-    gp_alpha = trial.suggest_categorical('gp_alpha', [0., 1, 10, 100, 1000])
+    gp_config = dict()
+    gp_config['threshold_odd'] = trial.suggest_categorical('threshold_odd', [-np.inf, 0., np.inf])
+    gp_config['threshold_even'] = trial.suggest_categorical('threshold_even', [-np.inf, 0., np.inf])
+    gp_config['alpha_odd'] = trial.suggest_categorical('alpha_odd', [10., 100.]) \
+        if gp_config['threshold_odd'] != np.inf else 0.
+    gp_config['alpha_even'] = trial.suggest_categorical('alpha_even', [1.]) \
+        if gp_config['threshold_even'] != np.inf else 0.
+
     set_seed(2023)
     device = torch.device('cuda')
     dataset_config, model_config, trainer_config = get_config(device)[0]
@@ -26,7 +33,7 @@ def objective(trial):
     surrogate_trainer_config = {'name': 'RevAdvBCETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
                                 'n_epochs': 9, 'batch_size': 2048,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False, 'val_interval': 100,
-                                'gp_alpha': gp_alpha}
+                                'gp_config': gp_config}
     attacker_config = {'name': 'RevAdv', 'lr': lr, 'momentum': 1. - m_momentum,
                        'n_fakes': 131, 'unroll_steps': 1, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
