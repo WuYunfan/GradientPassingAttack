@@ -164,11 +164,13 @@ class BasicTrainer:
             idcgs = np.sum(max_hit_matrix / denominator[:, :k], axis=1)
             with np.errstate(invalid='ignore'):
                 ndcgs = dcgs / idcgs
+            hit_one = (hit_num > 0).astype(float)
 
             user_masks = (max_hit_num > 0)
             metrics['Precision'][k] = precisions[user_masks].mean()
             metrics['Recall'][k] = recalls[user_masks].mean()
             metrics['NDCG'][k] = ndcgs[user_masks].mean()
+            metrics['HitOne'][k] = hit_one[user_masks].mean()
         return metrics
 
     def get_rec_items(self, val_or_test):
