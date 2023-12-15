@@ -100,7 +100,7 @@ class Unbuffered(object):
         return getattr(self.stream, attr)
 
 
-def get_target_items(dataset, top_ratio=1., num=10):
+def get_target_items(dataset, top_ratio=1., num=5):
     data_mat = sp.coo_matrix((np.ones((len(dataset.train_array),)), np.array(dataset.train_array).T),
                              shape=(dataset.n_users, dataset.n_items), dtype=np.float32).tocsr()
     item_degree = np.array(np.sum(data_mat, axis=0)).squeeze()

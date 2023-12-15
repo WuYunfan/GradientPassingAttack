@@ -65,8 +65,8 @@ class BasicAttacker:
             print('Attack result. {:s}'.format(results))
             print('Consumed time: {:.3f}s, retrain time: {:.3f}'.format(self.consumed_time, self.retrain_time))
 
-        hr = metrics['Recall'][self.trainer.topks[0]]
-        return hr
+        hr_one = metrics['HitOne'][self.trainer.topks[0]]
+        return hr_one
 
 
 
