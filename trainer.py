@@ -140,7 +140,7 @@ class BasicTrainer:
         return self.best_ndcg
 
     def calculate_metrics(self, eval_data, rec_items):
-        metrics = {'Precision': {}, 'Recall': {}, 'NDCG': {}}
+        metrics = {'Precision': {}, 'Recall': {}, 'NDCG': {}, 'HitOne': {}}
         hit_matrix = np.zeros_like(rec_items, dtype=np.float32)
         for user in range(rec_items.shape[0]):
             for item_idx in range(rec_items.shape[1]):
