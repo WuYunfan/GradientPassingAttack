@@ -73,7 +73,7 @@ class RevAdv(BasicAttacker):
             scores = fmodel.predict(self.target_user_tensor)
             _, topk_items = scores.topk(self.topk, dim=1)
             hr = torch.eq(topk_items.unsqueeze(2), self.target_item_tensor.unsqueeze(0).unsqueeze(0))
-            hr = hr.float().sum(dim=1).mean()
+            hr = hr.any(dim=1).float().mean()
             adv_loss = ce_loss(scores, self.target_item_tensor)
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
         gc.collect()
