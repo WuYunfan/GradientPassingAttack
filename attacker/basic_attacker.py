@@ -57,16 +57,20 @@ class BasicAttacker:
         _, metrics = self.trainer.eval('attack')
 
         if verbose:
+            hit_ratio = ''
+            ndcg = ''
             hit_one = ''
             for k in self.trainer.topks:
+                hit_ratio += '{:.3f}%@{:d}, '.format(metrics['Recall'][k] * 100, k)
+                ndcg += '{:.3f}%@{:d}, '.format(metrics['NDCG'][k] * 100, k)
                 hit_one += '{:.3f}%@{:d}, '.format(metrics['HitOne'][k] * 100, k)
-            results = 'Hit at least one target item: {:s}'.format(hit_one)
+            results = 'Hit Ratio: {:s}NDCG: {:s}Hit One: {:s}'.format(hit_ratio, ndcg, hit_one)
             print('Target Items: {:s}'.format(str(self.target_items)))
             print('Attack result. {:s}'.format(results))
             print('Consumed time: {:.3f}s, retrain time: {:.3f}'.format(self.consumed_time, self.retrain_time))
 
-        hr_one = metrics['HitOne'][self.trainer.topks[0]]
-        return hr_one
+        hr = metrics['Recall'][self.trainer.topks[0]]
+        return hr
 
 
 

@@ -141,12 +141,17 @@ class BasicTrainer:
 
     def calculate_metrics(self, eval_data, rec_items):
         metrics = {'Precision': {}, 'Recall': {}, 'NDCG': {}, 'HitOne': {}}
+
         hit_matrix = np.zeros_like(rec_items, dtype=np.float32)
         for user in range(rec_items.shape[0]):
             for item_idx in range(rec_items.shape[1]):
                 if rec_items[user, item_idx] in eval_data[user]:
                     hit_matrix[user, item_idx] = 1.
+
         eval_data_len = np.array([len(items) for items in eval_data], dtype=np.int32)
+        max_hit_matrix = np.zeros_like(rec_items, dtype=np.float32)
+        for user, num in enumerate(eval_data_len):
+            max_hit_matrix[user, :min(num, rec_items.shape[1])] = 1.
         denominator = np.log2(np.arange(2, rec_items.shape[1] + 2, dtype=np.float32))[None, :]
 
         for k in self.topks:
@@ -155,18 +160,13 @@ class BasicTrainer:
             with np.errstate(invalid='ignore'):
                 recalls = hit_num / eval_data_len
 
-            max_hit_num = np.minimum(eval_data_len, k)
-            max_hit_matrix = np.zeros_like(hit_matrix[:, :k], dtype=np.float32)
-            for user, num in enumerate(max_hit_num):
-                max_hit_matrix[user, :num] = 1.
-
             dcgs = np.sum(hit_matrix[:, :k] / denominator[:, :k], axis=1)
-            idcgs = np.sum(max_hit_matrix / denominator[:, :k], axis=1)
+            idcgs = np.sum(max_hit_matrix[:, :k] / denominator[:, :k], axis=1)
             with np.errstate(invalid='ignore'):
                 ndcgs = dcgs / idcgs
-            hit_one = (hit_num > 0).astype(float)
+            hit_one = (hit_num > 1.e-3).astype(float)
 
-            user_masks = (max_hit_num > 0)
+            user_masks = (eval_data_len > 1.e-3)
             metrics['Precision'][k] = precisions[user_masks].mean()
             metrics['Recall'][k] = recalls[user_masks].mean()
             metrics['NDCG'][k] = ndcgs[user_masks].mean()

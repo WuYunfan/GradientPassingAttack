@@ -42,7 +42,7 @@ class DPA2DL(BasicAttacker):
                 scores = surrogate_model.predict(users)
                 _, topk_items = scores.topk(self.topk, dim=1)
                 hr = torch.eq(topk_items.unsqueeze(2), self.target_item_tensor.unsqueeze(0).unsqueeze(0))
-                hr = hr.any(dim=1).float().mean()
+                hr = hr.float().sum(dim=1).mean()
                 hrs.update(hr.item(), users.shape[0])
         return hrs.avg
 
