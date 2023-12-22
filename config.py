@@ -86,12 +86,12 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 0.1,
                                 'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'reg_u': None, 'prob': 0.9, 'kappa': 1.,
-                       'step': 4, 'alpha': None, 'n_rounds': 4,
+                       'n_inters': 41, 'reg_u': 100.0, 'prob': 0.9, 'kappa': 1.,
+                       'step': 4, 'alpha': 1e-06, 'n_rounds': 4,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
@@ -107,14 +107,15 @@ def get_gowalla_attacker_config():
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
 
+    gp_config = {'threshold_odd': 0., 'threshold_even': 0., 'alpha_odd': 10., 'alpha_even': 1.}
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+    surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 0.1,
                                 'n_epochs': 20, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
-                                'gp_config': None}
+                                'gp_config': gp_config}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
-                       'n_inters': 41, 'reg_u': None, 'prob': 0.9, 'kappa': 1.,
-                       'step': 4, 'alpha': None, 'n_rounds': 4,
+                       'n_inters': 41, 'reg_u': 100.0, 'prob': 0.9, 'kappa': 1.,
+                       'step': 4, 'alpha': 1e-06, 'n_rounds': 4,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
