@@ -55,10 +55,7 @@ class RevAdv(BasicAttacker):
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
 
         start_time = time.time()
-        order = self.surrogate_trainer.gp_config.order
-        self.surrogate_trainer.gp_config.order = 0
         self.surrogate_trainer.train(verbose=False)
-        self.surrogate_trainer.gp_config.order = order
         with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
             fmodel.train()
             for _ in range(self.unroll_steps):
