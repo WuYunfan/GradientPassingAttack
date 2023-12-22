@@ -46,7 +46,7 @@ class GPFunction(Function):
             edge_odd = torch.gt(away, threshold_odd).to(torch.float32)
             edge_even = torch.gt(away, threshold_even).to(torch.float32)
 
-        grad_odd = grad_even = grad_out
+        grad_odd = grad_even = grad_out.detach()
         for i in range(order * 2):
             grad_odd = mat.spmm(grad_odd, edge_odd, norm='both')
             grad_even = mat.spmm(grad_even, edge_even, norm='both')
