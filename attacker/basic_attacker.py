@@ -39,7 +39,7 @@ class BasicAttacker:
                         self.dataset.attack_data[u].append(item)
 
             for fake_u in range(self.n_fakes):
-                items = np.nonzero(self.fake_users[fake_u, :])[0].tolist()
+                items = np.where(self.fake_users[fake_u, :] > 0.5)[0].tolist()
                 assert len(items) == self.n_inters
                 random.shuffle(items)
                 train_items = items[:self.n_train_inters]
