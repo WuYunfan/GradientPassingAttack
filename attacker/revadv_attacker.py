@@ -56,6 +56,8 @@ class RevAdv(BasicAttacker):
 
         start_time = time.time()
         self.surrogate_trainer.train(verbose=False)
+        order = self.surrogate_trainer.gp_config.order
+        self.surrogate_trainer.gp_config.order = 0
         with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
             fmodel.train()
             for _ in range(self.unroll_steps):
@@ -76,6 +78,7 @@ class RevAdv(BasicAttacker):
             hr = hr.float().sum(dim=1).mean()
             adv_loss = ce_loss(scores, self.target_item_tensor)
             adv_grads = torch.autograd.grad(adv_loss, self.fake_tensor)[0]
+        self.surrogate_trainer.gp_config.order = order
         gc.collect()
         torch.cuda.empty_cache()
         return adv_loss.item(), hr.item(), adv_grads
