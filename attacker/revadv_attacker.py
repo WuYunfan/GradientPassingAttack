@@ -58,6 +58,7 @@ class RevAdv(BasicAttacker):
         self.surrogate_trainer.train(verbose=False)
         order = self.surrogate_trainer.gp_config.order
         self.surrogate_trainer.gp_config.order = 0
+        if order > 0: self.surrogate_trainer.initialize_optimizer()
         with higher.innerloop_ctx(self.surrogate_model, self.surrogate_trainer.opt) as (fmodel, diffopt):
             fmodel.train()
             for _ in range(self.unroll_steps):

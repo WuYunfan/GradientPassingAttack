@@ -99,7 +99,7 @@ def get_gowalla_attacker_config():
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
 
-    gp_config = {'threshold_odd': np.inf, 'threshold_even': 0., 'alpha_odd': 0., 'alpha_even': 1.}
+    gp_config = {'threshold_odd': None, 'threshold_even': None, 'alpha_odd': None, 'alpha_even': None}
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'RevAdvBCETrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 1.,
                                 'n_epochs': 1, 'batch_size': 2048,
