@@ -21,9 +21,9 @@ def objective(trial):
     gp_config = dict()
     gp_config['threshold_odd'] = trial.suggest_categorical('threshold_odd', [-np.inf, 0., np.inf])
     gp_config['threshold_even'] = trial.suggest_categorical('threshold_even', [-np.inf, 0., np.inf])
-    gp_config['alpha_odd'] = trial.suggest_categorical('alpha_odd', [1., 10., 100.]) \
+    gp_config['alpha_odd'] = trial.suggest_categorical('alpha_odd', [0.1, 1.]) \
         if gp_config['threshold_odd'] != np.inf else 0.
-    gp_config['alpha_even'] = trial.suggest_categorical('alpha_even', [1.]) \
+    gp_config['alpha_even'] = trial.suggest_categorical('alpha_even', [0.1, 1.]) \
         if gp_config['threshold_even'] != np.inf else 0.
 
     set_seed(2023)
