@@ -1,5 +1,4 @@
 import sys
-from attacker.revadv_attacker import RevAdv
 from attacker.heuristic import RandomAttacker
 from attacker.heuristic import BandwagonAttacker
 from attacker.basic_attacker import BasicAttacker

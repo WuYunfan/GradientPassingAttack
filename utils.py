@@ -119,18 +119,6 @@ def get_target_items(dataset, top_ratio=1., num=5):
     return target_items
 
 
-def diff_bce_loss(profiles, scores):
-    n_profiles = 1. - profiles
-    loss_p = (F.softplus(-scores) * profiles).sum() / profiles.sum()
-    loss_n = (F.softplus(scores) * n_profiles).sum() / n_profiles.sum()
-    return loss_p + loss_n
-
-
-def ce_loss(scores, target_item_tensor):
-    log_probs = F.log_softmax(scores, dim=1)
-    return -log_probs[:, target_item_tensor].mean()
-
-
 def topk_loss(scores, target_item_tensor, topk, kappa):
     top_scores, _ = scores.topk(topk, dim=1)
     target_scores = scores[:, target_item_tensor]

@@ -1,5 +1,4 @@
 import random
-
 import numpy as np
 from model import get_model
 from trainer import get_trainer
