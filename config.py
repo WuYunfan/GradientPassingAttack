@@ -79,34 +79,12 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'RevAdvBCETrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 1.,
-                                'n_epochs': 1, 'batch_size': 2048,
-                                'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'RevAdv', 'lr': 10., 'momentum': 0.95,
-                       'n_fakes': 131, 'unroll_steps': 1, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
-                       'surrogate_model_config': surrogate_model_config,
-                       'surrogate_trainer_config': surrogate_trainer_config}
-    gowalla_attacker_config.append(attacker_config)
-
-    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.01,
                                 'n_epochs': 1, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
     attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'reg_u': 10., 'prob': 0.9, 'kappa': 1.,
                        'step': 1, 'alpha': 1.e-7, 'n_rounds': 1,
-                       'surrogate_model_config': surrogate_model_config,
-                       'surrogate_trainer_config': surrogate_trainer_config}
-    gowalla_attacker_config.append(attacker_config)
-
-    gp_config = {'threshold_odd': 0., 'threshold_even': 0., 'alpha_odd': 1., 'alpha_even': 0.1}
-    surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'RevAdvBCETrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 1.,
-                                'n_epochs': 1, 'batch_size': 2048,
-                                'test_batch_size': 2048, 'topks': [50], 'verbose': False,
-                                'gp_config': gp_config}
-    attacker_config = {'name': 'RevAdv', 'lr': 10., 'momentum': 0.95,
-                       'n_fakes': 131, 'unroll_steps': 1, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
