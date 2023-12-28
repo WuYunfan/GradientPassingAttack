@@ -71,6 +71,16 @@ class TorchSparseMat:
         x = dgl.ops.gspmm(self.g, 'mul', 'sum', lhs_data=padded_r_mat, rhs_data=values)
         return x[:self.shape[0], :]
 
+    def get_sampled_graph(self, p):
+        if p > 0.99:
+            return self
+        sampled_mask = torch.rand(self.g.num_edges(), device=self.device) <= p
+        sampled_edges = torch.nonzero(sampled_mask, as_tuple=False).squeeze()
+        col, row = self.g.edges()
+        mat = TorchSparseMat(row[sampled_edges], col[sampled_edges], self.shape, self.device)
+        mat.inv_deg = self.inv_deg
+        return mat
+
 
 class AverageMeter:
     def __init__(self):

@@ -27,7 +27,7 @@ class GPFunction(Function):
         threshold_even = config.threshold_even
         alpha_odd = config.alpha_odd
         alpha_even = config.alpha_even
-        mat = config.mat
+        mat = config.mat.get_sampled_graph(config.sample_p)
         chunk_size = config.chunk_size
         rep = ctx.saved_tensors[0]
 

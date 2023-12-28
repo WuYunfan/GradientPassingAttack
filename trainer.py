@@ -29,6 +29,7 @@ class GPConfig:
         if 'gp_config' in trainer_config:
             config = trainer_config['gp_config']
             self.order = config.get('order', 2)
+            self.sample_p = config.get('sample_p', 1.)
             self.chunk_size = int(config.get('chunk_size', 1e6))
             self.threshold_odd = config['threshold_odd']
             self.threshold_even = config['threshold_even']
