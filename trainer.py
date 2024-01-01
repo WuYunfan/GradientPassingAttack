@@ -10,7 +10,7 @@ from utils import AverageMeter, generate_adj_mat
 import torch.nn.functional as F
 import scipy.sparse as sp
 import optuna
-from utils import diff_bce_loss, TorchSparseMat
+from utils import mse_loss, TorchSparseMat
 
 
 def get_trainer(config, model):
@@ -414,3 +414,40 @@ class MLTrainer(BasicTrainer):
             losses.update(loss.item(), users.shape[0])
         return losses.avg
 
+
+class RevAdvMSETrainer(BasicTrainer):
+    def __init__(self, trainer_config):
+        super(RevAdvMSETrainer, self).__init__(trainer_config)
+
+        train_user = TensorDataset(torch.arange(self.model.n_users, dtype=torch.int64, device=self.device))
+        self.train_user_loader = DataLoader(train_user, batch_size=trainer_config['batch_size'], shuffle=True)
+        data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
+                                 shape=(self.dataset.n_users, self.dataset.n_items), dtype=np.float32).tocsr()
+        self.data_tensor = torch.tensor(data_mat.toarray(), dtype=torch.float32, device=self.device)
+        self.merged_data_tensor = None
+        self.initialize_optimizer()
+        self.l2_reg = trainer_config['l2_reg']
+        self.weight = trainer_config['weight']
+
+    def merge_fake_tensor(self, fake_tensor):
+        self.merged_data_tensor = torch.cat([self.data_tensor, fake_tensor], dim=0)
+
+    def train_one_epoch(self):
+        if self.merged_data_tensor is None:
+            data_tensor = self.data_tensor
+        else:
+            data_tensor = self.merged_data_tensor
+
+        losses = AverageMeter()
+        for users in self.train_user_loader:
+            users = users[0]
+            scores, l2_norm_sq = self.model.forward(users, self.gp_config)
+            profiles = data_tensor[users, :]
+            m_loss = mse_loss(profiles, scores, self.weight)
+
+            loss = m_loss + self.l2_reg * l2_norm_sq.mean()
+            self.opt.zero_grad()
+            loss.backward()
+            self.opt.step()
+            losses.update(loss.item(), users.shape[0])
+        return losses.avg

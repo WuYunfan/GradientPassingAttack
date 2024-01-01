@@ -127,6 +127,18 @@ def topk_loss(scores, target_item_tensor, topk, kappa):
     return loss
 
 
+def mse_loss(profiles, scores, weight):
+    weights = torch.where(profiles > 0.5, weight, 1.)
+    loss = weights * (profiles - scores) ** 2
+    loss = torch.mean(loss)
+    return loss
+
+
+def ce_loss(scores, target_item_tensor):
+    log_probs = F.log_softmax(scores, dim=1)
+    return -log_probs[:, target_item_tensor].mean()
+
+
 def occupy_gpu_mem(memeory_size):
     x = torch.cuda.FloatTensor(256, 1024, memeory_size)
     torch.cuda.synchronize()

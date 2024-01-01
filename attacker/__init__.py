@@ -3,6 +3,7 @@ from attacker.heuristic import RandomAttacker
 from attacker.heuristic import BandwagonAttacker
 from attacker.basic_attacker import BasicAttacker
 from attacker.dpa2dl_attacker import DPA2DL
+from attacker.revadv_attacker import RevAdv
 
 
 def get_attacker(config, dataset):
