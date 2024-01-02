@@ -10,12 +10,11 @@ from utils import AverageMeter, topk_loss
 import torch.nn.functional as F
 import time
 import os
-from attacker.revadv_attacker import RevAdv
 
 
-class DPA2DL(BasicAttacker):
+class DPA2DLAttacker(BasicAttacker):
     def __init__(self, attacker_config):
-        super(DPA2DL, self).__init__(attacker_config)
+        super(DPA2DLAttacker, self).__init__(attacker_config)
         self.surrogate_model_config = attacker_config['surrogate_model_config']
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 

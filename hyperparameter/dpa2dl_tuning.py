@@ -24,7 +24,7 @@ def objective(trial):
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
                                 'n_epochs': 1, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,
                                 'test_batch_size': 2048, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
-    attacker_config = {'name': 'DPA2DL', 'n_fakes': 131, 'topk': 50,
+    attacker_config = {'name': 'DPA2DLAttacker', 'n_fakes': 131, 'topk': 50,
                        'n_inters': 41, 'reg_u': reg_u, 'prob': 0.9, 'kappa': 1.,
                        'step': 1, 'alpha': alpha, 'n_rounds': 1,
                        'surrogate_model_config': surrogate_model_config,

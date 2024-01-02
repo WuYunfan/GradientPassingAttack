@@ -22,10 +22,10 @@ def objective(trial):
     dataset_config, model_config, trainer_config = get_config(device)[-2]
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'RevAdvMSETrainer', 'optimizer': 'Adam', 'lr': s_lr, 'l2_reg': s_l2,
-                                'n_epochs': 45, 'batch_size': 2048,  'weight': 20.,
+                                'n_epochs': 50, 'batch_size': 2048,  'weight': 1.,
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
-    attacker_config = {'name': 'RevAdvAttacker', 'lr': lr, 'momentum': 1. - m_momentum,
-                       'n_fakes': 131, 'unroll_steps': 5, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
+    attacker_config = {'name': 'PGAAttacker', 'lr': lr, 'momentum': 1. - m_momentum,
+                       'n_fakes': 131, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
 
@@ -45,7 +45,7 @@ def main():
     init_run(log_path, 2023)
 
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))
-    study_name = 'revadv-tuning'
+    study_name = 'pga-tuning'
     storage = optuna.storages.RDBStorage(url='sqlite:///../{}.db'.format(study_name))
     study = optuna.create_study(study_name=study_name, storage=storage, load_if_exists=True, direction='maximize',
                                 sampler=optuna.samplers.BruteForceSampler())

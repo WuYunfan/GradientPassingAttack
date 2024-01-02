@@ -2,8 +2,9 @@ import sys
 from attacker.heuristic import RandomAttacker
 from attacker.heuristic import BandwagonAttacker
 from attacker.basic_attacker import BasicAttacker
-from attacker.dpa2dl_attacker import DPA2DL
-from attacker.revadv_attacker import RevAdv
+from attacker.dpa2dl_attacker import DPA2DLAttacker
+from attacker.revadv_attacker import RevAdvAttacker
+from attacker.pga_attacker import PGAAttacker
 
 
 def get_attacker(config, dataset):

@@ -27,7 +27,7 @@ class BasicAttacker:
         self.retrain_time = 0.
 
     def generate_fake_users(self, verbose=True, writer=None):
-        self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)
+        raise NotImplementedError
 
     def eval(self, model_config, trainer_config, verbose=True, writer=None, retrain=True):
         if self.dataset.attack_data is None:

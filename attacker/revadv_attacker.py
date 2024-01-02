@@ -11,14 +11,13 @@ from model import get_model
 from trainer import get_trainer
 
 
-class RevAdv(BasicAttacker):
+class GradientAttacker(BasicAttacker):
     def __init__(self, attacker_config):
-        super(RevAdv, self).__init__(attacker_config)
+        super(GradientAttacker, self).__init__(attacker_config)
         self.surrogate_model_config = attacker_config['surrogate_model_config']
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 
         self.adv_epochs = attacker_config['adv_epochs']
-        self.unroll_steps = attacker_config['unroll_steps']
         self.lr = attacker_config['lr']
         self.momentum = attacker_config['momentum']
 
@@ -45,6 +44,41 @@ class RevAdv(BasicAttacker):
             _, items = self.fake_tensor.topk(self.n_inters, dim=1)
             self.fake_tensor.zero_()
             self.fake_tensor.data = torch.scatter(self.fake_tensor, 1, items, 1.)
+
+    def retrain_surrogate(self):
+        raise NotImplementedError
+
+    def generate_fake_users(self, verbose=True, writer=None):
+        max_hr = -np.inf
+        for epoch in range(self.adv_epochs):
+            start_time = time.time()
+
+            adv_loss, hr, adv_grads = self.retrain_surrogate()
+            if hr > max_hr:
+                print('Maximal hit ratio, save fake users.')
+                self.fake_users = self.fake_tensor.detach().cpu().numpy().copy()
+                max_hr = hr
+
+            normalized_adv_grads = F.normalize(adv_grads, p=2, dim=1)
+            self.adv_opt.zero_grad()
+            self.fake_tensor.grad = normalized_adv_grads
+            self.adv_opt.step()
+            self.project_fake_tensor()
+
+            consumed_time = time.time() - start_time
+            self.consumed_time += consumed_time
+            if verbose:
+                print('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}%, Time: {:.3f}s'.
+                      format(epoch, self.adv_epochs, adv_loss, self.topk, hr * 100., consumed_time))
+            if writer:
+                writer.add_scalar('{:s}/Adv_Loss'.format(self.name), adv_loss, epoch)
+                writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), hr, epoch)
+
+
+class RevAdvAttacker(GradientAttacker):
+    def __init__(self, attacker_config):
+        super(RevAdvAttacker, self).__init__(attacker_config)
+        self.unroll_steps = attacker_config['unroll_steps']
 
     def retrain_surrogate(self):
         self.surrogate_model.initial_embeddings()
@@ -77,28 +111,3 @@ class RevAdv(BasicAttacker):
         torch.cuda.empty_cache()
         return adv_loss.item(), hr.item(), adv_grads
 
-    def generate_fake_users(self, verbose=True, writer=None):
-        max_hr = -np.inf
-        for epoch in range(self.adv_epochs):
-            start_time = time.time()
-
-            adv_loss, hr, adv_grads = self.retrain_surrogate()
-            if hr > max_hr:
-                print('Maximal hit ratio, save fake users.')
-                self.fake_users = self.fake_tensor.detach().cpu().numpy().copy()
-                max_hr = hr
-
-            normalized_adv_grads = F.normalize(adv_grads, p=2, dim=1)
-            self.adv_opt.zero_grad()
-            self.fake_tensor.grad = normalized_adv_grads
-            self.adv_opt.step()
-            self.project_fake_tensor()
-
-            consumed_time = time.time() - start_time
-            self.consumed_time += consumed_time
-            if verbose:
-                print('Epoch {:d}/{:d}, Adv Loss: {:.3f}, Hit Ratio@{:d}: {:.3f}%, Time: {:.3f}s'.
-                      format(epoch, self.adv_epochs, adv_loss, self.topk, hr * 100., consumed_time))
-            if writer:
-                writer.add_scalar('{:s}/Adv_Loss'.format(self.name), adv_loss, epoch)
-                writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), hr, epoch)
