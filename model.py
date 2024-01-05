@@ -51,9 +51,9 @@ class GPFunction(Function):
             grad_odd = mat.spmm(grad_odd, edge_odd, norm='both')
             grad_even = mat.spmm(grad_even, edge_even, norm='both')
             if i % 2 == 1:
-                grad_out = grad_out + alpha_odd * grad_odd
-            else:
                 grad_out = grad_out + alpha_even * grad_even
+            else:
+                grad_out = grad_out + alpha_odd * grad_odd
         return grad_out, None
 
 
