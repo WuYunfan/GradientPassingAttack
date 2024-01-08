@@ -27,7 +27,7 @@ class GPFunction(Function):
         threshold_even = config.threshold_even
         alpha_odd = config.alpha_odd
         alpha_even = config.alpha_even
-        mat = config.mat.get_sampled_graph(config.sample_p)
+        mat = config.mat
         chunk_size = config.chunk_size
         rep = ctx.saved_tensors[0]
 
@@ -43,17 +43,19 @@ class GPFunction(Function):
                 away_batch += torch.sum(rep[col[start_idx:end_idx], :] * grad_out[row[start_idx:end_idx], :], dim=1)
                 away.append(away_batch)
             away = torch.cat(away)
-            edge_odd = torch.gt(away, threshold_odd).to(torch.float32)
-            edge_even = torch.gt(away, threshold_even).to(torch.float32)
+            edge_odd = torch.gt(away, threshold_odd)
+            edge_even = torch.gt(away, threshold_even)
 
+        mat_odd = mat.get_masked_mat(edge_odd)
+        mat_even = mat.get_masked_mat(edge_even)
         grad_odd = grad_even = grad_out.detach()
-        for i in range(order * 2):
-            grad_odd = mat.spmm(grad_odd, edge_odd, norm='both')
-            grad_even = mat.spmm(grad_even, edge_even, norm='both')
+        for i in range(1, order * 2 + 1):
+            grad_odd = mat_odd.get_sampled_mat(config.sample_p).spmm(grad_odd, norm='both')
+            grad_even = mat_even.get_sampled_mat(config.sample_p).spmm(grad_even, norm='both')
             if i % 2 == 1:
-                grad_out = grad_out + alpha_even * grad_even
-            else:
                 grad_out = grad_out + alpha_odd * grad_odd
+            else:
+                grad_out = grad_out + alpha_even * grad_even
         return grad_out, None
 
 
