@@ -22,6 +22,9 @@ class GPFunction(Function):
     @staticmethod
     def backward(ctx, grad_out):
         config = ctx.config
+        if random.random() >= config.sample_p:
+            return grad_out, None
+
         order = config.order
         threshold_odd = config.threshold_odd
         threshold_even = config.threshold_even
@@ -50,8 +53,8 @@ class GPFunction(Function):
         mat_even = mat.get_masked_mat(edge_even)
         grad_odd = grad_even = grad_out.detach()
         for i in range(1, order * 2 + 1):
-            grad_odd = mat_odd.get_sampled_mat(config.sample_p).spmm(grad_odd, norm='both')
-            grad_even = mat_even.get_sampled_mat(config.sample_p).spmm(grad_even, norm='both')
+            grad_odd = mat_odd.spmm(grad_odd, norm='both')
+            grad_even = mat_even.spmm(grad_even, norm='both')
             if i % 2 == 1:
                 grad_out = grad_out + alpha_odd * grad_odd
             else:

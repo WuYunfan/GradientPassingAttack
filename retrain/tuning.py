@@ -22,9 +22,9 @@ def objective(trial, name, n_epochs, run_method, victim_model):
         gp_config = dict()
         gp_config['threshold_odd'] = trial.suggest_categorical('threshold_odd', [-np.inf, 0., np.inf])
         gp_config['threshold_even'] = trial.suggest_categorical('threshold_even', [-np.inf, 0., np.inf])
-        gp_config['alpha_odd'] = trial.suggest_categorical('alpha_odd', [1., 10., 100.]) \
+        gp_config['alpha_odd'] = trial.suggest_categorical('alpha_odd', [1.]) \
             if gp_config['threshold_odd'] != np.inf else 0.
-        gp_config['alpha_even'] = trial.suggest_categorical('alpha_even', [1.]) \
+        gp_config['alpha_even'] = trial.suggest_categorical('alpha_even', [1., 10., 100.]) \
             if gp_config['threshold_even'] != np.inf else 0.
 
     jaccard_sim = run_new_items_recall(log_path, 2023, lr, l2_reg, gp_config,

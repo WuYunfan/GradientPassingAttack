@@ -77,15 +77,6 @@ class TorchSparseMat:
         mat.inv_deg = self.inv_deg
         return mat
 
-    def get_sampled_mat(self, p):
-        if p > 0.99:
-            return self
-        sampled_mask = torch.rand(self.g.num_edges(), device=self.device) <= p
-        col, row = self.g.edges()
-        mat = TorchSparseMat(row[sampled_mask], col[sampled_mask], self.shape, self.device)
-        mat.inv_deg = self.inv_deg
-        return mat
-
 
 class AverageMeter:
     def __init__(self):
