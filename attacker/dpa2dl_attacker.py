@@ -10,6 +10,7 @@ from utils import AverageMeter, topk_loss
 import torch.nn.functional as F
 import time
 import os
+from utils import PartialDataLoader
 
 
 class DPA2DLAttacker(BasicAttacker):
@@ -24,13 +25,15 @@ class DPA2DLAttacker(BasicAttacker):
         self.step = attacker_config['step']
         self.alpha = attacker_config['alpha']
         self.n_rounds = attacker_config['n_rounds']
+        self.train_ratio = attacker_config.get('train_ratio', 1.)
 
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         non_target_items = [i for i in range(self.n_items) if i not in self.target_items]
         self.non_target_item_tensor = torch.tensor(non_target_items, dtype=torch.int64, device=self.device)
         target_users = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
-        self.target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
-                                             shuffle=True)
+        target_user_loader = DataLoader(target_users, batch_size=self.surrogate_trainer_config['test_batch_size'],
+                                        shuffle=True)
+        self.target_user_loader = PartialDataLoader(target_user_loader, self.train_ratio)
 
     def get_target_hr(self, surrogate_model):
         surrogate_model.eval()
@@ -112,6 +115,7 @@ class DPA2DLAttacker(BasicAttacker):
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
+            surrogate_trainer.dataloader = PartialDataLoader(surrogate_trainer.dataloader, self.train_ratio)
 
             start_time = time.time()
             surrogate_trainer.train(verbose=False)

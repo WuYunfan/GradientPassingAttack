@@ -14,20 +14,20 @@ plt.rcParams['pdf.fonttype'] = 42
 
 
 def main():
-    # [None, None, None, None, None, None]
-
-    full_retrain = [0.075286202, 0.281853884, 0.322035164, 0.330106795, 0.352520406, 0.386516035]
-    full_retrain_wt_GP = [0.136697352, 0.290027261, 0.330552369, 0.336562991, 0.374702543, 0.395789742]
-    epochs = [1, 5, 10, 20, 50, 100]
+    """
+    full_retrain = [0.072709367, 0.278802127, 0.320085526, 0.349425495, 0.382153869]
+    full_retrain_wt_gp = [0.140626445, 0.303476125, 0.347834647, 0.380880475, 0.398396462]
+    epochs = [1, 5, 10, 50, 100]
     pdf = PdfPages('retrain_gowalla_mf_bpr.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
+    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(5, 3))
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='Original training', color='#FF8C00')
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), 'x-', markersize=3, label='Training enhanced by GP', color='#008B8B')
     ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
+    ax.set_xticklabels(epochs, fontsize=17)
+    ax.tick_params(axis='y', labelsize=17)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
     ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Gowalla-MF-BPR', fontsize=17)
+    ax.set_title('MF-BPR', fontsize=17)
     ax.legend(fontsize=13, loc=4, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
@@ -39,41 +39,19 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    full_retrain = [0.093881384, 0.457104355, 0.49532634, 0.529270589, 0.579583585, 0.657972336]
-    full_retrain_wt_GP = [0.231648549, 0.471861839, 0.508978844, 0.538056493, 0.59916538, 0.67374748]
-    epochs = [1, 5, 10, 20, 50, 100]
-    pdf = PdfPages('retrain_gowalla_mf_bce.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
-    ax.set_xlabel('Retraining Epoch', fontsize=17)
-    ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Gowalla-MF-BCE', fontsize=17)
-    ax.legend(fontsize=13, loc=4, frameon=False)
-    ax.grid(True, which='major', linestyle=':', linewidth=0.8)
-    ax.minorticks_on()
-    ax.tick_params(which='both', direction='in')
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close(fig)
-    pdf.close()
-
-    full_retrain = [0.272299916, 0.302604526, 0.345752031, 0.429740041, 0.579233468, 0.594510257]
-    full_retrain_wt_GP = [0.301306635, 0.328880131, 0.359562844, 0.466831774, 0.601292491, 0.598199308]
-    epochs = [1, 5, 10, 20, 50, 100]
+    full_retrain = [0.284897178, 0.314809233, 0.357316643, 0.610431731, 0.610431731]
+    full_retrain_wt_gp = [0.334004045, 0.454284012, 0.426267385, 0.624437809, 0.624437809]
+    epochs = [1, 5, 10, 50, 100]
     pdf = PdfPages('retrain_gowalla_lgcn_bpr.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
+    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(5, 3))
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='Original training', color='#FF8C00')
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), 'x-', markersize=3, label='Training enhanced by GP', color='#008B8B')
     ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
+    ax.set_xticklabels(epochs, fontsize=17)
+    ax.tick_params(axis='y', labelsize=17)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
     ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Gowalla-LightGCN-BPR', fontsize=17)
+    ax.set_title('LightGCN-BPR', fontsize=17)
     ax.legend(fontsize=13, loc=4, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
@@ -85,18 +63,43 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    full_retrain = [0.384082317, 0.491609573, 0.56656003, 0.615256667, 0.620204329, 0.620204329]
-    full_retrain_wt_GP = [0.403211951, 0.516695857, 0.585517287, 0.615605414, 0.620204329, 0.639455557]
-    epochs = [1, 5, 10, 20, 50, 100]
+    full_retrain = [0.092861742, 0.45056802, 0.500385225, 0.583127856, 0.654973984]
+    full_retrain_wt_gp = [0.393685371, 0.546095967, 0.59344399, 0.656317115, 0.719439507]
+    epochs = [1, 5, 10, 50, 100]
+    pdf = PdfPages('retrain_gowalla_mf_bce.pdf')
+    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(5, 3))
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='Original training', color='#FF8C00')
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), 'x-', markersize=3, label='Training enhanced by GP', color='#008B8B')
+    ax.set_xticks(np.arange(len(epochs)))
+    ax.set_xticklabels(epochs, fontsize=17)
+    ax.tick_params(axis='y', labelsize=17)
+    ax.set_xlabel('Retraining Epoch', fontsize=17)
+    ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
+    ax.set_title('MF-BCE', fontsize=17)
+    ax.legend(fontsize=13, loc=4, frameon=False)
+    ax.grid(True, which='major', linestyle=':', linewidth=0.8)
+    ax.minorticks_on()
+    ax.tick_params(which='both', direction='in')
+    ax.xaxis.set_ticks_position('both')
+    ax.yaxis.set_ticks_position('both')
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close(fig)
+    pdf.close()
+
+    full_retrain = [0.386606574, 0.489965975, 0.5626055, 0.617218792, 0.617218792]
+    full_retrain_wt_gp = [0.431357354, 0.554632962, 0.581400335, 0.618135214, 0.61813283]
+    epochs = [1, 5, 10, 50, 100]
     pdf = PdfPages('retrain_gowalla_lgcn_bce.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
+    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(5, 3))
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='Original training', color='#FF8C00')
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), 'x-', markersize=3, label='Training enhanced by GP', color='#008B8B')
     ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
+    ax.set_xticklabels(epochs, fontsize=17)
+    ax.tick_params(axis='y', labelsize=17)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
     ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Gowalla-LightGCN-BCE', fontsize=17)
+    ax.set_title('LightGCN-BCE', fontsize=17)
     ax.legend(fontsize=13, loc=4, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
@@ -108,18 +111,19 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    full_retrain = [0.13598834, 0.28148815, 0.342309505]
-    full_retrain_wt_GP = [0.175653771, 0.338578314, 0.373460144]
+    full_retrain = [0.135182157, 0.281044066, 0.341998488]
+    full_retrain_wt_gp = [0.185392991, 0.347992837, 0.425070107]
     epochs = [1, 5, 10]
     pdf = PdfPages('retrain_tenrec_mf_bpr.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
+    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(5, 3))
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='Original training', color='#FF8C00')
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), 'x-', markersize=3, label='Training enhanced by GP', color='#008B8B')
     ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
+    ax.set_xticklabels(epochs, fontsize=17)
+    ax.tick_params(axis='y', labelsize=17)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
     ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Tenrec-MF-BPR', fontsize=17)
+    ax.set_title('MF-BPR', fontsize=17)
     ax.legend(fontsize=13, loc=4, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
@@ -131,41 +135,19 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    full_retrain = [0.135694683, 0.318301648, 0.370315135]
-    full_retrain_wt_GP = [0.160667032, 0.33530426, 0.380230695]
-    epochs = [1, 5, 10]
-    pdf = PdfPages('retrain_tenrec_mf_bce.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
-    ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
-    ax.set_xlabel('Retraining Epoch', fontsize=17)
-    ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Tenrec-MF-BCE', fontsize=17)
-    ax.legend(fontsize=13, loc=4, frameon=False)
-    ax.grid(True, which='major', linestyle=':', linewidth=0.8)
-    ax.minorticks_on()
-    ax.tick_params(which='both', direction='in')
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close(fig)
-    pdf.close()
-
-    full_retrain = [0.146111056, 0.225820974, 0.240686223]
-    full_retrain_wt_GP = [0.156768695, 0.225820988, 0.24878861]
+    full_retrain = [0.146110639, 0.225682482, 0.240437642]
+    full_retrain_wt_gp = [0.212120742, 0.278439343, 0.2914094]
     epochs = [1, 5, 10]
     pdf = PdfPages('retrain_tenrec_lgcn_bpr.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
+    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(5, 3))
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='Original training', color='#FF8C00')
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), 'x-', markersize=3, label='Training enhanced by GP', color='#008B8B')
     ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
+    ax.set_xticklabels(epochs, fontsize=17)
+    ax.tick_params(axis='y', labelsize=17)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
     ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Tenrec-LightGCN-BPR', fontsize=17)
+    ax.set_title('LightGCN-BPR', fontsize=17)
     ax.legend(fontsize=13, loc=4, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
@@ -177,18 +159,43 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    full_retrain = [0.195325017, 0.29538098, 0.375609398]
-    full_retrain_wt_GP = [0.241570234, 0.295381188, 0.375609398]
+    full_retrain = [0.135210618, 0.318030983, 0.37006554]
+    full_retrain_wt_gp = [0.351232648, 0.425643593, 0.425643533]
+    epochs = [1, 5, 10]
+    pdf = PdfPages('retrain_tenrec_mf_bce.pdf')
+    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(5, 3))
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='Original training', color='#FF8C00')
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), 'x-', markersize=3, label='Training enhanced by GP', color='#008B8B')
+    ax.set_xticks(np.arange(len(epochs)))
+    ax.set_xticklabels(epochs, fontsize=17)
+    ax.tick_params(axis='y', labelsize=17)
+    ax.set_xlabel('Retraining Epoch', fontsize=17)
+    ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
+    ax.set_title('MF-BCE', fontsize=17)
+    ax.legend(fontsize=13, loc=4, frameon=False)
+    ax.grid(True, which='major', linestyle=':', linewidth=0.8)
+    ax.minorticks_on()
+    ax.tick_params(which='both', direction='in')
+    ax.xaxis.set_ticks_position('both')
+    ax.yaxis.set_ticks_position('both')
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close(fig)
+    pdf.close()
+
+    full_retrain = [0.195164144, 0.296233118, 0.376415819]
+    full_retrain_wt_gp = [0.36368373, 0.439675152, 0.470000029]
     epochs = [1, 5, 10]
     pdf = PdfPages('retrain_tenrec_lgcn_bce.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(4, 4))
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='full_retrain', color='red')
-    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_GP), 'x-', markersize=3, label='full_retrain_wt_GP', color='red')
+    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(5, 3))
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain), 's--', markersize=3, label='Original training', color='#FF8C00')
+    ax.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), 'x-', markersize=3, label='Training enhanced by GP', color='#008B8B')
     ax.set_xticks(np.arange(len(epochs)))
-    ax.set_xticklabels(epochs)
+    ax.set_xticklabels(epochs, fontsize=17)
+    ax.tick_params(axis='y', labelsize=17)
     ax.set_xlabel('Retraining Epoch', fontsize=17)
     ax.set_ylabel('Jaccard Similarity@50', fontsize=17)
-    ax.set_title('Tenrec-LightGCN-BCE', fontsize=17)
+    ax.set_title('LightGCN-BCE', fontsize=17)
     ax.legend(fontsize=13, loc=4, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
@@ -200,77 +207,26 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    mean_retrain = [3.749275, 3.814666667, 4.703283333, 4.807458333]
-    mean_retrain_wt_GP = [3.97095, 3.89775, 4.758966667, 4.914191667]
-    std_retrain = [0.225533219, 0.215850846, 0.062322604, 0.11386256]
-    std_retrain_wt_GP = [0.288210714, 0.281850055, 0.183178226, 0.084019343]
-    methods = ['MF-BPR', 'LightGCN-BPR', 'MF-BCE', 'LightGCN-BCE']
-    idx = np.arange(len(methods))
-    width = 0.2
-    pdf = PdfPages('retain_time_gowalla.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(7, 4))
-    ax.bar(idx - width, mean_retrain, width, label='retrain', yerr=std_retrain)
-    ax.bar(idx + width, mean_retrain_wt_GP, width, label='retrain_wt_GP', yerr=std_retrain_wt_GP)
-    ax.set_xticks(idx)
-    ax.set_xticklabels(methods, fontsize=13)
-    ax.set_xlabel('Recommender Method', fontsize=17)
-    ax.set_ylabel('Training Time per Epoch (s)', fontsize=17)
-    ax.set_title('Gowalla', fontsize=17)
-    ax.legend(fontsize=13, loc=1, frameon=False)
-    ax.grid(True, which='major', linestyle=':', linewidth=0.8)
-    ax.minorticks_on()
-    ax.tick_params(which='both', direction='in')
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close(fig)
-    pdf.close()
+    """
 
-    mean_retrain = [344.9129167, 391.6187333, 385.7989, 393.6217]
-    mean_retrain_wt_GP = [371.1690667, 453.1785167, 408.9144, 472.0270333]
-    std_retrain = [131.5710992, 125.522134, 161.289596, 135.4116029]
-    std_retrain_wt_GP = [64.70370844, 92.12506417, 64.74408923, 60.74967801]
-    methods = ['MF-BPR', 'LightGCN-BPR', 'MF-BCE', 'LightGCN-BCE']
-    idx = np.arange(len(methods))
-    width = 0.2
-    pdf = PdfPages('retain_time_tenrec.pdf')
-    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(7, 4))
-    ax.bar(idx - width, mean_retrain, width, label='retrain', yerr=std_retrain)
-    ax.bar(idx + width, mean_retrain_wt_GP, width, label='retrain_wt_GP', yerr=std_retrain_wt_GP)
-    ax.set_xticks(idx)
-    ax.set_xticklabels(methods, fontsize=13)
-    ax.set_xlabel('Recommender Method', fontsize=17)
-    ax.set_ylabel('Training Time per Epoch (s)', fontsize=17)
-    ax.set_title('Tenrec', fontsize=17)
-    ax.legend(fontsize=13, loc=0, frameon=False)
-    ax.grid(True, which='major', linestyle=':', linewidth=0.8)
-    ax.minorticks_on()
-    ax.tick_params(which='both', direction='in')
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close(fig)
-    pdf.close()
-
-    mean_retraining = [1206.31, 1010.91, 4762.77]
-    mean_all = [2129.32, 1019.91, 5886.10]
-    std_retraining = [37.00, 253.21, 414.68]
-    std_all = [118.65, 253.29, 511.73]
+    mean_retraining = [783.2894, 698.841, 821.3908]
+    mean_all = [1027.1948, 714.0858, 860.0182]
+    std_retraining = [45.38373072, 52.85959821, 5.982027474]
+    std_all = [49.62931231, 52.80338773, 5.878489491]
     methods = ['PGA', 'RevAdv', 'DPA2DL']
     idx = np.arange(len(methods))
     width = 0.2
     pdf = PdfPages('attack_time_gowalla.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(7, 4))
-    ax.bar(idx - width, mean_all, width, label='all_time', yerr=std_all)
-    ax.bar(idx + width, mean_retraining, width, label='retraining_time', yerr=std_retraining)
+    ax.bar(idx - width, mean_all, width, label='All consumed time', yerr=std_all, color='#FF8C00')
+    ax.bar(idx, mean_retraining, width, label='Retraining time', yerr=std_retraining, color='#008B8B')
     ax.set_xticks(idx)
-    ax.set_xticklabels(methods, fontsize=19)
-    ax.set_xlabel('Attack Method', fontsize=19)
-    ax.set_ylabel('Consumed Time (s)', fontsize=19)
-    ax.set_title('Gowalla', fontsize=19)
-    ax.legend(fontsize=15, loc=0, frameon=False)
+    ax.set_xticklabels(methods, fontsize=17)
+    ax.tick_params(axis='y', labelsize=17)
+    ax.set_xlabel('Attack Method', fontsize=17)
+    ax.set_ylabel('Consumed Time (s)', fontsize=17)
+    ax.set_title('Gowalla', fontsize=17)
+    ax.legend(fontsize=15, loc=9, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
     ax.tick_params(which='both', direction='in')
@@ -281,23 +237,24 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    mean_retraining = [5768.52, 4100.99]
-    mean_all = [9510.01, 5079.17]
-    std_retraining = [456.72, 132.90]
-    std_all = [907.22, 163.26]
-    methods = ['PGA', 'DPA2DL']
+    mean_retraining = [2212.7436, 0., 2546.9886]
+    mean_all = [2621.9806, 0., 2691.1378]
+    std_retraining = [16.12011474, 0., 36.06443697]
+    std_all = [18.37570253, 0., 36.12893548]
+    methods = ['PGA', 'RevAdv', 'DPA2DL']
     idx = np.arange(len(methods))
     width = 0.2
     pdf = PdfPages('attack_time_yelp.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(7, 4))
-    ax.bar(idx - width, mean_all, width, label='all_time', yerr=std_all)
-    ax.bar(idx + width, mean_retraining, width, label='retraining_time', yerr=std_retraining)
+    ax.bar(idx - width, mean_all, width, label='All consumed time', yerr=std_all, color='#FF8C00')
+    ax.bar(idx, mean_retraining, width, label='Retraining time', yerr=std_retraining, color='#008B8B')
     ax.set_xticks(idx)
-    ax.set_xticklabels(methods, fontsize=19)
-    ax.set_xlabel('Attack Method', fontsize=19)
-    ax.set_ylabel('Consumed Time (s)', fontsize=19)
-    ax.set_title('Yelp', fontsize=19)
-    ax.legend(fontsize=15, loc=0, frameon=False)
+    ax.set_xticklabels(methods, fontsize=17)
+    ax.tick_params(axis='y', labelsize=17)
+    ax.set_xlabel('Attack Method', fontsize=17)
+    # ax.set_ylabel('Consumed Time (s)', fontsize=17)
+    ax.set_title('Yelp', fontsize=17)
+    ax.legend(fontsize=15, loc=9, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
     ax.tick_params(which='both', direction='in')
@@ -308,17 +265,20 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    grad_sims = np.load('grad_sim_gowalla.npy')[:200, :]
+    grad_sims = np.load('grad_sim_gowalla.npy')[:100, :]
     epochs = np.arange(grad_sims.shape[0])
     pdf = PdfPages('grad_sim_gowalla.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(7, 4))
-    ax.plot(epochs, grad_sims[:, 0], '-', markersize=0, label='connected_nodes', color='red')
-    ax.plot(epochs, grad_sims[:, 2], '-', markersize=0, label='random_nodes', color='blue')
-    ax.set_xlabel('Training Epoch', fontsize=19)
-    ax.set_ylabel('Cosine Similarity', fontsize=19)
+    ax.plot(epochs, grad_sims[:, 0], '-', markersize=0, label='Interacted user-item pairs', color='#FF8C00')
+    ax.fill_between(epochs, grad_sims[:, 0] - grad_sims[:, 1], grad_sims[:, 0] + grad_sims[:, 1], alpha=0.5, color='#FF8C00')
+    ax.plot(epochs, grad_sims[:, 2], '-', markersize=0, label='Random user-item pairs', color='#008B8B')
+    ax.fill_between(epochs, grad_sims[:, 2] - grad_sims[:, 3], grad_sims[:, 2] + grad_sims[:, 3], alpha=0.5, color='#008B8B')
+    ax.set_xlabel('Training Epoch', fontsize=17)
+    ax.set_ylabel('Cosine Similarity', fontsize=17)
     ax.set_ylim(-1, 1)
-    ax.set_title('Gowalla', fontsize=19)
-    ax.legend(fontsize=15, loc=0, frameon=False)
+    ax.tick_params(axis='both', labelsize=17)
+    ax.set_title('Gowalla', fontsize=17)
+    ax.legend(fontsize=17, loc=0, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
     ax.tick_params(which='both', direction='in')
@@ -329,18 +289,20 @@ def main():
     plt.close(fig)
     pdf.close()
 
-    grad_sims = np.load('grad_sim_yelp.npy')[:200, :]
+    grad_sims = np.load('grad_sim_yelp.npy')[:100, :]
     epochs = np.arange(grad_sims.shape[0])
     pdf = PdfPages('grad_sim_yelp.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(7, 4))
-    ax.plot(epochs, grad_sims[:, 0], '-', markersize=0, label='connected_nodes', color='red')
-    ax.plot(epochs, grad_sims[:, 2], '-', markersize=0, label='random_nodes', color='blue')
-    ax.set_xlabel('Training Epoch', fontsize=19)
-    ax.set_ylabel('Cosine Similarity', fontsize=19)
+    ax.plot(epochs, grad_sims[:, 0], '-', markersize=0, label='Interacted user-item pairs', color='#FF8C00')
+    ax.fill_between(epochs, grad_sims[:, 0] - grad_sims[:, 1], grad_sims[:, 0] + grad_sims[:, 1], alpha=0.5, color='#FF8C00')
+    ax.plot(epochs, grad_sims[:, 2], '-', markersize=0, label='Random user-item pairs', color='#008B8B')
+    ax.fill_between(epochs, grad_sims[:, 2] - grad_sims[:, 3], grad_sims[:, 2] + grad_sims[:, 3], alpha=0.5, color='#008B8B')
+    ax.set_xlabel('Training Epoch', fontsize=17)
+    # ax.set_ylabel('Cosine Similarity', fontsize=17)
     ax.set_ylim(-1, 1)
-    ax.set_xlim(0, 200)
-    ax.set_title('Yelp', fontsize=19)
-    ax.legend(fontsize=15, loc=0, frameon=False)
+    ax.tick_params(axis='both', labelsize=17)
+    ax.set_title('Yelp', fontsize=17)
+    ax.legend(fontsize=17, loc=0, frameon=False)
     ax.grid(True, which='major', linestyle=':', linewidth=0.8)
     ax.minorticks_on()
     ax.tick_params(which='both', direction='in')
