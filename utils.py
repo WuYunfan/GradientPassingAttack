@@ -131,6 +131,14 @@ def mse_loss(profiles, scores, weight):
     return loss
 
 
+def bce_loss(profiles, scores, weight):
+    n_profiles = 1. - profiles
+    loss_p = (F.softplus(-scores) * profiles).sum() / profiles.sum()
+    loss_n = (F.softplus(scores) * n_profiles).sum() / n_profiles.sum()
+    loss = loss_p + weight * loss_n
+    return loss
+
+
 def ce_loss(scores, target_item_tensor):
     log_probs = F.log_softmax(scores, dim=1)
     return -log_probs[:, target_item_tensor].mean()

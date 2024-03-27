@@ -1,7 +1,7 @@
 import torch
 from torch.optim import Adam, SGD
 import numpy as np
-from utils import mse_loss, ce_loss
+from utils import bce_loss, ce_loss
 import torch.nn.functional as F
 import higher
 import time
@@ -94,8 +94,8 @@ class RevAdvAttacker(GradientAttacker):
                     users = users[0]
                     scores, l2_norm_sq = fmodel.forward(users, self.surrogate_trainer.gp_config)
                     profiles = self.surrogate_trainer.merged_data_tensor[users, :]
-                    m_loss = mse_loss(profiles, scores, self.surrogate_trainer.weight)
-                    loss = m_loss + self.surrogate_trainer.l2_reg * l2_norm_sq.mean()
+                    b_loss = bce_loss(profiles, scores, self.surrogate_trainer.weight)
+                    loss = b_loss + self.surrogate_trainer.l2_reg * l2_norm_sq.mean()
                     diffopt.step(loss)
             consumed_time = time.time() - start_time
             self.retrain_time += consumed_time

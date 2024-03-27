@@ -10,7 +10,7 @@ from utils import AverageMeter, generate_adj_mat
 import torch.nn.functional as F
 import scipy.sparse as sp
 import optuna
-from utils import mse_loss, TorchSparseMat
+from utils import bce_loss, mse_loss, TorchSparseMat
 
 
 def get_trainer(config, model):
@@ -415,9 +415,9 @@ class MLTrainer(BasicTrainer):
         return losses.avg
 
 
-class RevAdvMSETrainer(BasicTrainer):
+class UserBatchTrainer(BasicTrainer):
     def __init__(self, trainer_config):
-        super(RevAdvMSETrainer, self).__init__(trainer_config)
+        super(UserBatchTrainer, self).__init__(trainer_config)
 
         train_user = TensorDataset(torch.arange(self.model.n_users, dtype=torch.int64, device=self.device))
         self.train_user_loader = DataLoader(train_user, batch_size=trainer_config['batch_size'], shuffle=True)
@@ -426,8 +426,9 @@ class RevAdvMSETrainer(BasicTrainer):
         self.data_tensor = torch.tensor(data_mat.toarray(), dtype=torch.float32, device=self.device)
         self.merged_data_tensor = None
         self.initialize_optimizer()
+        self.loss = getattr(sys.modules[__name__], self.config['loss_function'])
         self.l2_reg = trainer_config['l2_reg']
-        self.weight = trainer_config['weight']
+        self.weight = trainer_config.get('weight', 1.)
 
     def merge_fake_tensor(self, fake_tensor):
         self.merged_data_tensor = torch.cat([self.data_tensor, fake_tensor], dim=0)
@@ -443,9 +444,9 @@ class RevAdvMSETrainer(BasicTrainer):
             users = users[0]
             scores, l2_norm_sq = self.model.forward(users, self.gp_config)
             profiles = data_tensor[users, :]
-            m_loss = mse_loss(profiles, scores, self.weight)
+            rec_loss = self.loss(profiles, scores, self.weight)
 
-            loss = m_loss + self.l2_reg * l2_norm_sq.mean()
+            loss = rec_loss + self.l2_reg * l2_norm_sq.mean()
             self.opt.zero_grad()
             loss.backward()
             self.opt.step()

@@ -74,8 +74,8 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'RevAdvMSETrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.01,
-                                'n_epochs': 50, 'batch_size': 2048,  'weight': 1.,
+    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.01,
+                                'n_epochs': 50, 'batch_size': 2048, 'loss_function': 'mse_loss',
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'PGAAttacker', 'lr': 10., 'momentum': 0.95,
                        'n_fakes': 131, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
@@ -84,8 +84,8 @@ def get_gowalla_attacker_config():
     gowalla_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'RevAdvMSETrainer', 'optimizer': 'Adam', 'lr': 0.1, 'l2_reg': 0.1,
-                                'n_epochs': 45, 'batch_size': 2048, 'weight': 20.,
+    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': None, 'l2_reg': None,
+                                'n_epochs': 45, 'batch_size': 2048, 'loss_function': 'bce_loss',
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'RevAdvAttacker', 'lr': 1., 'momentum': 0.95,
                        'n_fakes': 131, 'unroll_steps': 5, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
@@ -192,8 +192,8 @@ def get_yelp_attacker_config():
     yelp_attacker_config.append(attacker_config)
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
-    surrogate_trainer_config = {'name': 'RevAdvMSETrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 1.,
-                                'n_epochs': 50, 'batch_size': 2048,  'weight': 1.,
+    surrogate_trainer_config = {'name': 'UserBatchTrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 1.,
+                                'n_epochs': 50, 'batch_size': 2048,  'loss_function': 'mse_loss',
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'PGAAttacker', 'lr': 10., 'momentum': 0.95,
                        'n_fakes': 355, 'n_inters': 36, 'topk': 50, 'adv_epochs': 30,
