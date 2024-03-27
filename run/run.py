@@ -1,3 +1,4 @@
+import os.path
 import torch
 from dataset import get_dataset
 from attacker import get_attacker
@@ -39,6 +40,8 @@ def main():
         attacker_config['target_items'] = target_items
 
         attacker = get_attacker(attacker_config, dataset)
+        if os.path.exists(log_path + '-' + str(target_items)):
+            shutil.rmtree(log_path + '-' + str(target_items))
         writer = SummaryWriter(log_path + '-' + str(target_items))
         attacker.generate_fake_users(writer=writer)
         configs = get_config(device)[:-1]

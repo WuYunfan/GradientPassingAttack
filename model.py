@@ -185,39 +185,6 @@ class LightGCN(BasicModel):
         return final_rep
 
 
-class ItemKNN(BasicModel):
-    def __init__(self, model_config):
-        super(ItemKNN, self).__init__(model_config)
-        self.k = model_config['k']
-        self.data_mat, self.sim_mat = self.calculate_similarity(model_config['dataset'])
-        self.trainable = False
-
-    def calculate_similarity(self, dataset):
-        data_mat = sp.coo_matrix((np.ones((len(dataset.train_array),)), np.array(dataset.train_array).T),
-                                 shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
-        item_degree = np.array(np.sum(data_mat, axis=0)).squeeze()
-        row = []
-        col = []
-        data = []
-        for item in range(dataset.n_items):
-            intersections = data_mat.T.dot(data_mat[:, item]).toarray().squeeze()
-            with np.errstate(invalid='ignore'):
-                sims = intersections / (item_degree + item_degree[item] - intersections)
-            sims[np.isnan(sims)] = 0.
-            row.extend([item] * self.k)
-            topk_items = np.argsort(sims)[-self.k:]
-            col.extend(topk_items.tolist())
-            data.extend(sims[topk_items].tolist())
-        sim_mat = sp.coo_matrix((data, (row, col)), shape=(self.n_items, self.n_items), dtype=np.float32).tocsr()
-        return data_mat, sim_mat
-
-    def predict(self, users):
-        users = users.cpu().numpy()
-        profiles = self.data_mat[users, :]
-        scores = torch.tensor(profiles.dot(self.sim_mat).toarray(), dtype=torch.float32, device=self.device)
-        return scores
-
-
 class MultiVAE(BasicModel):
     def __init__(self, model_config):
         super(MultiVAE, self).__init__(model_config)
