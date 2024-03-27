@@ -88,7 +88,7 @@ def get_gowalla_attacker_config():
                                 'n_epochs': 0, 'batch_size': 2048, 'loss_function': 'bce_loss',
                                 'test_batch_size': 2048, 'topks': [50], 'verbose': False}
     attacker_config = {'name': 'RevAdvAttacker', 'lr': 1., 'momentum': 0.95,
-                       'n_fakes': 131, 'unroll_steps': 1, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
+                       'n_fakes': 131, 'unroll_steps': 3, 'n_inters': 41, 'topk': 50, 'adv_epochs': 30,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     gowalla_attacker_config.append(attacker_config)
