@@ -86,6 +86,8 @@ class DPA2DLAttacker(BasicAttacker):
             self.dataset.train_array += [[f_u, item] for item in filler_items]
 
     def save_surrogate(self, surrogate_trainer, best_hr):
+        if surrogate_trainer.save_path:
+            os.remove(surrogate_trainer.save_path)
         surrogate_trainer.save_path = os.path.join('checkpoints', 'DPA2DL_{:s}_{:s}_{:.3f}.pth'.
                                                    format(self.dataset.name, surrogate_trainer.model.name, best_hr))
         surrogate_trainer.model.save(surrogate_trainer.save_path)
