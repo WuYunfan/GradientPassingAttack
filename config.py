@@ -212,7 +212,7 @@ def get_yelp_attacker_config():
                        'surrogate_trainer_config': surrogate_trainer_config}
     yelp_attacker_config.append(attacker_config)
 
-    gp_config = {'threshold_odd': np.inf, 'threshold_even': -np.inf, 'alpha_odd': 0., 'alpha_even': 1.}
+    gp_config = {'threshold_odd': np.inf, 'threshold_even': -np.inf, 'alpha_odd': 0., 'alpha_even': 10.}
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.01,
                                 'n_epochs': 1, 'batch_size': 2 ** 12, 'dataloader_num_workers': 6,

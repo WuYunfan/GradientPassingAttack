@@ -60,12 +60,35 @@ def eval_rec_and_surrogate(trainer, full_rec_items, writer, verbose):
     return metrics['Jaccard'][trainer.topks[0]]
 
 
+def initial_parameter(new_model, pre_train_model):
+    pre_train_dataset = pre_train_model.dataset
+    full_dataset = new_model.dataset
+    n_pre_users = pre_train_dataset.n_users
+    n_full_users = full_dataset.n_users
+    n_items = full_dataset.n_items
+    with torch.no_grad():
+        new_model.embedding.weight.data[n_full_users - n_pre_users:n_full_users, :] = pre_train_model.embedding.weight[:n_pre_users, :]
+        new_model.embedding.weight.data[-n_items:, :] = pre_train_model.embedding.weight[-n_items:, :]
+
+
 def run_new_items_recall(log_path, seed, lr, l2_reg, gp_config,
                          n_epochs, run_method, victim_model, verbose=False):
     device = torch.device('cuda')
     config = get_config(device)
     dataset_config, model_config, trainer_config = config[victim_model]
     trainer_config['max_patience'] = trainer_config['n_epochs']
+
+    if run_method == 2:
+        pre_train_dataset_config = dataset_config.copy()
+        pre_train_dataset_config['path'] = dataset_config['path'][-4] + 'retrain'
+        pre_train_dataset = get_dataset(pre_train_dataset_config)
+        pre_train_model = get_model(model_config, pre_train_dataset)
+        if os.path.exists('retrain/pre_train_model.pth'):
+            pre_train_model.load('retrain/pre_train_model.pth')
+        else:
+            pre_train_trainer = get_trainer(trainer_config, pre_train_model)
+            pre_train_trainer.train(verbose=False)
+            pre_train_model.save('retrain/pre_train_model.pth')
 
     full_dataset = get_dataset(dataset_config)
     full_train_model = get_model(model_config, full_dataset)
@@ -83,7 +106,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, gp_config,
     trainer_config['l2_reg'] = l2_reg
 
     extra_eval = (eval_rec_and_surrogate, full_rec_items)
-    names = {0: 'full_retrain', 1: 'full_retrain_wh_gp'}
+    names = {0: 'full_retrain', 1: 'full_retrain_wh_gp', 2: 'pre_train'}
     writer = SummaryWriter(os.path.join(log_path, names[run_method]))
 
     if gp_config is not None:
@@ -91,6 +114,8 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, gp_config,
         trainer_config['gp_config'] = gp_config
     set_seed(seed)
     new_model = get_model(model_config, full_dataset)
+    if run_method == 2:
+        initial_parameter(new_model, pre_train_model)
     new_trainer = get_trainer(trainer_config, new_model)
     new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
     writer.close()
