@@ -142,7 +142,6 @@ class DPA2DLAttacker(BasicAttacker):
                     writer.add_scalar('{:s}_{:s}/Hit_Ratio@{:d}'.format(self.name, fake_nums_str, self.topk),
                                       target_hr, i_round)
                 if target_hr > best_hr:
-                    os.remove(surrogate_trainer.save_path)
                     best_hr = target_hr
                     self.save_surrogate(surrogate_trainer, best_hr)
 

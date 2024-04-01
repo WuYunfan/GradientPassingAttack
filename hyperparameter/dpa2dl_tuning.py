@@ -13,8 +13,8 @@ import numpy as np
 
 
 def objective(trial):
-    reg_u = trial.suggest_categorical('reg_u', [1.e1, 1.e2, 1.e3]) # [1.e7, 1.e8, 1.e9] for tenrec
-    alpha = trial.suggest_categorical('alpha', [1.e-7, 1.e-6, 1.e-5]) # [1.e-6, 1.e-7, 1.e-8] for tenrec
+    reg_u = trial.suggest_categorical('reg_u', [1.e1, 1.e2, 1.e3]) # [1.e5, 1.e6, 1.e7] for tenrec
+    alpha = trial.suggest_categorical('alpha', [1.e-7, 1.e-6, 1.e-5])
     s_l2 = trial.suggest_categorical('s_l2', [1.e-3, 1.e-2, 1.e-1])
     s_lr = trial.suggest_categorical('s_lr', [1.e-2, 1.e-1])
     set_seed(2023)
