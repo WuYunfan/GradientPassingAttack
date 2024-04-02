@@ -39,7 +39,7 @@ def main():
     n_epochs = 100
     run_method = 0
     victim_model = 0
-    names = {0: 'full_retrain', 1: 'full_retrain_wh_gp', 2: 'pre_train', 3: 'pre_train_sample'}
+    names = {0: 'full_retrain', 1: 'full_retrain_wh_gp'}
     name = names[run_method]
 
     optuna.logging.get_logger('optuna').addHandler(logging.StreamHandler(sys.stdout))

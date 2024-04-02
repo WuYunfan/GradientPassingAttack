@@ -6,7 +6,7 @@ from attacker.basic_attacker import BasicAttacker
 import numpy as np
 from model import get_model
 from trainer import get_trainer
-from utils import AverageMeter, topk_loss
+from utils import AverageMeter, topk_loss, set_biased_sample_dataset, initial_parameter
 import torch.nn.functional as F
 import time
 import os
@@ -24,6 +24,8 @@ class DPA2DLAttacker(BasicAttacker):
         self.step = attacker_config['step']
         self.alpha = attacker_config['alpha']
         self.n_rounds = attacker_config['n_rounds']
+        self.pre_trainer_config = attacker_config.get('pre_trainer_config', None)
+        self.pre_user_sample_p = attacker_config.get('pre_user_sample_p', 1.)
 
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         non_target_items = [i for i in range(self.n_items) if i not in self.target_items]
@@ -94,6 +96,16 @@ class DPA2DLAttacker(BasicAttacker):
         print('Maximal hit ratio, save poisoned model to {:s}.'.format(surrogate_trainer.save_path))
 
     def generate_fake_users(self, verbose=True, writer=None):
+        if self.pre_trainer_config is not None:
+            start_time = time.time()
+            pre_train_model = get_model(self.surrogate_model_config, self.dataset)
+            pre_train_trainer = get_trainer(self.pre_trainer_config, pre_train_model)
+            pre_train_trainer.train(verbose=False)
+            consumed_time = time.time() - start_time
+            self.retrain_time += consumed_time
+            self.consumed_time += consumed_time
+        set_biased_sample_dataset(self.dataset, self.n_users, self.pre_user_sample_p)
+
         self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)
         self.fake_users[:, self.target_items] = 1.
 
@@ -113,6 +125,8 @@ class DPA2DLAttacker(BasicAttacker):
             self.dataset.n_users += n_temp_fakes
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
+            if self.pre_trainer_config is not None:
+                initial_parameter(surrogate_model, pre_train_model)
             surrogate_trainer = get_trainer(self.surrogate_trainer_config, surrogate_model)
 
             start_time = time.time()
