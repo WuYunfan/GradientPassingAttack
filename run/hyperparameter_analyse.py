@@ -28,6 +28,8 @@ def main():
             attacker_config = get_attacker_config()[-1]
             attacker_config['surrogate_trainer_config']['gp_config']['threshold_odd'] = 0.
             attacker_config['surrogate_trainer_config']['gp_config']['alpha_odd'] = 1.
+            attacker_config['surrogate_trainer_config']['gp_config']['threshold_even'] = -np.inf
+            attacker_config['surrogate_trainer_config']['gp_config']['alpha_even'] = 10.
             attacker_config['surrogate_trainer_config']['gp_config'][key] = value
 
             recalls = []

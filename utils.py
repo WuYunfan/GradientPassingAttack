@@ -155,7 +155,7 @@ def occupy_gpu_mem(memeory_size):
 
 
 def initial_parameter(new_model, pre_train_model):
-    n_pre_users = pre_train_model.n_user
+    n_pre_users = pre_train_model.n_users
     n_items = pre_train_model.n_items
     with torch.no_grad():
         new_model.embedding.weight.data[:n_pre_users, :] = pre_train_model.embedding.weight[:n_pre_users, :]

@@ -14,6 +14,7 @@ plt.rcParams['pdf.fonttype'] = 42
 
 
 def main():
+    """
     full_retrain = [0.072709367, 0.278802127, 0.320085526, 0.349425495, 0.382153869]
     full_retrain_wt_gp = [0.140626445, 0.303476125, 0.347834647, 0.380880475, 0.398396462]
     full_retrain_time = [4.05, 19.135, 38.178, 199.45, 382.09]
@@ -235,7 +236,7 @@ def main():
     pdf.savefig()
     plt.close(fig)
     pdf.close()
-
+    """
     mean_retraining = [783.2894, 698.841, 821.3908]
     mean_all = [1027.1948, 714.0858, 860.0182]
     std_retraining = [45.38373072, 52.85959821, 5.982027474]
@@ -244,50 +245,26 @@ def main():
     idx = np.arange(len(methods))
     width = 0.2
     pdf = PdfPages('attack_time.pdf')
-    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, constrained_layout=True, figsize=(14, 5))
-    ax1.bar(idx - width, mean_all, width, label='All consumed time', yerr=std_all, color='#FF8C00')
-    ax1.bar(idx, mean_retraining, width, label='Retraining time', yerr=std_retraining, color='#008B8B')
-    ax1.set_xticks(idx)
-    ax1.set_xticklabels(methods, fontsize=21)
-    ax1.tick_params(axis='y', labelsize=21)
-    ax1.set_xlabel('Attack Method', fontsize=21)
-    ax1.set_ylabel('Consumed Time (s)', fontsize=21)
-    ax1.set_title('Gowalla', fontsize=21)
-    ax1.grid(True, which='major', linestyle=':', linewidth=0.8)
-    ax1.minorticks_on()
-    ax1.tick_params(which='both', direction='in')
-    ax1.xaxis.set_ticks_position('both')
-    ax1.yaxis.set_ticks_position('both')
-
-    mean_retraining = [2212.7436, 0., 2546.9886]
-    mean_all = [2621.9806, 0., 2691.1378]
-    std_retraining = [16.12011474, 0., 36.06443697]
-    std_all = [18.37570253, 0., 36.12893548]
-    methods = ['PGA', 'RevAdv', 'DPA2DL']
-    idx = np.arange(len(methods))
-    width = 0.2
-    ax2.bar(idx - width, mean_all, width, label='All consumed time', yerr=std_all, color='#FF8C00')
-    ax2.bar(idx, mean_retraining, width, label='Retraining time', yerr=std_retraining, color='#008B8B')
-    ax2.set_xticks(idx)
-    ax2.set_xticklabels(methods, fontsize=21)
-    ax2.tick_params(axis='y', labelsize=21)
-    ax2.set_xlabel('Attack Method', fontsize=21)
-    ax2.set_title('Yelp', fontsize=21)
-    ax2.grid(True, which='major', linestyle=':', linewidth=0.8)
-    ax2.minorticks_on()
-    ax2.tick_params(which='both', direction='in')
-    ax2.xaxis.set_ticks_position('both')
-    ax2.yaxis.set_ticks_position('both')
-    plt.tight_layout(rect=[0, 0., 1, 0.86])
-    handles, labels = [], []
-    for h, l in zip(*ax1.get_legend_handles_labels()):
-        handles.append(h)
-        labels.append(l)
-    fig.legend(handles, labels, loc='upper center', ncol=len(handles), fontsize=21)
+    fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(9, 3.5))
+    ax.bar(idx - width / 2, mean_all, width, label='All consumed time', yerr=std_all,
+           color='#e2f0d9', edgecolor='black', linewidth=1, hatch='/')
+    ax.bar(idx + width / 2, mean_retraining, width, label='Retraining time', yerr=std_retraining,
+           color='#ddebf7', edgecolor='black', linewidth=1, hatch='.')
+    ax.set_xticks(idx)
+    ax.set_xticklabels(methods, fontsize=21)
+    ax.tick_params(axis='y', labelsize=21)
+    ax.set_ylabel('Consumed Time (s)', fontsize=21)
+    ax.grid(True, which='major', linestyle='--', linewidth=0.8, alpha=0.8)
+    ax.minorticks_on()
+    ax.tick_params(which='both', direction='in')
+    ax.legend(fontsize=18, loc='upper right', ncol=2)
+    ax.xaxis.set_ticks_position('both')
+    ax.yaxis.set_ticks_position('both')
+    plt.tight_layout()
     pdf.savefig()
     plt.close(fig)
     pdf.close()
-
+    """
     grad_sims = np.load('grad_sim_gowalla.npy')[:100, :]
     epochs = np.arange(grad_sims.shape[0])
     pdf = PdfPages('grad_sim.pdf')
@@ -342,18 +319,18 @@ def main():
     pdf = PdfPages('hyper.pdf')
     fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, constrained_layout=True, figsize=(14, 5))
     ax1.plot(np.arange(len(threshold_value)), threshold_odd_mean, 's-', markersize=3,
-             label=r'odd threshold $\xi_{odd}$', color='#FF8C00')
+             label='odd threshold $\\xi_{odd}$', color='#FF8C00')
     ax1.fill_between(np.arange(len(threshold_value)), threshold_odd_mean - threshold_odd_std,
                      threshold_odd_mean + threshold_odd_std, alpha=0.1, color='#FF8C00')
     ax1.plot(np.arange(len(threshold_value)), threshold_even_mean, 'x-', markersize=3,
-             label=r'even threshold $\xi_{even}$', color='#008B8B')
+             label='even threshold $\\xi_{even}$', color='#008B8B')
     ax1.fill_between(np.arange(len(threshold_value)), threshold_even_mean - threshold_even_std,
                      threshold_even_mean + threshold_even_std, alpha=0.1, color='#008B8B')
     ax1.plot(np.arange(len(threshold_value)), base_mean, 'o-', markersize=3,
              label='DPA2DL', color='#6B8E23')
     ax1.fill_between(np.arange(len(threshold_value)), base_mean - base_std,
                      base_mean + base_std, alpha=0.1, color='#6B8E23')
-    ax1.set_title(r'Hyperparameter Analysis of threshold $\xi$', fontsize=19)
+    ax1.set_title('Hyperparameter Analysis of threshold $\\xi$', fontsize=19)
     ax1.set_xticks(np.arange(len(threshold_value)))
     ax1.set_xticklabels(threshold_value, fontsize=21)
     ax1.yaxis.set_major_locator(MultipleLocator(0.5))
@@ -374,18 +351,18 @@ def main():
     base_std = np.array([0.634447791, 0.634447791, 0.634447791, 0.634447791])
     alpha_value = [1., 10., 100., 1000.]
     ax2.plot(np.arange(len(alpha_value)), alpha_odd_mean, 's-', markersize=3,
-             label=r'odd weight $\alpha_{odd}$', color='#FF8C00')
+             label='odd weight $\\alpha_{odd}$', color='#FF8C00')
     ax2.fill_between(np.arange(len(alpha_value)), alpha_odd_mean - alpha_odd_std,
                      alpha_odd_mean + alpha_odd_std, alpha=0.1, color='#FF8C00')
     ax2.plot(np.arange(len(alpha_value)), alpha_even_mean, 'x-', markersize=3,
-             label=r'even weight $\alpha_{even}$', color='#008B8B')
+             label='even weight $\\alpha_{even}$', color='#008B8B')
     ax2.fill_between(np.arange(len(alpha_value)), alpha_even_mean - alpha_even_std,
                      alpha_even_mean + alpha_even_std, alpha=0.1, color='#008B8B')
     ax2.plot(np.arange(len(alpha_value)), base_mean, 'o-', markersize=3,
              label='DPA2DL', color='#6B8E23')
     ax2.fill_between(np.arange(len(alpha_value)), base_mean - base_std,
                      base_mean + base_std, alpha=0.1, color='#6B8E23')
-    ax2.set_title(r'Hyperparameter Analysis of weight $\alpha$', fontsize=19)
+    ax2.set_title('Hyperparameter Analysis of weight $\\alpha$', fontsize=19)
     ax2.set_xticks(np.arange(len(alpha_value)))
     ax2.set_xticklabels(alpha_value, fontsize=21)
     ax2.yaxis.set_major_locator(MultipleLocator(0.5))
@@ -400,7 +377,7 @@ def main():
     pdf.savefig()
     plt.close(fig)
     pdf.close()
-
+    """
 
 if __name__ == '__main__':
     main()
