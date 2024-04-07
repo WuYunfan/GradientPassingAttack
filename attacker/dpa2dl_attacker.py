@@ -6,9 +6,10 @@ from attacker.basic_attacker import BasicAttacker
 import numpy as np
 from model import get_model
 from trainer import get_trainer
-from utils import AverageMeter, topk_loss, set_biased_sample_dataset, initial_parameter
+from utils import AverageMeter, topk_loss, initial_parameter
 import torch.nn.functional as F
 import time
+from dataset import BiasedSampledDataset
 import os
 
 
@@ -26,6 +27,7 @@ class DPA2DLAttacker(BasicAttacker):
         self.n_rounds = attacker_config['n_rounds']
         self.pre_trainer_config = attacker_config.get('pre_trainer_config', None)
         self.pre_user_sample_p = attacker_config.get('pre_user_sample_p', 1.)
+        self.dataset = BiasedSampledDataset(self.dataset, self.n_users, self.pre_user_sample_p)
 
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         non_target_items = [i for i in range(self.n_items) if i not in self.target_items]
@@ -104,7 +106,6 @@ class DPA2DLAttacker(BasicAttacker):
             consumed_time = time.time() - start_time
             self.retrain_time += consumed_time
             self.consumed_time += consumed_time
-        set_biased_sample_dataset(self.dataset, self.n_users, self.pre_user_sample_p)
 
         self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)
         self.fake_users[:, self.target_items] = 1.

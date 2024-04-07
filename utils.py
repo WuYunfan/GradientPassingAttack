@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import dgl
 import gc
 import random
-from dataset import get_negative_items
+from dataset import BiasedSampledDataset
 import types
 from functools import partial
 
@@ -155,33 +155,8 @@ def occupy_gpu_mem(memeory_size):
 
 
 def initial_parameter(new_model, pre_train_model):
-    n_pre_users = pre_train_model.n_users
+    n_old_users = pre_train_model.n_users
     n_items = pre_train_model.n_items
     with torch.no_grad():
-        new_model.embedding.weight.data[:n_pre_users, :] = pre_train_model.embedding.weight[:n_pre_users, :]
+        new_model.embedding.weight.data[:n_old_users, :] = pre_train_model.embedding.weight[:n_old_users, :]
         new_model.embedding.weight.data[-n_items:, :] = pre_train_model.embedding.weight[-n_items:, :]
-
-
-def weighted_randint(a, b, p):
-    if random.random() < p * a / (p * a + b - a):
-        return random.randint(0, a - 1)
-    else:
-        return random.randint(a, b - 1)
-
-
-def biased_sample(self, index, n_pre_users, p):
-    user = weighted_randint(n_pre_users, self.n_users, p)
-    while len(self.train_data[user]) == 0:
-        user = weighted_randint(n_pre_users, self.n_users, p)
-
-    pos_item = np.random.choice(list(self.train_data[user]))
-    data_with_negs = np.ones((self.negative_sample_ratio, 3), dtype=np.int64)
-    data_with_negs[:, 0] = user
-    data_with_negs[:, 1] = pos_item
-    data_with_negs[:, 2] = get_negative_items(self, user, self.negative_sample_ratio)
-    return data_with_negs
-
-
-def set_biased_sample_dataset(dataset, n_pre_users, p):
-    get_item = partial(biased_sample, n_pre_users=n_pre_users, p=p)
-    dataset.__getitem__ = types.MethodType(get_item, dataset)

@@ -239,28 +239,31 @@ def main():
     """
     mean_retraining = [783.2894, 698.841, 821.3908]
     mean_all = [1027.1948, 714.0858, 860.0182]
-    std_retraining = [45.38373072, 52.85959821, 5.982027474]
-    std_all = [49.62931231, 52.80338773, 5.878489491]
     methods = ['PGA', 'RevAdv', 'DPA2DL']
-    idx = np.arange(len(methods))
-    width = 0.2
-    pdf = PdfPages('attack_time.pdf')
+    idx = np.arange(len(methods))[::-1]
+    width = 0.4
+    pdf = PdfPages('retrain_time.pdf')
     fig, ax = plt.subplots(nrows=1, ncols=1, constrained_layout=True, figsize=(9, 3.5))
-    ax.bar(idx - width / 2, mean_all, width, label='All consumed time', yerr=std_all,
-           color='#e2f0d9', edgecolor='black', linewidth=1, hatch='/')
-    ax.bar(idx + width / 2, mean_retraining, width, label='Retraining time', yerr=std_retraining,
-           color='#ddebf7', edgecolor='black', linewidth=1, hatch='.')
-    ax.set_xticks(idx)
-    ax.set_xticklabels(methods, fontsize=21)
-    ax.tick_params(axis='y', labelsize=21)
-    ax.set_ylabel('Consumed Time (s)', fontsize=21)
+    ax.barh(idx, mean_retraining, width, label='Retraining time',
+            color='#ddebf7', edgecolor='black', linewidth=1, hatch='.')
+    ax.barh(idx, [mean_all[i] - mean_retraining[i] for i in range(len(methods))], width, label='Other time',
+            left=mean_retraining, color='#e2f0d9', edgecolor='black', linewidth=1, hatch='/')
+
+    ax.set_yticks(idx)
+    ax.set_yticklabels(methods, fontsize=21)
+    ax.tick_params(axis='x', labelsize=21)
+    ax.set_xlabel('Consumed Time (s)', fontsize=21)
     ax.grid(True, which='major', linestyle='--', linewidth=0.8, alpha=0.8)
     ax.minorticks_on()
     ax.tick_params(which='both', direction='in')
-    ax.legend(fontsize=18, loc='upper right', ncol=2)
     ax.xaxis.set_ticks_position('both')
     ax.yaxis.set_ticks_position('both')
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0., 1, 0.82])
+    handles, labels = [], []
+    for h, l in zip(*ax.get_legend_handles_labels()):
+        handles.append(h)
+        labels.append(l)
+    fig.legend(handles, labels, loc='upper center', ncol=len(handles), fontsize=21)
     pdf.savefig()
     plt.close(fig)
     pdf.close()

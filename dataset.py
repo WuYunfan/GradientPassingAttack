@@ -264,3 +264,33 @@ class TenrecDataset(BasicDataset):
                 line = f.readline().strip()
 
         self.generate_data()
+
+
+def weighted_randint(a, b, p):
+    if random.random() < p * a / (p * a + b - a):
+        return random.randint(0, a - 1)
+    else:
+        return random.randint(a, b - 1)
+
+
+class BiasedSampledDataset(BasicDataset):
+    def __init__(self, origin_dataset, n_old_users, sample_p):
+        self.__dict__ = origin_dataset.__dict__
+        self.n_old_users = n_old_users
+        self.sample_p = sample_p
+        self.n_old_inters = sum(len(self.train_data[i]) for i in range(self.n_old_users))
+
+    def __len__(self):
+        return len(self.train_array) - self.n_old_inters + int(self.n_old_inters * self.sample_p)
+
+    def __getitem__(self, index):
+        user = weighted_randint(self.n_old_users, self.n_users, self.sample_p)
+        while len(self.train_data[user]) == 0:
+            user = weighted_randint(self.n_old_users, self.n_users,  self.sample_p)
+
+        pos_item = np.random.choice(list(self.train_data[user]))
+        data_with_negs = np.ones((self.negative_sample_ratio, 3), dtype=np.int64)
+        data_with_negs[:, 0] = user
+        data_with_negs[:, 1] = pos_item
+        data_with_negs[:, 2] = get_negative_items(self, user, self.negative_sample_ratio)
+        return data_with_negs
