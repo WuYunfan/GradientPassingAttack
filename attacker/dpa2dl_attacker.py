@@ -89,14 +89,6 @@ class DPA2DLAttacker(BasicAttacker):
             self.dataset.train_data[f_u] |= filler_items
             self.dataset.train_array += [[f_u, item] for item in filler_items]
 
-    def save_surrogate(self, surrogate_trainer, best_hr):
-        if surrogate_trainer.save_path:
-            os.remove(surrogate_trainer.save_path)
-        surrogate_trainer.save_path = os.path.join('checkpoints', 'DPA2DL_{:s}_{:s}_{:.3f}.pth'.
-                                                   format(self.dataset.name, surrogate_trainer.model.name, best_hr))
-        surrogate_trainer.model.save(surrogate_trainer.save_path)
-        print('Maximal hit ratio, save poisoned model to {:s}.'.format(surrogate_trainer.save_path))
-
     def generate_fake_users(self, verbose=True, writer=None):
         if self.pre_trainer_config is not None:
             start_time = time.time()
@@ -117,12 +109,14 @@ class DPA2DLAttacker(BasicAttacker):
             fake_nums_str = '{}-{}'.format(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step])
             print('Start generating poison #{:s} !'.format(fake_nums_str))
 
-            temp_fake_user_tensor = np.arange(fake_user_end_indices[i_step - 1], fake_user_end_indices[i_step]) + self.n_users
+            temp_fake_user_tensor = np.arange(fake_user_end_indices[i_step - 1],
+                                              fake_user_end_indices[i_step]) + self.n_users
             temp_fake_user_tensor = torch.tensor(temp_fake_user_tensor, dtype=torch.int64, device=self.device)
             n_temp_fakes = temp_fake_user_tensor.shape[0]
             self.dataset.train_data += [set(self.target_items) for _ in range(n_temp_fakes)]
             self.dataset.val_data += [{} for _ in range(n_temp_fakes)]
-            self.dataset.train_array += [[fake_u, item] for item in self.target_items for fake_u in temp_fake_user_tensor]
+            self.dataset.train_array += [[fake_u, item] for item in self.target_items for fake_u in
+                                         temp_fake_user_tensor]
             self.dataset.n_users += n_temp_fakes
 
             surrogate_model = get_model(self.surrogate_model_config, self.dataset)
@@ -135,9 +129,9 @@ class DPA2DLAttacker(BasicAttacker):
             consumed_time = time.time() - start_time
             self.retrain_time += consumed_time
 
-            best_hr = self.get_target_hr(surrogate_model)
-            print('Initial target HR: {:.4f}'.format(best_hr))
-            self.save_surrogate(surrogate_trainer, best_hr)
+            os.remove(surrogate_trainer.save_path)
+            target_hr = self.get_target_hr(surrogate_model)
+            print('Initial target HR: {:.4f}'.format(target_hr))
             for i_round in range(self.n_rounds):
                 surrogate_model.train()
                 p_loss = self.poison_train(surrogate_model, surrogate_trainer, temp_fake_user_tensor)
@@ -156,12 +150,6 @@ class DPA2DLAttacker(BasicAttacker):
                     writer.add_scalar('{:s}_{:s}/Train_Loss'.format(self.name, fake_nums_str), t_loss, i_round)
                     writer.add_scalar('{:s}_{:s}/Hit_Ratio@{:d}'.format(self.name, fake_nums_str, self.topk),
                                       target_hr, i_round)
-                if target_hr > best_hr:
-                    best_hr = target_hr
-                    self.save_surrogate(surrogate_trainer, best_hr)
-
-            surrogate_model.load(surrogate_trainer.save_path)
-            os.remove(surrogate_trainer.save_path)
 
             self.choose_filler_items(surrogate_model, temp_fake_user_tensor, prob)
             print('Poison #{:s} has been generated!'.format(fake_nums_str))
