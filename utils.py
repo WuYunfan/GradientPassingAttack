@@ -160,3 +160,18 @@ def initial_parameter(new_model, pre_train_model):
     with torch.no_grad():
         new_model.embedding.weight.data[:n_old_users, :] = pre_train_model.embedding.weight[:n_old_users, :]
         new_model.embedding.weight.data[-n_items:, :] = pre_train_model.embedding.weight[-n_items:, :]
+
+
+class PartialDataLoader:
+    def __init__(self, original_loader, ratio):
+        self.original_loader = original_loader
+        self.ratio = min(ratio, 1.)
+        self.length = max(1, int(len(self.original_loader) * self.ratio))
+
+    def __iter__(self):
+        batch_iterator = iter(self.original_loader)
+        for _ in range(self.length):
+            yield next(batch_iterator)
+
+    def __len__(self):
+        return self.length

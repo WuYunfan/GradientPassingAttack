@@ -331,11 +331,11 @@ def get_tenrec_attacker_config():
 
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
-                                'n_epochs': 2, 'batch_size': 2 ** 16, 'dataloader_num_workers': 10,
+                                'n_epochs': 1, 'batch_size': 2 ** 16, 'dataloader_num_workers': 10,
                                 'test_batch_size': 4096, 'topks': [50], 'neg_ratio': 4, 'verbose': False}
     attacker_config = {'name': 'DPA2DLAttacker', 'n_fakes': 11952, 'topk': 50,
-                       'n_inters': 34, 'reg_u': 1.e6, 'prob': 0.99, 'kappa': 1.,
-                       'step': 100, 'alpha': 1.e-7, 'n_rounds': 2,
+                       'n_inters': 34, 'reg_u': 1.e1, 'prob': 0.99, 'kappa': 0.1,
+                       'step': 10, 'alpha': 1.e-7, 'n_rounds': 1, 'train_ratio': 0.1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     tenrec_attacker_config.append(attacker_config)
@@ -343,12 +343,12 @@ def get_tenrec_attacker_config():
     gp_config = {'threshold_odd': 0., 'threshold_even': -np.inf, 'alpha_odd': 1., 'alpha_even': 10., 'sample_p': 0.3}
     surrogate_model_config = {'name': 'MF', 'embedding_size': 64, 'verbose': False}
     surrogate_trainer_config = {'name': 'BCETrainer', 'optimizer': 'Adam', 'lr': 0.01, 'l2_reg': 0.001,
-                                'n_epochs': 2, 'batch_size': 2 ** 16, 'dataloader_num_workers': 10,
+                                'n_epochs': 1, 'batch_size': 2 ** 16, 'dataloader_num_workers': 10,
                                 'test_batch_size': 4096, 'topks': [50], 'neg_ratio': 4, 'verbose': False,
                                 'gp_config': gp_config}
     attacker_config = {'name': 'DPA2DLAttacker', 'n_fakes': 11952, 'topk': 50,
-                       'n_inters': 34, 'reg_u': 1.e6, 'prob': 0.99, 'kappa': 1.,
-                       'step': 100, 'alpha': 1.e-7, 'n_rounds': 2,
+                       'n_inters': 34, 'reg_u': 1.e1, 'prob': 0.99, 'kappa': 0.1,
+                       'step': 10, 'alpha': 1.e-7, 'n_rounds': 1, 'train_ratio': 0.1,
                        'surrogate_model_config': surrogate_model_config,
                        'surrogate_trainer_config': surrogate_trainer_config}
     tenrec_attacker_config.append(attacker_config)
