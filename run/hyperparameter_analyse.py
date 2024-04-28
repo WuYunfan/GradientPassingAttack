@@ -22,7 +22,7 @@ def main():
     dataset_config = get_config(device)[0][0]
 
     hyperparameters = {'threshold_odd': [-np.inf, 0., np.inf], 'threshold_even': [-np.inf, 0., np.inf],
-                       'alpha_odd': [1., 10., 100., 1000.], 'alpha_even': [1., 10., 100., 1000.]}
+                       'alpha_odd': [0.1, 1., 10., 100., 1000.], 'alpha_even': [0.1, 1., 10., 100., 1000.]}
     for key in hyperparameters.keys():
         for value in hyperparameters[key]:
             attacker_config = get_attacker_config()[-1]

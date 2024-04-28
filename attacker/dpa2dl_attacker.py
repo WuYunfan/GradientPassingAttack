@@ -129,7 +129,7 @@ class DPA2DLAttacker(BasicAttacker):
             surrogate_trainer.dataloader = PartialDataLoader(surrogate_trainer.dataloader, self.train_ratio)
 
             start_time = time.time()
-            surrogate_trainer.train(verbose=False)
+            surrogate_trainer.train(verbose=verbose)
             consumed_time = time.time() - start_time
             self.retrain_time += consumed_time
 
