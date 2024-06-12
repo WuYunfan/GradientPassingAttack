@@ -28,7 +28,7 @@ class RAPURAttacker(BasicAttacker):
                                  shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
         item_popularity = np.array(np.sum(data_mat, axis=0)).squeeze()
         popularity_rank = np.argsort(item_popularity)[::-1].copy()
-        popular_items = popularity_rank[self.n_top_items]
+        popular_items = popularity_rank[:self.n_top_items]
         self.popular_candidates = np.array(list(set(popular_items) - set(self.target_items)))
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         self.target_user_tensor = torch.arange(self.n_users, dtype=torch.int64, device=self.device)
@@ -50,6 +50,8 @@ class RAPURAttacker(BasicAttacker):
         self.dataset.val_data += [{} for _ in range(n_temp_fakes)]
         self.dataset.train_array += [[fake_u, item] for item in filler_items for fake_u in temp_fake_user_array]
         self.dataset.n_users += n_temp_fakes
+        for fake_u in temp_fake_user_array:
+            self.fake_users[fake_u - self.n_users, filler_items] = 1.
 
     def generate_fake_users(self, verbose=True, writer=None):
         self.fake_users = np.zeros([self.n_fakes, self.n_items], dtype=np.float32)
