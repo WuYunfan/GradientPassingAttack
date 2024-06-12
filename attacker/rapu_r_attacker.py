@@ -22,17 +22,21 @@ class RAPURAttacker(BasicAttacker):
         self.surrogate_model_config = attacker_config['surrogate_model_config']
         self.surrogate_trainer_config = attacker_config['surrogate_trainer_config']
 
-        self.n_top_items = int(self.n_items * attacker_config['top_rate'])
+        self.target_user_ratio = attacker_config.get('target_user_ratio', 0.1)
         self.step = attacker_config['step']
 
+        n_top_items = int(self.n_items * attacker_config['top_rate'])
         data_mat = sp.coo_matrix((np.ones((len(self.dataset.train_array),)), np.array(self.dataset.train_array).T),
                                  shape=(self.n_users, self.n_items), dtype=np.float32).tocsr()
         item_popularity = np.array(np.sum(data_mat, axis=0)).squeeze()
         popularity_rank = np.argsort(item_popularity)[::-1].copy()
-        popular_items = popularity_rank[:self.n_top_items]
-        self.popular_candidates = np.array(list(set(popular_items) - set(self.target_items)))
+        popular_items = popularity_rank[:n_top_items]
+        self.popular_candidate_tensor = torch.tensor(list(set(popular_items) - set(self.target_items)),
+                                                     dtype=torch.int64, device=self.device)
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
-        self.target_user_tensor = torch.arange(self.n_users, dtype=torch.int64, device=self.device)
+        target_user_loader = TensorDataset(torch.arange(self.n_users, dtype=torch.int64, device=self.device))
+        self.target_user_loader = DataLoader(target_user_loader,
+                                             batch_size=self.surrogate_trainer_config['test_batch_size'], shuffle=False)
 
     def get_target_hr(self, surrogate_model):
         return DPA2DLAttacker.get_target_hr(self, surrogate_model)
@@ -41,21 +45,22 @@ class RAPURAttacker(BasicAttacker):
         surrogate_model.eval()
         with torch.no_grad():
             rep = surrogate_model.get_rep()
-        epsilon = torch.mean(rep[self.target_user_tensor, :], dim=0)
-        target_item_rep = torch.mean(rep[surrogate_model.n_users + self.target_item_tensor, :], dim=0)
-        p_m = (epsilon + target_item_rep).reshape(1, -1)
-        candidate_reps = rep[self.popular_candidates, :]
-        candidate_scores = torch.mm(p_m, candidate_reps.t()).squeeze()
-        _, filler_items = torch.topk(candidate_scores, self.n_inters - self.target_items.shape[0], dim=0)
-        filler_items = filler_items.cpu().numpy()
-        filler_items = np.concatenate([filler_items, self.target_items], axis=0)
-
-        n_temp_fakes = temp_fake_user_array.shape[0]
-        self.dataset.train_data += [set(filler_items) for _ in range(n_temp_fakes)]
-        self.dataset.val_data += [{} for _ in range(n_temp_fakes)]
-        self.dataset.train_array += [[fake_u, item] for item in filler_items for fake_u in temp_fake_user_array]
-        self.dataset.n_users += n_temp_fakes
         for fake_u in temp_fake_user_array:
+            target_users = torch.randint(0, self.n_users, (int(self.n_users * self.target_user_ratio),))
+            epsilon = torch.mean(rep[target_users, :], dim=0)
+            target_item = random.choice(self.target_items)
+            target_item_rep = rep[surrogate_model.n_users + target_item, :]
+            p_m = (epsilon + target_item_rep).unsqueeze(0)
+            candidate_reps = rep[surrogate_model.n_users + self.popular_candidate_tensor, :]
+            candidate_scores = torch.mm(p_m, candidate_reps.t()).squeeze()
+            _, filler_items = torch.topk(candidate_scores, self.n_inters - self.target_items.shape[0], dim=0)
+            filler_items = filler_items.cpu().numpy()
+            filler_items = np.concatenate([filler_items, self.target_items], axis=0)
+
+            self.dataset.train_data.append(set(filler_items))
+            self.dataset.val_data.append({})
+            self.dataset.train_array += [[fake_u, item] for item in filler_items]
+            self.dataset.n_users += 1
             self.fake_users[fake_u - self.n_users, filler_items] = 1.
 
     def generate_fake_users(self, verbose=True, writer=None):
