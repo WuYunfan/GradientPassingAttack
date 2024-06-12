@@ -13,6 +13,7 @@ from dataset import BiasedSampledDataset
 import os
 from utils import PartialDataLoader
 import scipy.sparse as sp
+from attacker.dpa2dl_attacker import DPA2DLAttacker
 
 
 class RAPURAttacker(BasicAttacker):
@@ -33,6 +34,9 @@ class RAPURAttacker(BasicAttacker):
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         self.target_user_tensor = torch.arange(self.n_users, dtype=torch.int64, device=self.device)
 
+    def get_target_hr(self, surrogate_model):
+        return DPA2DLAttacker.get_target_hr(self, surrogate_model)
+
     def choose_filler_items(self, surrogate_model, temp_fake_user_array):
         surrogate_model.eval()
         with torch.no_grad():
@@ -43,6 +47,7 @@ class RAPURAttacker(BasicAttacker):
         candidate_reps = rep[self.popular_candidates, :]
         candidate_scores = torch.mm(p_m, candidate_reps.t()).squeeze()
         _, filler_items = torch.topk(candidate_scores, self.n_inters - self.target_items.shape[0], dim=0)
+        filler_items = filler_items.cpu().numpy()
         filler_items = np.concatenate([filler_items, self.target_items], axis=0)
 
         n_temp_fakes = temp_fake_user_array.shape[0]
@@ -71,6 +76,12 @@ class RAPURAttacker(BasicAttacker):
             consumed_time = time.time() - start_time
             self.retrain_time += consumed_time
             os.remove(surrogate_trainer.save_path)
+
+            target_hr = self.get_target_hr(surrogate_model)
+            if verbose:
+                print('Target Hit Ratio {:.6f}%'. format(target_hr * 100.))
+            if writer:
+                writer.add_scalar('{:s}/Hit_Ratio@{:d}'.format(self.name, self.topk), target_hr, i_step - 1)
 
             self.choose_filler_items(surrogate_model, temp_fake_user_array)
             print('Poison #{:s} has been generated!'.format(fake_nums_str))
