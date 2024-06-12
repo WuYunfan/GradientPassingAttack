@@ -37,10 +37,10 @@ def main():
     ax1.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), '3-', markersize=10, label='Training enhanced by GP',
              color='#F7B76D', linewidth=2, markeredgecolor=darken_color('#F7B76D', 0.4))
     for i, txt in enumerate(full_retrain):
-        ax1.text(i + 0.1, full_retrain[i] - 0.02, '{:.1f}s'.format(full_retrain_time[i]),
+        ax1.text(i + 0.1, full_retrain[i] - 0.04, '{:.1f}s'.format(full_retrain_time[i]),
                  fontsize=8, verticalalignment='bottom', horizontalalignment='right')
     for i, txt in enumerate(full_retrain_wt_gp_time):
-        ax1.text(i + 0.1, full_retrain_wt_gp[i], '{:.1f}s'.format(full_retrain_wt_gp_time[i]),
+        ax1.text(i + 0.1, full_retrain_wt_gp[i] + 0.01, '{:.1f}s'.format(full_retrain_wt_gp_time[i]),
                  fontsize=8, verticalalignment='bottom', horizontalalignment='right')
     ax1.set_xticks(np.arange(len(epochs)))
     ax1.set_xticklabels(epochs, fontsize=21)
@@ -48,6 +48,7 @@ def main():
     ax1.tick_params(axis='y', labelsize=21)
     ax1.set_ylabel('JS@50', fontsize=21)
     ax1.set_title('MF-BPR', fontsize=21)
+    ax1.set_ylim(0, 0.5)
     ax1.grid(True, which='major', linestyle='--', linewidth=0.8)
     ax1.minorticks_on()
     ax1.tick_params(which='both', direction='in')
@@ -64,16 +65,17 @@ def main():
     ax2.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), '3-', markersize=10, label='Training enhanced by GP',
              color='#F7B76D', linewidth=2, markeredgecolor=darken_color('#F7B76D', 0.4))
     for i, txt in enumerate(full_retrain):
-        ax2.text(i + 0.1, full_retrain[i] - 0.02, '{:.1f}s'.format(full_retrain_time[i]),
+        ax2.text(i + 0.1, full_retrain[i] - 0.04, '{:.1f}s'.format(full_retrain_time[i]),
                  fontsize=8, verticalalignment='bottom', horizontalalignment='right')
     for i, txt in enumerate(full_retrain_wt_gp_time):
-        ax2.text(i + 0.1, full_retrain_wt_gp[i], '{:.1f}s'.format(full_retrain_wt_gp_time[i]),
+        ax2.text(i + 0.1, full_retrain_wt_gp[i] + 0.01, '{:.1f}s'.format(full_retrain_wt_gp_time[i]),
                  fontsize=8, verticalalignment='bottom', horizontalalignment='right')
     ax2.set_xticks(np.arange(len(epochs)))
     ax2.set_xticklabels(epochs, fontsize=21)
     ax2.yaxis.set_major_locator(MultipleLocator(0.1))
     ax2.tick_params(axis='y', labelsize=21)
     ax2.set_title('LightGCN-BPR', fontsize=21)
+    ax2.set_ylim(0.2, 0.7)
     ax2.grid(True, which='major', linestyle='--', linewidth=0.8)
     ax2.minorticks_on()
     ax2.tick_params(which='both', direction='in')
@@ -90,10 +92,10 @@ def main():
     ax3.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), '3-', markersize=10, label='Training enhanced by GP',
              color='#F7B76D', linewidth=2, markeredgecolor=darken_color('#F7B76D', 0.4))
     for i, txt in enumerate(full_retrain):
-        ax3.text(i + 0.1, full_retrain[i] - 0.02, '{:.1f}s'.format(full_retrain_time[i]),
+        ax3.text(i + 0.1, full_retrain[i] - 0.07, '{:.1f}s'.format(full_retrain_time[i]),
                  fontsize=8, verticalalignment='bottom', horizontalalignment='right')
     for i, txt in enumerate(full_retrain_wt_gp_time):
-        ax3.text(i + 0.1, full_retrain_wt_gp[i], '{:.1f}s'.format(full_retrain_wt_gp_time[i]),
+        ax3.text(i + 0.1, full_retrain_wt_gp[i] + 0.02, '{:.1f}s'.format(full_retrain_wt_gp_time[i]),
                  fontsize=8, verticalalignment='bottom', horizontalalignment='right')
     ax3.set_xticks(np.arange(len(epochs)))
     ax3.set_xticklabels(epochs, fontsize=21)
@@ -102,6 +104,7 @@ def main():
     ax3.set_xlabel('Retraining Epoch', fontsize=21)
     ax3.set_ylabel('JS@50', fontsize=21)
     ax3.set_title('MF-BCE', fontsize=21)
+    ax3.set_ylim(0., 0.9)
     ax3.grid(True, which='major', linestyle='--', linewidth=0.8)
     ax3.minorticks_on()
     ax3.tick_params(which='both', direction='in')
@@ -119,10 +122,10 @@ def main():
     ax4.plot(np.arange(len(epochs)), np.array(full_retrain_wt_gp), '3-', markersize=10, label='Training enhanced by GP',
              color='#F7B76D', linewidth=2, markeredgecolor=darken_color('#F7B76D', 0.4))
     for i, txt in enumerate(full_retrain):
-        ax4.text(i + 0.1, full_retrain[i] - 0.02, '{:.1f}s'.format(full_retrain_time[i]),
+        ax4.text(i + 0.1, full_retrain[i] - 0.03, '{:.1f}s'.format(full_retrain_time[i]),
                  fontsize=8, verticalalignment='bottom', horizontalalignment='right')
     for i, txt in enumerate(full_retrain_wt_gp_time):
-        ax4.text(i + 0.1, full_retrain_wt_gp[i], '{:.1f}s'.format(full_retrain_wt_gp_time[i]),
+        ax4.text(i + 0.1, full_retrain_wt_gp[i] + 0.01, '{:.1f}s'.format(full_retrain_wt_gp_time[i]),
                  fontsize=8, verticalalignment='bottom', horizontalalignment='right')
     ax4.set_xticks(np.arange(len(epochs)))
     ax4.set_xticklabels(epochs, fontsize=21)
@@ -130,6 +133,7 @@ def main():
     ax4.tick_params(axis='y', labelsize=21)
     ax4.set_xlabel('Retraining Epoch', fontsize=21)
     ax4.set_title('LightGCN-BCE', fontsize=21)
+    ax4.set_ylim(0.3, 0.7)
     ax4.grid(True, which='major', linestyle='--', linewidth=0.8)
     ax4.minorticks_on()
     ax4.tick_params(which='both', direction='in')
@@ -300,8 +304,8 @@ def main():
     ax1.yaxis.set_ticks_position('both')
     """
 
-    mean_retraining = [16160.217]
-    mean_all = [20004.6245]
+    mean_retraining = [15969.3436 * 2]
+    mean_all = [19679.1332 * 2]
     methods = ['DPA2DL']
     idx = np.arange(len(methods))
     ax2.barh(idx, mean_retraining, width, label='Retraining time',
