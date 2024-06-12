@@ -34,7 +34,7 @@ class RAPURAttacker(BasicAttacker):
                                                      dtype=torch.int64, device=self.device)
         self.target_item_tensor = torch.tensor(self.target_items, dtype=torch.int64, device=self.device)
         self.target_user_tensor = torch.arange(self.n_users, dtype=torch.int64, device=self.device)
-        self.target_user_loader = DataLoader(TensorDataset(self.target_user_tesor),
+        self.target_user_loader = DataLoader(TensorDataset(self.target_user_tensor),
                                              batch_size=self.surrogate_trainer_config['test_batch_size'], shuffle=False)
 
     def get_target_hr(self, surrogate_model):
