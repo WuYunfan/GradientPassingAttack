@@ -46,18 +46,21 @@ class RAPURAttacker(BasicAttacker):
             rep = surrogate_model.get_rep()
 
         epsilon = rep[self.target_user_tensor, :].mean(dim=0)
-        target_item_rep = rep[surrogate_model.n_users + self.target_item_tensor, :].mean(dim=0)
-        p_m = (epsilon + target_item_rep).unsqueeze(0)
-
         candidate_reps = rep[surrogate_model.n_users + self.popular_candidate_tensor, :]
-        candidate_scores = torch.mm(p_m, candidate_reps.t()).squeeze()
+        filler_items_4target = []
+        for target_item in self.target_items:
+            target_item_rep = rep[surrogate_model.n_users + target_item, :]
+            p_m = (epsilon + target_item_rep).unsqueeze(0)
+            candidate_scores = torch.mm(p_m, candidate_reps.t()).squeeze()
 
-        _, filler_items = torch.topk(candidate_scores, self.n_inters - self.target_items.shape[0], dim=0)
-        filler_items = self.popular_candidate_tensor[filler_items]
-        filler_items = filler_items.cpu().numpy()
-        filler_items = np.concatenate([filler_items, self.target_items], axis=0)
+            _, filler_items = torch.topk(candidate_scores, self.n_inters - self.target_items.shape[0], dim=0)
+            filler_items = self.popular_candidate_tensor[filler_items]
+            filler_items = filler_items.cpu().numpy()
+            filler_items = np.concatenate([filler_items, self.target_items], axis=0)
+            filler_items_4target.append(filler_items)
 
         for fake_u in temp_fake_user_array:
+            filler_items = filler_items_4target[fake_u % self.target_items.shape[0]]
             self.dataset.train_data.append(set(filler_items))
             self.dataset.val_data.append({})
             self.dataset.train_array += [[fake_u, item] for item in filler_items]
