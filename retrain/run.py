@@ -34,7 +34,7 @@ def calculate_ndcg(rec_items, full_rec_items, denominator):
     return ndcgs
 
 
-def eval_rec_and_surrogate(trainer, full_rec_items, writer, verbose):
+def eval_surrogate(trainer, full_rec_items, writer, verbose):
     if not verbose:
         return
     start_time = time.time()
@@ -60,15 +60,15 @@ def eval_rec_and_surrogate(trainer, full_rec_items, writer, verbose):
     return metrics['Jaccard'][trainer.topks[0]]
 
 
-def run_new_items_recall(log_path, seed, lr, l2_reg, gp_config,
+def cal_jaccard_sim_recall(log_path, seed, lr, l2_reg, gp_config,
                          n_epochs, run_method, victim_model, verbose=False):
     device = torch.device('cuda')
     config = get_config(device)
     dataset_config, model_config, trainer_config = config[victim_model]
     trainer_config['max_patience'] = trainer_config['n_epochs']
 
-    full_dataset = get_dataset(dataset_config)
-    full_train_model = get_model(model_config, full_dataset)
+    dataset = get_dataset(dataset_config)
+    full_train_model = get_model(model_config, dataset)
     full_train_trainer = get_trainer(trainer_config, full_train_model)
     if os.path.exists('retrain/full_train_model.pth'):
         full_train_model.load('retrain/full_train_model.pth')
@@ -82,15 +82,15 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, gp_config,
     trainer_config['lr'] = lr
     trainer_config['l2_reg'] = l2_reg
 
-    extra_eval = (eval_rec_and_surrogate, full_rec_items)
+    extra_eval = (eval_surrogate, full_rec_items)
     names = {0: 'full_retrain', 1: 'full_retrain_wh_gp'}
     writer = SummaryWriter(os.path.join(log_path, names[run_method]))
-
     if gp_config is not None:
         assert run_method == 1
         trainer_config['gp_config'] = gp_config
+
     set_seed(seed)
-    new_model = get_model(model_config, full_dataset)
+    new_model = get_model(model_config, dataset)
     new_trainer = get_trainer(trainer_config, new_model)
     new_trainer.train(verbose=verbose, writer=writer, extra_eval=extra_eval)
     writer.close()
@@ -98,7 +98,7 @@ def run_new_items_recall(log_path, seed, lr, l2_reg, gp_config,
 
     results, _ = new_trainer.eval('val')
     print(results)
-    jaccard_sim = eval_rec_and_surrogate(new_trainer, full_rec_items, None, True)
+    jaccard_sim = eval_surrogate(new_trainer, full_rec_items, None, True)
     return jaccard_sim
 
 
@@ -114,8 +114,7 @@ def main():
     n_epochs = None
     run_method = None
     victim_model = None
-    jaccard_sim = run_new_items_recall(log_path, seed, lr, l2_reg, gp_config,
-                                       n_epochs, run_method, victim_model)
+    jaccard_sim = cal_jaccard_sim_recall(log_path, seed, lr, l2_reg, gp_config, n_epochs, run_method, victim_model)
     print('Jaccard similarity', jaccard_sim)
 
 

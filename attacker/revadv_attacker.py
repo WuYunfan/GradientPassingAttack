@@ -83,6 +83,7 @@ class RevAdvAttacker(GradientAttacker):
     def retrain_surrogate(self):
         self.surrogate_model.initial_embeddings()
         self.surrogate_trainer.initialize_optimizer()
+        self.surrogate_trainer.best_ndcg = -np.inf
         self.surrogate_trainer.merge_fake_tensor(self.fake_tensor)
 
         start_time = time.time()
